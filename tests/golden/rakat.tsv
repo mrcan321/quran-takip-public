@@ -1,0 +1,261 @@
+rnnt	Kevser.wav	son rekat=0 toplam=0 namaz=0
+rnnt	Nas.wav	son rekat=0 toplam=0 namaz=0
+rnnt	asr.wav	son rekat=0 toplam=0 namaz=0
+rnnt	ayetel_kursi.wav	son rekat=0 toplam=0 namaz=0
+rnnt	felak.wav	son rekat=0 toplam=0 namaz=0
+rnnt	fil.wav	son rekat=0 toplam=0 namaz=0
+rnnt	ihlas.wav	son rekat=0 toplam=0 namaz=0
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	15.0 olay 1. rekat (Fatiha)
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	15.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	175.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	205.0 olay 2. rekat (Fatiha)
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	205.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	335.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	380.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	450.0 olay selam (namaz bitti, 2 rekat)
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	450.0 etiket SELAM
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	475.0 etiket -
+rnnt	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	son rekat=0 toplam=2 namaz=1
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	25.0 olay 1. rekat (Fatiha)
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	25.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	125.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	145.0 olay 2. rekat (Fatiha)
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	145.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	235.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	280.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	300.0 olay sessiz rekat: 3. rekat (semiallah, okumadan 90 sn sonra)
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	300.0 etiket 3. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	360.0 olay selam (namaz bitti, 3 rekat)
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	360.0 etiket SELAM
+rnnt	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	son rekat=0 toplam=3 namaz=1
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	65.0 olay 1. rekat (Fatiha)
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	65.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	165.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	195.0 olay 2. rekat (Fatiha)
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	195.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	260.0 olay 2. rekat rukû (semiallah)
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	260.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	330.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	340.0 olay selam (namaz bitti, 2 rekat)
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	340.0 etiket SELAM
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	365.0 etiket -
+rnnt	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	son rekat=0 toplam=2 namaz=1
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	85.0 olay 1. rekat (Fatiha)
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	85.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	160.0 olay 1. rekat rukû (semiallah)
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	160.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	195.0 olay 2. rekat (Fatiha)
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	195.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	270.0 olay 2. rekat rukû (semiallah)
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	270.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	340.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	350.0 olay selam (namaz bitti, 2 rekat)
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	350.0 etiket SELAM
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	375.0 etiket -
+rnnt	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	son rekat=0 toplam=2 namaz=1
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	85.0 olay 1. rekat (Fatiha)
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	85.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	180.0 olay 1. rekat rukû (semiallah)
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	180.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	220.0 olay 2. rekat (Fatiha)
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	220.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	295.0 olay 2. rekat rukû (semiallah)
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	295.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	365.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	370.0 olay selam (namaz bitti, 2 rekat)
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	370.0 etiket SELAM
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	395.0 etiket -
+rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	son rekat=0 toplam=2 namaz=1
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	15.0 olay 1. rekat (Fatiha)
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	15.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	60.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	105.0 etiket 1. REKÂT SONRASI · SESSİZ
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	345.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	375.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	420.0 etiket 1. REKÂT SONRASI · SESSİZ
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	425.0 olay 2. rekat (Fatiha)
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	425.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	475.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	520.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	695.0 olay kamet: yeni namaz
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	695.0 etiket -
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	750.0 olay 1. rekat (Fatiha)
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	750.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	880.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	900.0 olay 2. rekat (Fatiha)
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	900.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1005.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1050.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1220.0 olay selam (namaz bitti, 2 rekat)
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1220.0 etiket SELAM
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1245.0 etiket -
+rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	son rekat=0 toplam=2 namaz=1
+rnnt	nas3.wav	son rekat=0 toplam=0 namaz=0
+rnnt	sentetik_namaz_fatiha_ayetelkursi.wav	5.0 olay 1. rekat (Fatiha)
+rnnt	sentetik_namaz_fatiha_ayetelkursi.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt	sentetik_namaz_fatiha_ayetelkursi.wav	son rekat=1 toplam=0 namaz=0
+rnnt	sentetik_namaz_fatiha_ihlas.wav	5.0 olay 1. rekat (Fatiha)
+rnnt	sentetik_namaz_fatiha_ihlas.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt	sentetik_namaz_fatiha_ihlas.wav	son rekat=1 toplam=0 namaz=0
+rnnt	session_1777003510.wav	5.0 olay 1. rekat (Fatiha)
+rnnt	session_1777003510.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt	session_1777003510.wav	son rekat=1 toplam=0 namaz=0
+rnnt	session_1777003559.wav	5.0 olay 1. rekat (Fatiha)
+rnnt	session_1777003559.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt	session_1777003559.wav	son rekat=1 toplam=0 namaz=0
+rnnt	session_1777003574.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777005126.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777005218.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777005276.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777005325.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777005364.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777006513.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777006567.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777009737.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777023877.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777024461.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777027487.wav	son rekat=0 toplam=0 namaz=0
+rnnt	session_1777027721.wav	son rekat=0 toplam=0 namaz=0
+rnnt	telefon_fatiha_maun_kureys.wav	10.0 olay 1. rekat (Fatiha)
+rnnt	telefon_fatiha_maun_kureys.wav	10.0 etiket 1. REKÂT · KIYAM
+rnnt	telefon_fatiha_maun_kureys.wav	130.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	telefon_fatiha_maun_kureys.wav	son rekat=1 toplam=0 namaz=0
+rnnt	telefon_rahman_maun_kevser_felak.wav	son rekat=0 toplam=0 namaz=0
+rnnt	test_arapca_sohbet.wav	son rekat=0 toplam=0 namaz=0
+rnnt	test_fatiha.wav	5.0 olay 1. rekat (Fatiha)
+rnnt	test_fatiha.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt	test_fatiha.wav	son rekat=1 toplam=0 namaz=0
+rnnt	test_sessizlik.wav	son rekat=0 toplam=0 namaz=0
+rnnt	test_turkce.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	Kevser.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	Nas.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	asr.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	ayetel_kursi.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	felak.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	fil.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	ihlas.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	15.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	15.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	177.5 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	203.6 olay 2. rekat (Fatiha)
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	203.6 etiket 2. REKÂT · KIYAM
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	321.2 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	367.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	452.0 olay selam (namaz bitti, 2 rekat)
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	452.0 etiket SELAM
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	477.0 etiket -
+rnnt-hibrit	namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav	son rekat=0 toplam=2 namaz=1
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	25.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	25.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	127.9 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	148.8 olay 2. rekat (Fatiha)
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	148.8 etiket 2. REKÂT · KIYAM
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	235.4 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	283.8 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	363.8 olay selam (namaz bitti, 2 rekat)
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	363.8 etiket SELAM
+rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	son rekat=0 toplam=2 namaz=1
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	65.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	65.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	156.0 olay 1. rekat rukû (semiallah)
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	156.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	194.3 olay 2. rekat (Fatiha)
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	194.3 etiket 2. REKÂT · KIYAM
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	257.2 olay 2. rekat rukû (semiallah)
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	257.2 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	327.2 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	337.2 olay selam (namaz bitti, 2 rekat)
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	337.2 etiket SELAM
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	362.2 etiket -
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	son rekat=0 toplam=2 namaz=1
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	86.6 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	86.6 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	159.9 olay 1. rekat rukû (semiallah)
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	159.9 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	194.9 olay 2. rekat (Fatiha)
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	194.9 etiket 2. REKÂT · KIYAM
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	266.3 olay 2. rekat rukû (semiallah)
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	266.3 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	336.3 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	356.3 olay selam (namaz bitti, 2 rekat)
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	356.3 etiket SELAM
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	381.3 etiket -
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	son rekat=0 toplam=2 namaz=1
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	85.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	85.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	178.8 olay 1. rekat rukû (semiallah)
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	178.8 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	218.8 olay 2. rekat (Fatiha)
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	218.8 etiket 2. REKÂT · KIYAM
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	293.5 olay 2. rekat rukû (semiallah)
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	293.5 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	363.5 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	368.5 olay selam (namaz bitti, 2 rekat)
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	368.5 etiket SELAM
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	393.5 etiket -
+rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	son rekat=0 toplam=2 namaz=1
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	15.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	15.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	58.5 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	106.3 etiket 1. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	341.3 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	374.7 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	420.6 etiket 1. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	425.6 olay 2. rekat (Fatiha)
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	425.6 etiket 2. REKÂT · KIYAM
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	478.8 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	523.8 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	698.8 olay kamet: yeni namaz
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	698.8 etiket -
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	748.8 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	748.8 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	879.7 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	901.7 olay 2. rekat (Fatiha)
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	901.7 etiket 2. REKÂT · KIYAM
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1002.9 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1051.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1081.0 olay sessiz rekat: 3. rekat (semiallah, okumadan 104 sn sonra)
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1081.0 etiket 3. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1141.0 olay sessiz rekat: 4. rekat (semiallah, okumadan 164 sn sonra)
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1141.0 etiket 4. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1211.0 etiket 4. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1221.0 olay selam (namaz bitti, 4 rekat)
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1221.0 etiket SELAM
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	1246.0 etiket -
+rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	son rekat=0 toplam=4 namaz=1
+rnnt-hibrit	nas3.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	sentetik_namaz_fatiha_ayetelkursi.wav	5.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	sentetik_namaz_fatiha_ayetelkursi.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	sentetik_namaz_fatiha_ayetelkursi.wav	son rekat=1 toplam=0 namaz=0
+rnnt-hibrit	sentetik_namaz_fatiha_ihlas.wav	5.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	sentetik_namaz_fatiha_ihlas.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	sentetik_namaz_fatiha_ihlas.wav	son rekat=1 toplam=0 namaz=0
+rnnt-hibrit	session_1777003510.wav	5.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	session_1777003510.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	session_1777003510.wav	son rekat=1 toplam=0 namaz=0
+rnnt-hibrit	session_1777003559.wav	5.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	session_1777003559.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	session_1777003559.wav	son rekat=1 toplam=0 namaz=0
+rnnt-hibrit	session_1777003574.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777005126.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777005218.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777005276.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777005325.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777005364.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777006513.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777006567.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777009737.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777023877.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777024461.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777027487.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	session_1777027721.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	telefon_fatiha_maun_kureys.wav	10.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	telefon_fatiha_maun_kureys.wav	10.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	telefon_fatiha_maun_kureys.wav	son rekat=1 toplam=0 namaz=0
+rnnt-hibrit	telefon_rahman_maun_kevser_felak.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	test_arapca_sohbet.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	test_fatiha.wav	5.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	test_fatiha.wav	5.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	test_fatiha.wav	son rekat=1 toplam=0 namaz=0
+rnnt-hibrit	test_sessizlik.wav	son rekat=0 toplam=0 namaz=0
+rnnt-hibrit	test_turkce.wav	son rekat=0 toplam=0 namaz=0

@@ -1,0 +1,17 @@
+# Ince ayar (training/) — kiralik GPU makinesi, Python 3.10-3.12, NVIDIA surucusu CUDA 12.x (nvidia-smi).
+# run_all.sh kurar; elle:
+#   pip install torch==2.11.0 --index-url https://download.pytorch.org/whl/cu126
+#   pip install -r training/requirements.txt
+# torch ayni komutta sabit: NeMo kurulurken pip torch'u en son surume (CUDA 13, yeni surucu ister) yukseltmesin.
+# Export (scripts/onnx_full_export.py) ayni ortamda calisir: scripts/requirements-export.txt ile ayni surumler.
+torch==2.11.0
+nemo_toolkit[asr]==2.7.3
+onnx==1.22.0
+onnxscript==0.7.2
+onnxruntime==1.30.0
+librosa==0.11.0
+soundfile
+soxr
+sentencepiece
+rapidfuzz==3.14.6
+numpy

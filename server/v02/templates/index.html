@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuran Meal Takip</title>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 16px;
+            background: #0f1419;
+            color: #e7e9ea;
+            min-height: 100vh;
+        }
+        h1 {
+            font-size: 1.1em;
+            color: #8fd4ff;
+            font-weight: 600;
+            margin-bottom: 16px;
+            opacity: 0.8;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            font-size: 16px;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            flex: 1;
+            transition: all 0.2s;
+        }
+        #startBtn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        #stopBtn {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+        button:disabled { background: #374151 !important; opacity: 0.4; cursor: not-allowed; }
+
+        .verses-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .verse {
+            padding: 16px 20px;
+            border-radius: 12px;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s ease;
+        }
+        .verse.old {
+            opacity: 0.35;
+            font-size: 0.9em;
+        }
+        .verse.current {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(16, 185, 129, 0.1));
+            border-color: rgba(59, 130, 246, 0.4);
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);
+            transform: scale(1.02);
+        }
+
+        .verse-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 10px;
+        }
+        .verse-name {
+            font-size: 15px;
+            color: #8fd4ff;
+            font-weight: 600;
+        }
+        .verse-name-ar {
+            font-family: 'Amiri Quran', serif;
+            font-size: 16px;
+            color: #7dd3fc;
+            direction: rtl;
+            margin-right: 8px;
+        }
+        .verse-ref {
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 500;
+        }
+        .verse.current .verse-name { font-size: 18px; }
+        .verse.current .verse-name-ar { font-size: 19px; }
+        .verse.current .verse-ref { font-size: 15px; color: #94a3b8; }
+
+        .verse-meal {
+            font-size: 19px;
+            line-height: 1.6;
+            color: #e7e9ea;
+            font-weight: 400;
+            margin-bottom: 10px;
+        }
+        .verse.current .verse-meal {
+            font-size: 26px;
+            line-height: 1.5;
+            font-weight: 500;
+        }
+
+        .verse-arabic {
+            font-family: 'Amiri Quran', serif;
+            font-size: 22px;
+            line-height: 1.8;
+            direction: rtl;
+            text-align: right;
+            color: #d1d5db;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            opacity: 0.8;
+        }
+        .verse.current .verse-arabic {
+            font-size: 28px;
+            opacity: 1;
+        }
+
+        .placeholder {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+            font-size: 16px;
+            font-style: italic;
+        }
+
+        .statusbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #64748b;
+            padding: 8px 4px;
+            margin-top: 12px;
+        }
+        .statusbar .meter {
+            height: 4px;
+            width: 60px;
+            background: #1e293b;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-left: 8px;
+        }
+        .statusbar .meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            .verse { padding: 12px 16px; }
+            .verse-meal { font-size: 16px; }
+            .verse.current .verse-meal { font-size: 22px; }
+            .verse-arabic { font-size: 20px; }
+            .verse.current .verse-arabic { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🕌 Kuran Meal Takip</h1>
+
+    <div class="controls">
+        <button id="startBtn" onclick="startRecording()">🎙 Başlat</button>
+        <button id="stopBtn" onclick="stopRecording()" disabled>⏹ Durdur</button>
+    </div>
+
+    <div id="verses" class="verses-container">
+        <div class="placeholder">Mikrofona Kuran okunduğunda meal burada görünecek</div>
+    </div>
+
+    <div class="statusbar">
+        <div>
+            <span id="position">—</span> · 
+            güven <span id="confidence">—</span> · 
+            chunk <span id="chunk-count">0</span>
+        </div>
+        <div style="display: flex; align-items: center;">
+            <span id="ses-db">—</span>
+            <div class="meter"><div id="meter" class="meter-fill"></div></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

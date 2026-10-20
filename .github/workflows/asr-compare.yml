@@ -1,0 +1,254 @@
+name: ASR model yarisi
+
+# Aday ses tanima modellerini (tests/asr_candidates.json) kendi kayitlarimizla yan yana olcer:
+#   export   → model-export.yml (aday: baska hibrit NeMo modeli ve / veya INT8; release asr-cand-*)
+#   evaluate → ayni kayitlar gercek ASR ile (eval_pipeline, rnnt + rnnt-hibrit): data/*.wav, dis kaynak v1 / v2,
+#              istege bagli sentetik → TRJSON artifact
+#   score    → transkriptler test kapisindan gecer (TILAVET_TRJSON_DIR) + ses tanima olculeri (tests/asr_compare.py)
+#   summary  → temel modelin yaninda tablo + kabul sarti (run ozeti ve log)
+# Uygulamaya dokunmaz; kazanan secilince android.yml / eval.yml MODEL_TAG'i degisir.
+#
+# workflow_dispatch sadece varsayilan branch'teki workflow'larda → gelistirme branch'inde tests/asr_candidates.json
+# degisince calisir.
+
+on:
+  push:
+    paths:
+      - "tests/asr_candidates.json"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # model-export release olusturabilsin
+
+jobs:
+  plan:
+    name: Adaylar
+    runs-on: ubuntu-latest
+    outputs:
+      cands: ${{ steps.p.outputs.cands }}
+      evals: ${{ steps.p.outputs.evals }}
+      tags: ${{ steps.p.outputs.tags }}
+      base: ${{ steps.p.outputs.base }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: p
+        run: |
+          python3 tests/asr_compare.py plan | tee -a "$GITHUB_OUTPUT"
+
+  export:
+    name: Export
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.cands) }}
+    uses: ./.github/workflows/model-export.yml
+    with:
+      tag: ${{ matrix.tag }}
+      model_name: ${{ matrix.model }}
+      quantize: ${{ matrix.quantize }}
+
+  evaluate:
+    name: ASR (${{ matrix.tag }} · ${{ matrix.set }})
+    needs: [plan, export]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.evals) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ matrix.tag }}
+      SET: ${{ matrix.set }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python bagimliliklari
+        run: pip install rapidfuzz==3.14.6 numpy onnxruntime sentencepiece soundfile soxr
+
+      - name: Kuran verisi cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/quran-align
+          key: quran-data-v2-${{ hashFiles('scripts/download_meal.py', 'scripts/download_surah_names.py') }}
+
+      - name: Kuran verisini indir
+        if: steps.quran-cache.outputs.cache-hit != 'true'
+        run: |
+          python -c "import sys; sys.path.insert(0, 'scripts'); from aligner import QuranCorpus; QuranCorpus.load()"
+          python scripts/download_meal.py
+          python scripts/download_surah_names.py
+
+      - name: ASR modelini release'ten indir
+        run: |
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D model \
+            -p 'fastconformer_full.onnx' -p 'fastconformer_full.onnx.data' \
+            -p 'tokenizer.model' -p 'meta.json' -p 'rnnt_*.onnx' -p 'export_report.txt'
+          ls -la model
+          mkdir -p out
+          echo "$TAG $SET" > out/SET            # artifact koku out/ kalsin (alt klasorler korunur)
+          cp model/export_report.txt out/export_report.txt
+
+      - name: Gercek kayitlar (data/*.wav + server/recordings)
+        if: matrix.set == 'data'
+        run: |
+          python scripts/eval_pipeline.py --model-dir model --chains rnnt,rnnt-hibrit \
+            --trjson-out out/data.trjson --stats-out out/data.stats.json --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: Dis kaynak kayitlari (archive.org)
+        if: startsWith(matrix.set, 'ext-')
+        run: |
+          V="${SET#ext-}"
+          python tests/external/fetch_external.py --out ext --max-minutes 100 --set "$V"
+          mkdir -p out/external
+          # repodaki manifest (elle duzeltilmis zaman cizelgeleri) indiricininkini ezsin: ada gore sirali yuklenir
+          cp ext/manifest.json "out/external/a-fetch-$V.manifest.json"
+          cp "tests/trjson/external/external-$V.manifest.json" out/external/
+          python scripts/eval_pipeline.py --model-dir model --audio ext/*.wav \
+            --manifest "tests/trjson/external/external-$V.manifest.json" --chains rnnt,rnnt-hibrit \
+            --trjson-out "out/external/ext-$V.trjson" --stats-out "out/external/ext-$V.stats.json" \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: EveryAyah cache
+        if: matrix.set == 'synth'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/everyayah
+          key: everyayah-asr-compare
+          restore-keys: everyayah-
+
+      - name: Sentetik kayitlar
+        if: matrix.set == 'synth'
+        run: |
+          python tests/synth/build_synth.py --out synth --cache ~/.cache/everyayah \
+            --reciters "Alafasy_128kbps,Saood_ash-Shuraym_128kbps" --programs "namaz2,teravih8,hatim4" --seed 1
+          mkdir -p out/synth
+          cp synth/manifest.json out/synth/synth.manifest.json
+          python scripts/eval_pipeline.py --model-dir model --audio synth/*.wav --manifest synth/manifest.json \
+            --chains rnnt,rnnt-hibrit --trjson-out out/synth/synth.trjson --stats-out out/synth/synth.stats.json \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: asr-${{ matrix.tag }}-${{ matrix.set }}
+          path: out/
+          retention-days: 14
+
+  score:
+    name: Puan (${{ matrix.tag }})
+    needs: [plan, evaluate]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.plan.outputs.tags) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TILAVET_ASSETS_DIR: ${{ github.workspace }}/android-assets-staged
+      TAG: ${{ matrix.tag }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python bagimliliklari
+        run: pip install rapidfuzz==3.14.6 numpy soundfile soxr
+
+      - name: Kuran verisi cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/quran-align
+          key: quran-data-v2-${{ hashFiles('scripts/download_meal.py', 'scripts/download_surah_names.py') }}
+
+      - name: Kuran verisini indir
+        if: steps.quran-cache.outputs.cache-hit != 'true'
+        run: |
+          python -c "import sys; sys.path.insert(0, 'scripts'); from aligner import QuranCorpus; QuranCorpus.load()"
+          python scripts/download_meal.py
+          python scripts/download_surah_names.py
+
+      - name: quran.bin + test fixture'lari (Kotlin kumesi icin)
+        run: |
+          python scripts/build_quran_assets.py
+          python scripts/explore_rapidfuzz.py > /dev/null
+          python scripts/build_aligner_fixture.py
+          python scripts/build_state_machine_fixture.py
+
+      - name: Hizalama onbellegi
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tilavet-gate
+          key: gate-align-${{ hashFiles('scripts/aligner.py') }}-asr-${{ matrix.tag }}-${{ github.sha }}
+          restore-keys: |
+            gate-align-${{ hashFiles('scripts/aligner.py') }}-asr-${{ matrix.tag }}-
+            gate-align-${{ hashFiles('scripts/aligner.py') }}-
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "8.7"
+          cache-read-only: false
+
+      - name: Adayin transkriptleri
+        uses: actions/download-artifact@v4
+        with:
+          pattern: asr-${{ matrix.tag }}-*
+          merge-multiple: true
+          path: cand
+
+      - name: Test kapisi (adayin transkriptleriyle)
+        run: |
+          find cand -type f | sort
+          mkdir -p ~/.cache/tilavet-gate
+          # baseline'a gore kotulesme cikis kodu 1 verir — burada sadece sonuclar lazim
+          TILAVET_TRJSON_DIR=cand TILAVET_ALIGN_CACHE=~/.cache/tilavet-gate/align.pkl python tests/gate.py \
+            --assets "$TILAVET_ASSETS_DIR" --suites replay,stress,compose,external,synth,signals,kotlin --seeds 2 \
+            --results cand/gate.json || true
+
+      - name: Ses tanima olculeri
+        run: |
+          TILAVET_TRJSON_DIR=cand TILAVET_ALIGN_CACHE=~/.cache/tilavet-gate/align.pkl \
+            python tests/asr_compare.py metrics --tag "$TAG" --gate cand/gate.json --out "score-$TAG.json"
+          echo "SCORE $(python -c "import json,sys; print(json.dumps(json.load(open('score-$TAG.json')), ensure_ascii=False))")"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: score-${{ matrix.tag }}
+          path: score-${{ matrix.tag }}.json
+          retention-days: 30
+
+  summary:
+    name: Karsilastirma
+    needs: [plan, score]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: score-*
+          merge-multiple: true
+          path: scores
+      - name: Tablo
+        env:
+          BASE: ${{ needs.plan.outputs.base }}
+        run: python3 tests/asr_compare.py summary --base "$BASE" --summary "$GITHUB_STEP_SUMMARY" scores/*.json

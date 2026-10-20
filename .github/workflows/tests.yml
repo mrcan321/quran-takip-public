@@ -1,0 +1,197 @@
+name: Test kapisi
+
+# APK oncesi test kapisi (tests/gate.py): gercek kayitlarin ASR transkriptleri (tests/trjson) ASR'siz tekrar oynatilir,
+# zorlama (S1-S5) ve teravih / 4 rekatli bilesik senaryolar, namaz sinyali taramasi, server/app.py = referans ve
+# uygulamanin Kotlin kodu (tests/jvm: fixture'lar, Kotlin = Python karar izi, rekat/ezan altin dosyalari,
+# ChunkBuilder = vad_chunker, WavReader = soundfile, G2 gozluk koprusu), G2 eklentisinin ekran duzeni (node) ve Even
+# simulatorunde uctan uca (g2sim). Metrikler tests/baseline.json ile karsilastirilir; herhangi biri
+# kotulesirse ya da birebirlik tutmazsa job kirmizi → android.yml APK'yi derlemez.
+#
+# android.yml bu workflow'u cagirir (needs: test). Tek basina: server/** ya da tests/** degisince ve elle.
+
+on:
+  workflow_call:
+  push:
+    paths:
+      - "server/**"
+      - "tests/**"
+      - ".github/workflows/tests.yml"
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: "S4/S5 gurultu tohum sayisi"
+        type: string
+        default: "5"
+
+jobs:
+  # Ses verisi kaynak taramasi (Hugging Face / archive.org meta verisi; yerel oturumun ag erisimi kapali). Sadece commit
+  # mesajinda [scout] varsa ya da elle: tests/scout_sources.py
+  scout:
+    name: Ses verisi kaynak taramasi
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[scout]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Tarama
+        run: python tests/scout_sources.py --summary "$GITHUB_STEP_SUMMARY"
+
+  # Dis kaynaklardan gercek kayitlar (Harem teravihleri, Turk kari, ezan): indir → gercek ASR (eval_pipeline) → TRJSON +
+  # MANIFEST log'a ve artifact'a. Sadece commit mesajinda [external] varsa: tests/external/fetch_external.py
+  external:
+    name: Dis kaynak kayitlari (gercek ASR)
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[external]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MODEL_TAG: asr-model-v2
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Python bagimliliklari
+        run: pip install rapidfuzz==3.14.6 numpy onnxruntime sentencepiece soundfile soxr
+      - name: Kuran verisi cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/quran-align
+          key: quran-data-v2-${{ hashFiles('scripts/download_meal.py', 'scripts/download_surah_names.py') }}
+      - name: Kayitlari indir (archive.org)
+        run: python tests/external/fetch_external.py --out ext --max-minutes 100 --set v2
+      - name: ASR modelini release'ten indir
+        run: |
+          gh release download "$MODEL_TAG" -R "$GITHUB_REPOSITORY" -D model \
+            -p 'fastconformer_full.onnx' -p 'fastconformer_full.onnx.data' \
+            -p 'tokenizer.model' -p 'meta.json' -p 'rnnt_*.onnx'
+      - name: Degerlendirme (gercek ASR)
+        run: |
+          python scripts/eval_pipeline.py --model-dir model --audio ext/*.wav --manifest ext/manifest.json \
+            --chains rnnt,rnnt-hibrit --trjson-out ext/external.trjson --summary "$GITHUB_STEP_SUMMARY"
+      - name: TRJSON + manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-trjson
+          path: |
+            ext/external.trjson
+            ext/manifest.json
+          retention-days: 30
+
+  gate:
+    name: Test kapisi
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TILAVET_ASSETS_DIR: ${{ github.workspace }}/android-assets-staged
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python bagimliliklari
+        run: pip install rapidfuzz==3.14.6 numpy soundfile soxr   # baseline bu surumle (hizalama skorlari surume bagli)
+
+      - name: Kuran verisi cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/quran-align
+          key: quran-data-v2-${{ hashFiles('scripts/download_meal.py', 'scripts/download_surah_names.py') }}
+
+      - name: Kuran verisini indir
+        if: steps.quran-cache.outputs.cache-hit != 'true'
+        run: |
+          python -c "import sys; sys.path.insert(0, 'scripts'); from aligner import QuranCorpus; QuranCorpus.load()"
+          python scripts/download_meal.py
+          python scripts/download_surah_names.py
+
+      - name: quran.bin + test fixture'lari (Kotlin kumesi icin)
+        run: |
+          python scripts/build_quran_assets.py
+          python scripts/explore_rapidfuzz.py > /dev/null
+          python scripts/build_aligner_fixture.py
+          python scripts/build_state_machine_fixture.py
+
+      # Hizalama sonuclari (parca metni + pencere → eslesme) saf fonksiyon: aligner.py degismedikce onbellekten
+      - name: Hizalama onbellegi
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tilavet-gate
+          key: gate-align-${{ hashFiles('scripts/aligner.py') }}-${{ github.sha }}
+          restore-keys: gate-align-${{ hashFiles('scripts/aligner.py') }}-
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "8.7"
+          cache-read-only: false
+
+      - uses: actions/setup-node@v4   # g2 kumesi: G2 eklentisinin ekran duzeni (node --test)
+        with:
+          node-version: "22"
+
+      - name: Test kapisi
+        env:
+          SEEDS: ${{ inputs.seeds || '5' }}
+        run: |
+          mkdir -p ~/.cache/tilavet-gate
+          TILAVET_ALIGN_CACHE=~/.cache/tilavet-gate/align.pkl python tests/gate.py \
+            --assets "$TILAVET_ASSETS_DIR" --seeds "$SEEDS" \
+            --summary "$GITHUB_STEP_SUMMARY" --results gate-results.json
+
+  # G2 gozluk eklentisi (tilavet-android/app/src/main/assets/g2) Even Hub simulatorunde: uygulamanin kendi koprusu
+  # (GlassesBridge, tests/jvm glasses-serve) senaryodaki durumlari yayinlar, simulator (Xvfb) eklentiyi acar; her adimda
+  # gozluk ekrani + konsol hatasi. Iki mod: gelistirici (sayfa kopruden) ve .ehpk gibi baska kaynaktan (CORS).
+  g2sim:
+    name: G2 eklentisi (Even simulatoru)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "8.7"
+          cache-read-only: false
+
+      - name: Simulator ve bagimliliklari
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xauth libwebkit2gtk-4.1-0 libgl1-mesa-dri
+          npm pack @evenrealities/sim-linux-x64@0.9.5
+          mkdir sim && tar xzf evenrealities-sim-linux-x64-0.9.5.tgz -C sim
+
+      - name: Kopru (JVM)
+        working-directory: tests/jvm
+        run: gradle -q installDist
+
+      - name: Simulatorde dene
+        run: |
+          python3 tests/g2/sim_check.py --sim sim/package/bin/evenhub-simulator --out g2shots/gelistirici
+          python3 tests/g2/sim_check.py --sim sim/package/bin/evenhub-simulator --out g2shots/ehpk --mode cross
+          python3 tests/g2/sim_check.py --sim sim/package/bin/evenhub-simulator --out g2shots/engel --mode engel --no-arabic
+          python3 tests/g2/sim_check.py --sim sim/package/bin/evenhub-simulator --out g2shots/gec --mode gec --no-arabic
+          python3 tests/g2/sim_check.py --sim sim/package/bin/evenhub-simulator --out g2shots/gec-fetch --mode gec-fetch --no-arabic
+
+      - name: Ekran goruntuleri
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g2-simulator
+          path: g2shots
+          retention-days: 14

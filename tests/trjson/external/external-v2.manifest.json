@@ -1,0 +1,245 @@
+{
+ "set": "v2",
+ "files": {
+  "ext_maher1427_051-Adh-dhariyat24-60.wav": {
+   "expected": 51,
+   "source": "archive.org/Maher1427_3/051-Adh-dhariyat24-60.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 267.5
+  },
+  "ext_rifai_007_ala3raf.wav": {
+   "expected": "coklu",
+   "source": "archive.org/Hani_Rifai/007_ala3raf.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 420.0,
+   "trimmed_from": 522.4,
+   "timeline": [
+    [
+     0,
+     1
+    ],
+    [
+     36,
+     7
+    ]
+   ],
+   "note": "teravih rekati: Fatiha + zamm",
+   "rakat": 1,
+   "namaz": 0
+  },
+  "ext_medine1436_067.SurahMulk2.wav": {
+   "expected": 67,
+   "source": "archive.org/5680680804060/067.SurahMulk2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 240.0,
+   "trimmed_from": 343.6
+  },
+  "ext_maher1427_052-AlTur.wav": {
+   "expected": 52,
+   "source": "archive.org/Maher1427_3/052-AlTur.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 139.4
+  },
+  "ext_rifai_009_altawbah.wav": {
+   "expected": "coklu",
+   "source": "archive.org/Hani_Rifai/009_altawbah.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 420.0,
+   "trimmed_from": 1223.8,
+   "timeline": [
+    [
+     0,
+     1
+    ],
+    [
+     40,
+     9
+    ]
+   ],
+   "note": "teravih rekati: Fatiha + zamm",
+   "rakat": 1,
+   "namaz": 0
+  },
+  "ext_medine1436_068.SurahQalam2.wav": {
+   "expected": 68,
+   "source": "archive.org/5680680804060/068.SurahQalam2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 240.0,
+   "trimmed_from": 293.2
+  },
+  "ext_maher1427_053-AnNajm.wav": {
+   "expected": 53,
+   "source": "archive.org/Maher1427_3/053-AnNajm.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 118.6
+  },
+  "ext_rifai_012_yusuf.wav": {
+   "expected": "coklu",
+   "source": "archive.org/Hani_Rifai/012_yusuf.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 420.0,
+   "trimmed_from": 1249.2,
+   "timeline": [
+    [
+     0,
+     null
+    ],
+    [
+     10,
+     1
+    ],
+    [
+     60,
+     12
+    ]
+   ],
+   "note": "teravih rekati: Fatiha + zamm",
+   "rakat": 1,
+   "namaz": 0
+  },
+  "ext_medine1436_069.SurahHaqqah2.wav": {
+   "expected": 69,
+   "source": "archive.org/5680680804060/069.SurahHaqqah2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 240.0,
+   "trimmed_from": 262.4
+  },
+  "ext_maher1427_054-AlQamar.wav": {
+   "expected": 54,
+   "source": "archive.org/Maher1427_3/054-AlQamar.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 57.9
+  },
+  "ext_rifai_014_ebrahim.wav": {
+   "expected": "coklu",
+   "source": "archive.org/Hani_Rifai/014_ebrahim.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 257.2,
+   "timeline": [
+    [
+     0,
+     null
+    ],
+    [
+     15,
+     1
+    ],
+    [
+     58,
+     14
+    ]
+   ],
+   "note": "teravih rekati: Fatiha + zamm",
+   "rakat": 1,
+   "namaz": 0
+  },
+  "ext_medine1436_070.SurahMaarij2.wav": {
+   "expected": 70,
+   "source": "archive.org/5680680804060/070.SurahMaarij2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 236.9
+  },
+  "ext_maher1427_067-Al-mulk.wav": {
+   "expected": 67,
+   "source": "archive.org/Maher1427_3/067-Al-mulk.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 300.0,
+   "trimmed_from": 320.6
+  },
+  "ext_rifai_015_al7jr.wav": {
+   "expected": "coklu",
+   "source": "archive.org/Hani_Rifai/015_al7jr.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 420.0,
+   "trimmed_from": 1136.5,
+   "timeline": [
+    [
+     0,
+     1
+    ],
+    [
+     50,
+     15
+    ]
+   ],
+   "note": "teravih rekati: Fatiha + zamm",
+   "rakat": 1,
+   "namaz": 0
+  },
+  "ext_medine1436_071.SurahNooh2.wav": {
+   "expected": 71,
+   "source": "archive.org/5680680804060/071.SurahNooh2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 206.4
+  },
+  "ext_maher1427_068-Al-qalam.wav": {
+   "expected": 68,
+   "source": "archive.org/Maher1427_3/068-Al-qalam.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 300.0,
+   "trimmed_from": 324.7
+  },
+  "ext_rifai_016_alanbeia2.wav": {
+   "expected": "coklu",
+   "source": "archive.org/Hani_Rifai/016_alanbeia2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 420.0,
+   "trimmed_from": 1208.4,
+   "timeline": [
+    [
+     0,
+     null
+    ],
+    [
+     15,
+     1
+    ],
+    [
+     65,
+     21
+    ]
+   ],
+   "note": "teravih rekati: Fatiha + zamm",
+   "rakat": 1,
+   "namaz": 0
+  },
+  "ext_medine1436_072.SurahJinn2.wav": {
+   "expected": 72,
+   "source": "archive.org/5680680804060/072.SurahJinn2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 240.0,
+   "trimmed_from": 318.2
+  },
+  "ext_maher1427_069-Al-haaqqa.wav": {
+   "expected": 69,
+   "source": "archive.org/Maher1427_3/069-Al-haaqqa.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 299.1
+  },
+  "ext_medine1436_073.SurahMuzzamil2.wav": {
+   "expected": 73,
+   "source": "archive.org/5680680804060/073.SurahMuzzamil2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 207.2
+  },
+  "ext_maher1427_070-Al-maarij.wav": {
+   "expected": 70,
+   "source": "archive.org/Maher1427_3/070-Al-maarij.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 81.5
+  },
+  "ext_medine1436_074.SurahMuddathir2.wav": {
+   "expected": 74,
+   "source": "archive.org/5680680804060/074.SurahMuddathir2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 240.0,
+   "trimmed_from": 251.4
+  },
+  "ext_medine1436_075.SurahQiyamah2.wav": {
+   "expected": 75,
+   "source": "archive.org/5680680804060/075.SurahQiyamah2.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 164.1
+  }
+ }
+}

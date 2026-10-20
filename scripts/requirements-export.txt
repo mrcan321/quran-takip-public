@@ -1,0 +1,14 @@
+# ONNX export (scripts/onnx_full_export.py) bagimliliklari — Python 3.11.
+# torch'u once CPU index'inden kur (CUDA'siz, ~200 MB):
+#   pip install torch==2.11.0 --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r scripts/requirements-export.txt
+#
+# Bu kombinasyon test edildi: dynamo exporter opset 18, IR 10 →
+# onnxruntime-android 1.18 ile aciliyor.
+torch==2.11.0
+nemo_toolkit[asr]==2.7.3
+onnx==1.22.0
+onnxscript==0.7.2
+onnxruntime==1.30.0
+soundfile
+librosa==0.11.0

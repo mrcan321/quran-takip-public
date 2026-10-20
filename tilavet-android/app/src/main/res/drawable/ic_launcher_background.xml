@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Namazda Anla logosu — tilavet-android/tools/gen_launcher_icon.py uretir, elle degistirme -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M0,0 L108,0 L108,108 L0,108 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="54" android:centerY="48" android:gradientRadius="64">
+                <item android:offset="0" android:color="#FFFFFDF6"/>
+                <item android:offset="0.7" android:color="#FFF8F2E4"/>
+                <item android:offset="1" android:color="#FFEFE6D2"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

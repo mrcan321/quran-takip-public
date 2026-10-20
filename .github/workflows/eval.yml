@@ -1,0 +1,96 @@
+name: Skor degerlendirmesi
+
+# Telefondaki zinciri (chunk → ONNX CTC ASR → aligner → skor) repodaki kayitlar uzerinde
+# calistirir: data/*.wav + server/recordings/*.wav. Esik/skor kalibrasyonu APK kurmadan yapilir.
+# Sonuc tablosu run ozetinde (Summary). Model: asr-model-v2 (CTC + RNNT parcalari); yoksa once export edilir.
+
+on:
+  push:
+    paths:
+      - "scripts/**"
+      - "data/**"
+      - "server/recordings/**"
+      - ".github/workflows/eval.yml"
+  workflow_dispatch:
+    inputs:
+      audio:
+        description: "Sadece bu kayitlar (bosluklu yol listesi, orn. data/namaz_x.wav) — bos = hepsi"
+        type: string
+        default: ""
+      words:
+        description: "Kelime zamanli RNNT transkripti de yaz (TIMELINE / gecikme olcumu icin, audio ile kullan)"
+        type: boolean
+        default: false
+      meal_compare:
+        description: "Sadece Turkce meal baskilarini karsilastir (scripts/compare_meals.py), eval'i atla"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # model-export release olusturabilsin
+
+env:
+  MODEL_TAG: asr-model-v2   # model job'undaki tag ile ayni olmali
+
+jobs:
+  model:
+    name: ASR modeli
+    uses: ./.github/workflows/model-export.yml
+    with:
+      tag: asr-model-v2
+
+  # Elle: Turkce meal baskilari — hangisi ayet ayet ayrik (tr.diyanet ardisik ayetleri birlestirip tekrarliyor)
+  meal:
+    name: Meal karsilastirmasi
+    if: ${{ inputs.meal_compare }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Meal baskilari
+        run: python scripts/compare_meals.py --summary "$GITHUB_STEP_SUMMARY"
+
+  eval:
+    name: Pipeline degerlendirmesi
+    if: ${{ !inputs.meal_compare }}
+    needs: model
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python bagimliliklari
+        run: pip install rapidfuzz numpy onnxruntime sentencepiece soundfile soxr
+
+      - name: Kuran verisi cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/quran-align
+          key: quran-data-v2-${{ hashFiles('scripts/download_meal.py', 'scripts/download_surah_names.py') }}
+
+      - name: ASR modelini release'ten indir
+        run: |
+          gh release download "$MODEL_TAG" -R "$GITHUB_REPOSITORY" -D model \
+            -p 'fastconformer_full.onnx' -p 'fastconformer_full.onnx.data' \
+            -p 'tokenizer.model' -p 'meta.json' -p 'rnnt_*.onnx' -p 'export_report.txt'
+          ls -la model
+          cat model/export_report.txt
+
+      - name: Degerlendirme
+        env:
+          AUDIO: ${{ inputs.audio }}
+          WORDS: ${{ inputs.words && '--words' || '' }}
+        run: python scripts/eval_pipeline.py --model-dir model --summary "$GITHUB_STEP_SUMMARY" ${AUDIO:+--audio $AUDIO} $WORDS

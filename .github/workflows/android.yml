@@ -1,0 +1,198 @@
+name: Android CI
+
+# Akis:
+#   model — ASR modeli (ONNX) GitHub Release'te (MODEL_TAG) yoksa NeMo'dan export edip oraya yukler
+#           (model-export.yml). Model repoda tutulamayacak kadar buyuk (~450 MB); bir kez uretilir.
+#   test  — APK oncesi test kapisi (tests.yml → tests/gate.py): gercek kayit transkriptleri, zorlama + teravih
+#           bilesimleri, Kotlin = Python birebirlik; baseline'dan kotu sonuc → APK derlenmez.
+#   apk   — Kuran asset'leri + test fixture'lari uretir, modeli release'ten indirir, release APK derler
+#           (debuggable degil → ART tam optimize eder; imza repodaki sabit keystore, minify kapali).
+#           Push build'lerinde APK "apk-ci<N>" release'ine yuklenir, "Latest" isaretlenir, eski APK release'leri
+#           yenisi olustuktan sonra silinir (telefondan direkt indirilebilir, link sabit):
+#           https://github.com/<repo>/releases/latest/download/tilavet-takip.apk
+#           Ayni release'te Even Realities G2 eklentisi (tilavet-takip-g2.ehpk) ve gelistirici modu QR'i.
+#
+# APK ~500 MB oldugu icin workflow artifact'i olarak yuklenmiyor (private repo artifact kotasi dolar);
+# release asset'leri kotaya sayilmiyor.
+
+on:
+  push:
+    # APK'yi etkilemeyen degisikliklerde 520 MB'lik build'i atla (eval.yml bunlari ayrica isler)
+    paths-ignore:
+      - "**.md"
+      - "scripts/eval_pipeline.py"
+      - ".github/workflows/eval.yml"
+      - "benchmark/**"
+      - "data/**"
+      - "server/**"
+      - "tests/**"          # tests.yml ayrica calisir
+      - ".github/workflows/tests.yml"
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      force_model_export:
+        description: "ASR modelini NeMo'dan yeniden export et (release'tekinin ustune yazar)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  MODEL_TAG: asr-model-v2   # model job'undaki tag ile ayni olmali (v2: CTC + RNNT)
+  APK_TAG_PREFIX: apk-
+  APK_NAME: tilavet-takip.apk
+  # Even Realities G2 eklentisi (assets/g2 + tilavet-android/g2-plugin/app.json) ve gelistirici modu QR'i — APK ile ayni release'te
+  G2_NAME: tilavet-takip-g2.ehpk
+  G2_QR: tilavet-takip-g2-qr.png
+
+jobs:
+  model:
+    name: ASR modeli
+    # Tag'de model yoksa NeMo'dan export edip yukler (bkz. model-export.yml). Tag env.MODEL_TAG ile ayni olmali.
+    uses: ./.github/workflows/model-export.yml
+    with:
+      tag: asr-model-v2
+      force: ${{ inputs.force_model_export == true }}
+
+  test:
+    name: Test kapisi
+    uses: ./.github/workflows/tests.yml
+
+  apk:
+    name: APK
+    needs: [model, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TILAVET_ASSETS_DIR: ${{ github.workspace }}/android-assets-staged
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python bagimliliklari
+        run: pip install rapidfuzz numpy
+
+      # Kuran metni (uthmani), Turkce meal (Ali Bulac), sure isimleri — api.alquran.cloud'dan bir kez indirilir
+      - name: Kuran verisi cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/quran-align
+          # v2: Uthmani→imla'i haritasi (quran-uthmani-imlaey-map.json) da bu klasorde
+          key: quran-data-v2-${{ hashFiles('scripts/download_meal.py', 'scripts/download_surah_names.py') }}
+
+      - name: Kuran verisini indir
+        if: steps.quran-cache.outputs.cache-hit != 'true'
+        run: |
+          python -c "import sys; sys.path.insert(0, 'scripts'); from aligner import QuranCorpus; QuranCorpus.load()"
+          python scripts/download_meal.py
+          python scripts/download_surah_names.py
+
+      - name: quran.bin + meal.bin + test fixture'lari
+        run: |
+          python scripts/build_quran_assets.py
+          python scripts/explore_rapidfuzz.py > /dev/null
+          python scripts/build_aligner_fixture.py
+          python scripts/build_state_machine_fixture.py
+
+      - name: ASR modelini release'ten indir
+        run: |
+          gh release download "$MODEL_TAG" -R "$GITHUB_REPOSITORY" --clobber \
+            -D "$TILAVET_ASSETS_DIR/asr" \
+            -p 'fastconformer_full.onnx' -p 'fastconformer_full.onnx.data' \
+            -p 'tokenizer.model' -p 'meta.json' -p 'rnnt_*.onnx'
+          ls -la "$TILAVET_ASSETS_DIR/asr"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "8.7"
+          # Varsayilan: sadece main'de cache yazilir. Gelistirme claude/* branch'lerinde oldugu icin acik.
+          cache-read-only: false
+
+      - name: Assemble APK
+        working-directory: tilavet-android
+        run: gradle --stacktrace assembleRelease
+
+      - name: APK'yi hazirla
+        run: |
+          cp tilavet-android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/$APK_NAME"
+          ls -la "$RUNNER_TEMP/$APK_NAME"
+          echo "APK: $(du -h "$RUNNER_TEMP/$APK_NAME" | cut -f1), build #$GITHUB_RUN_NUMBER, ${GITHUB_SHA::7}" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Even Hub paketi: evenhub-cli ile (EvenHub sitesine yuklenir, Even uygulamasindan acilir). Gelistirici modu icin
+      # QR: Even uygulamasi okutunca eklentiyi dogrudan telefondaki kopruden acar (http://localhost:18765/ — Even
+      # WebView'inde 127.0.0.1:18765 kopruye ulasmiyor, localhost ulasiyor; APK #47 log'u).
+      # Basarisiz olursa APK yine yuklenir.
+      - name: G2 eklentisi (.ehpk) + gelistirici QR
+        continue-on-error: true
+        run: |
+          # Surum 0.<build>.0: build numarasi orta hanede (#48'e kadar 0.1.<build> — kullanici: Even yeni build'i
+          # algilamadi, son hanenin degismesi yetmiyor olabilir). Ayni dosya surumlu adla da yuklenir.
+          G2_VER="0.$GITHUB_RUN_NUMBER.0"
+          jq --arg v "$G2_VER" '.version = $v' tilavet-android/g2-plugin/app.json > "$RUNNER_TEMP/app.json"
+          # paketin surumu paketin icinde de (g2-paket.json): eklenti sayfasinda ve uygulamanin ayarlarinda gorunur
+          cp -r tilavet-android/app/src/main/assets/g2 "$RUNNER_TEMP/g2pkg"
+          jq -n --arg v "$G2_VER" '{surum: $v}' > "$RUNNER_TEMP/g2pkg/g2-paket.json"
+          npx -y -p @evenrealities/evenhub-cli@0.1.14 evenhub pack "$RUNNER_TEMP/app.json" \
+            "$RUNNER_TEMP/g2pkg" -o "$RUNNER_TEMP/$G2_NAME" --sdk-ver 0.0.16
+          cp "$RUNNER_TEMP/$G2_NAME" "$RUNNER_TEMP/tilavet-takip-g2-$G2_VER.ehpk"
+          echo "G2 eklentisi surum $G2_VER" >> "$GITHUB_STEP_SUMMARY"
+          npx -y -p qrcode@1.5.4 qrcode -w 480 -o "$RUNNER_TEMP/$G2_QR" "http://localhost:18765/"
+          ls -la "$RUNNER_TEMP/$G2_NAME" "$RUNNER_TEMP/$G2_QR"
+
+      - name: APK'yi release'e yukle
+        if: github.event_name != 'pull_request'
+        # Her build kendi tag'iyle yeni release acar ("apk-ci<N>", Latest); eski APK release'leri ANCAK yenisi
+        # olustuktan sonra silinir. Eskiden "apk-latest" once silinip ayni adla yeniden olusturuluyordu: build #38'de
+        # olusturma 403 aldi (iki denemede de), release silinmis kaldi ve telefondaki indirme linki APK'siz kaldi.
+        # Hedef commit'te tag olusturulamazsa (403) tag varsayilan dala acilir — APK yine bu build'in, notlarda commit var.
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          TAG="${APK_TAG_PREFIX}ci${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          TITLE="Tilavet Takip — build #$GITHUB_RUN_NUMBER"
+          NOTES="Branch: \`$GITHUB_REF_NAME\` · Commit: $GITHUB_SHA · versionName 0.2.0-ci$GITHUB_RUN_NUMBER"
+          FILES=("$RUNNER_TEMP/$APK_NAME")
+          for f in "$RUNNER_TEMP/$G2_NAME" "$RUNNER_TEMP"/tilavet-takip-g2-0.*.ehpk "$RUNNER_TEMP/$G2_QR"; do
+            [ -s "$f" ] && FILES+=("$f")
+          done
+          gh release create "$TAG" "${FILES[@]}" -R "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES" --latest \
+            || gh release create "$TAG" "${FILES[@]}" -R "$GITHUB_REPOSITORY" \
+              --target "$DEFAULT_BRANCH" --title "$TITLE" --notes "$NOTES (tag $DEFAULT_BRANCH uzerinde)" --latest
+          # Eski APK release'leri (ayni onek, bu build disinda) — silinemezse sadece uyari
+          gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' \
+            | grep "^${APK_TAG_PREFIX}" | grep -vx "$TAG" | while read -r old; do
+                gh release delete "$old" -R "$GITHUB_REPOSITORY" --cleanup-tag --yes \
+                  || echo "::warning::eski release silinemedi: $old"
+              done
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/$APK_NAME"
+          echo "İndir: $URL ($TAG)" >> "$GITHUB_STEP_SUMMARY"
+          echo "G2 eklentisi: https://github.com/$GITHUB_REPOSITORY/releases/latest/download/$G2_NAME" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            tilavet-android/**/build/reports/
+          if-no-files-found: ignore

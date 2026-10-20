@@ -1,0 +1,282 @@
+{
+ "files": {
+  "ext_mekke1430_093.wav": {
+   "expected": 93,
+   "source": "archive.org/Makkah_Tarawih_1430/093.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 50.7
+  },
+  "ext_celil1435_087.wav": {
+   "expected": 87,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/087.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 74.8
+  },
+  "ext_collak_105.wav": {
+   "expected": 105,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/105.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 46.2
+  },
+  "ext_ezan_001-.wav": {
+   "expected": null,
+   "source": "archive.org/90---azan---90---azan--many----sound----mp3---alazan/001-.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 241.3,
+   "kind": "ezan"
+  },
+  "ext_mekke1430_094.wav": {
+   "expected": 94,
+   "source": "archive.org/Makkah_Tarawih_1430/094.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 28.6
+  },
+  "ext_celil1435_091.wav": {
+   "expected": 91,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/091.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 68.9
+  },
+  "ext_collak_106.wav": {
+   "expected": 106,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/106.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 35.0
+  },
+  "ext_ezan_002--.wav": {
+   "expected": null,
+   "source": "archive.org/90---azan---90---azan--many----sound----mp3---alazan/002--.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 190.5,
+   "kind": "ezan"
+  },
+  "ext_mekke1430_097.wav": {
+   "expected": 97,
+   "source": "archive.org/Makkah_Tarawih_1430/097.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 32.4
+  },
+  "ext_celil1435_095.wav": {
+   "expected": 95,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/095.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 40.5
+  },
+  "ext_collak_107.wav": {
+   "expected": 107,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/107.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 43.3
+  },
+  "ext_ezan_003--.wav": {
+   "expected": null,
+   "source": "archive.org/90---azan---90---azan--many----sound----mp3---alazan/003--.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 142.3,
+   "kind": "ezan"
+  },
+  "ext_mekke1430_099.wav": {
+   "expected": 99,
+   "source": "archive.org/Makkah_Tarawih_1430/099.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 43.2
+  },
+  "ext_celil1435_100.wav": {
+   "expected": 100,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/100.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 63.0
+  },
+  "ext_collak_108.wav": {
+   "expected": 108,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/108.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 24.5
+  },
+  "ext_ezan_004----1.wav": {
+   "expected": null,
+   "source": "archive.org/90---azan---90---azan--many----sound----mp3---alazan/004----1.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 206.0,
+   "kind": "ezan"
+  },
+  "ext_mekke1430_101.wav": {
+   "expected": 101,
+   "source": "archive.org/Makkah_Tarawih_1430/101.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 41.5
+  },
+  "ext_celil1435_105.wav": {
+   "expected": 105,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/105.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 31.7
+  },
+  "ext_collak_109.wav": {
+   "expected": 109,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/109.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 46.2
+  },
+  "ext_mekke1430_103.wav": {
+   "expected": 103,
+   "source": "archive.org/Makkah_Tarawih_1430/103.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 20.8
+  },
+  "ext_celil1435_106.wav": {
+   "expected": 106,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/106.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 29.7
+  },
+  "ext_collak_110.wav": {
+   "expected": 110,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/110.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 40.8
+  },
+  "ext_mekke1430_105.wav": {
+   "expected": 105,
+   "source": "archive.org/Makkah_Tarawih_1430/105.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 30.0
+  },
+  "ext_celil1435_107.wav": {
+   "expected": 107,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/107.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 64.6
+  },
+  "ext_collak_111.wav": {
+   "expected": 111,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/111.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 41.3
+  },
+  "ext_mekke1430_106.wav": {
+   "expected": 106,
+   "source": "archive.org/Makkah_Tarawih_1430/106.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 26.1
+  },
+  "ext_celil1435_108.wav": {
+   "expected": 108,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/108.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 17.6
+  },
+  "ext_collak_112.wav": {
+   "expected": 112,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/112.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 22.7
+  },
+  "ext_mekke1430_107.wav": {
+   "expected": 107,
+   "source": "archive.org/Makkah_Tarawih_1430/107.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 33.0
+  },
+  "ext_celil1435_109.wav": {
+   "expected": 109,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/109.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 36.1
+  },
+  "ext_collak_113.wav": {
+   "expected": 113,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/113.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 39.2
+  },
+  "ext_mekke1430_108.wav": {
+   "expected": 108,
+   "source": "archive.org/Makkah_Tarawih_1430/108.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 17.0
+  },
+  "ext_celil1435_110.wav": {
+   "expected": 110,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/110.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 27.8
+  },
+  "ext_collak_114.wav": {
+   "expected": 114,
+   "source": "archive.org/rabieaaa2015_yahoo_002132432/114.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 52.4
+  },
+  "ext_mekke1430_109.wav": {
+   "expected": 109,
+   "source": "archive.org/Makkah_Tarawih_1430/109.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 26.5
+  },
+  "ext_celil1435_111.wav": {
+   "expected": 111,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/111.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 30.4
+  },
+  "ext_mekke1430_110.wav": {
+   "expected": 110,
+   "source": "archive.org/Makkah_Tarawih_1430/110.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 23.6
+  },
+  "ext_celil1435_112.wav": {
+   "expected": 112,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/112.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 15.0
+  },
+  "ext_mekke1430_111.wav": {
+   "expected": 111,
+   "source": "archive.org/Makkah_Tarawih_1430/111.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 27.9
+  },
+  "ext_celil1435_113.wav": {
+   "expected": 113,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/113.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 30.4,
+   "timeline": [
+    [
+     0,
+     113
+    ],
+    [
+     25.0,
+     114
+    ]
+   ]
+  },
+  "ext_mekke1430_112.wav": {
+   "expected": 112,
+   "source": "archive.org/Makkah_Tarawih_1430/112.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 16.9
+  },
+  "ext_celil1435_114.wav": {
+   "expected": 114,
+   "source": "archive.org/taraweeh-khalid-jaleel-1435/114.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 33.0
+  },
+  "ext_mekke1430_113.wav": {
+   "expected": 113,
+   "source": "archive.org/Makkah_Tarawih_1430/113.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 25.7
+  },
+  "ext_mekke1430_114.wav": {
+   "expected": 114,
+   "source": "archive.org/Makkah_Tarawih_1430/114.mp3",
+   "license": "belirtilmemis (sadece test)",
+   "duration": 27.0
+  }
+ }
+}

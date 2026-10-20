@@ -1,0 +1,131 @@
+name: Sentetik namaz / teravih
+
+# EveryAyah ayet ayet kayitlari + gercek cami kayitlarimizdan namaz sesleri (kamet, tekbir, semiallah, selam) + oda
+# yankisi + cami gurultusu → sentetik namaz / teravih / hatim kayitlari (tests/synth/build_synth.py). Gercek ASR
+# (eval_pipeline, rnnt + rnnt-hibrit) + ayet duzeyinde olcum (score_synth.py). Ses repoya konmaz; TRJSON + manifest
+# artifact olarak ve log'da (TRJSON satirlari) — tests/trjson'a eklenince test kapisi da bu kayitlari olcer.
+
+on:
+  # workflow_dispatch sadece varsayilan branch'teki workflow'larda; gelistirme branch'inde ureticinin degismesi tetikler
+  push:
+    paths:
+      - "tests/synth/**"
+      - ".github/workflows/synth.yml"
+  workflow_dispatch:
+    inputs:
+      reciters:
+        description: "EveryAyah klasorleri (virgulle)"
+        type: string
+        default: "Alafasy_128kbps,Husary_128kbps,Saood_ash-Shuraym_128kbps"
+      programs:
+        description: "namaz2, teravih8, hatim4, uzun2, dort4 (virgulle)"
+        type: string
+        default: "namaz2,teravih8,hatim4"
+      seed:
+        description: "Rastgelelik tohumu"
+        type: string
+        default: "1"
+
+permissions:
+  contents: write   # model-export release olusturabilsin
+
+jobs:
+  model:
+    name: ASR modeli
+    uses: ./.github/workflows/model-export.yml
+    with:
+      tag: asr-model-v2
+
+  synth:
+    name: Sentetik kayitlar + degerlendirme
+    needs: model
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MODEL_TAG: asr-model-v2
+      TILAVET_ASSETS_DIR: ${{ github.workspace }}/android-assets-staged
+      RECITERS: ${{ inputs.reciters || 'Alafasy_128kbps,Saood_ash-Shuraym_128kbps' }}
+      PROGRAMS: ${{ inputs.programs || 'namaz2,teravih8,hatim4' }}
+      SEED: ${{ inputs.seed || '1' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python bagimliliklari
+        run: pip install rapidfuzz numpy onnxruntime sentencepiece soundfile soxr
+
+      - name: Kuran verisi cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/quran-align
+          key: quran-data-v2-${{ hashFiles('scripts/download_meal.py', 'scripts/download_surah_names.py') }}
+
+      - name: Kuran verisini indir
+        if: steps.quran-cache.outputs.cache-hit != 'true'
+        run: |
+          python -c "import sys; sys.path.insert(0, 'scripts'); from aligner import QuranCorpus; QuranCorpus.load()"
+          python scripts/download_meal.py
+          python scripts/download_surah_names.py
+
+      # actions/cache anahtarinda virgul olamaz → kari / program listesinin ozeti
+      - name: EveryAyah cache anahtari
+        id: ea-key
+        run: echo "key=everyayah-$(echo "$RECITERS-$PROGRAMS-$SEED" | md5sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+
+      - name: EveryAyah cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/everyayah
+          key: ${{ steps.ea-key.outputs.key }}
+          restore-keys: everyayah-
+
+      - name: Sentetik kayitlari uret
+        run: |
+          python tests/synth/build_synth.py --out synth --cache ~/.cache/everyayah \
+            --reciters "$RECITERS" --programs "$PROGRAMS" --seed "$SEED"
+          ls -la synth
+          # manifest log'a da (artifact indirilemeyen ortamlar icin; tests/trjson/*.manifest.json)
+          python -c "import json; print('MANIFEST ' + json.dumps(json.load(open('synth/manifest.json')), ensure_ascii=False))"
+
+      - name: ASR modelini release'ten indir
+        run: |
+          gh release download "$MODEL_TAG" -R "$GITHUB_REPOSITORY" -D model \
+            -p 'fastconformer_full.onnx' -p 'fastconformer_full.onnx.data' \
+            -p 'tokenizer.model' -p 'meta.json' -p 'rnnt_*.onnx'
+
+      - name: Degerlendirme (gercek ASR)
+        run: |
+          python scripts/eval_pipeline.py --model-dir model --audio synth/*.wav --manifest synth/manifest.json \
+            --chains rnnt,rnnt-hibrit --trjson-out synth/synth.trjson --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: quran.bin (Kotlin rekat sayaci icin)
+        run: python scripts/build_quran_assets.py
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "8.7"
+          cache-read-only: false
+
+      - name: Ayet duzeyinde olcum
+        run: |
+          python tests/synth/score_synth.py --trjson synth/synth.trjson --manifest synth/manifest.json \
+            --assets "$TILAVET_ASSETS_DIR" --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: TRJSON + manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: synth-trjson-s${{ env.SEED }}
+          path: |
+            synth/synth.trjson
+            synth/manifest.json
+          retention-days: 30

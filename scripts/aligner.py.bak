@@ -1,0 +1,191 @@
+"""
+Kuran metni hizalama modülü
+----------------------------
+Herhangi bir ASR (Whisper, NeMo, vs.) çıktısını Kuran metnine hizalar.
+ASR'den bağımsız — sadece metin alır, ayet pozisyonu döndürür.
+"""
+import json
+import re
+import sys
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+from rapidfuzz import fuzz
+
+# ---------------------------------------------------------------------------
+# Kuran metni veri kaynağı (ilk çalıştırmada indirir)
+# ---------------------------------------------------------------------------
+
+QURAN_JSON_URL = "https://api.alquran.cloud/v1/quran/quran-uthmani"
+CACHE_DIR = Path.home() / ".cache" / "quran-align"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+QURAN_CACHE = CACHE_DIR / "quran-uthmani.json"
+
+
+# ---------------------------------------------------------------------------
+# Arapça metin normalizasyonu
+# ---------------------------------------------------------------------------
+
+ARABIC_DIACRITICS = re.compile(
+    r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]"
+)
+NORMALIZATION_MAP = str.maketrans({
+    "أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا",
+    "ى": "ي", "ئ": "ي",
+    "ؤ": "و",
+    "ة": "ه",
+})
+
+
+def normalize_arabic(text: str) -> str:
+    """Hareke, tatvil ve benzerlerini temizle. Karşılaştırma için."""
+    text = ARABIC_DIACRITICS.sub("", text)
+    text = text.translate(NORMALIZATION_MAP)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+# ---------------------------------------------------------------------------
+# Kuran korpusu
+# ---------------------------------------------------------------------------
+
+@dataclass
+class QuranWord:
+    surah: int
+    ayah: int
+    word_index: int
+    text: str
+    normalized: str
+
+
+class QuranCorpus:
+    def __init__(self, words: List[QuranWord]):
+        self.words = words
+        self.normalized_tokens = [w.normalized for w in words]
+
+    @classmethod
+    def load(cls) -> "QuranCorpus":
+        if not QURAN_CACHE.exists():
+            print(f"Kuran metni indiriliyor: {QURAN_JSON_URL}", file=sys.stderr)
+            urllib.request.urlretrieve(QURAN_JSON_URL, QURAN_CACHE)
+
+        with open(QURAN_CACHE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        words: List[QuranWord] = []
+        for surah in data["data"]["surahs"]:
+            s_num = surah["number"]
+            for ayah in surah["ayahs"]:
+                a_num = ayah["numberInSurah"]
+                text = ayah["text"]
+                tokens = text.split()
+                for idx, tok in enumerate(tokens):
+                    norm = normalize_arabic(tok)
+                    if not norm:
+                        continue
+                    words.append(QuranWord(
+                        surah=s_num, ayah=a_num,
+                        word_index=idx, text=tok, normalized=norm,
+                    ))
+        print(f"Kuran yüklendi: {len(words)} kelime", file=sys.stderr)
+        return cls(words)
+
+    def filter_surah(self, surah: int) -> "QuranCorpus":
+        filtered = [w for w in self.words if w.surah == surah]
+        return QuranCorpus(filtered)
+
+
+# ---------------------------------------------------------------------------
+# Hizalama
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AlignmentMatch:
+    start_word_idx: int
+    end_word_idx: int
+    score: float
+    recited_text: str
+
+
+def align_transcription(
+    transcription: str,
+    corpus: QuranCorpus,
+    window_slack: int = 5,
+    preferred_range: Optional[Tuple[int, int]] = None,
+    preferred_bonus: float = 8.0,
+    min_score_threshold: float = 40.0,
+) -> Optional[AlignmentMatch]:
+    """
+    Transkripsiyon metninin Kuran'da nereye denk geldiğini bulur.
+
+    preferred_range: Pozisyon belleği — son eşleşme yakın zamandaysa o bölgeye bonus
+    """
+    recited_tokens = [normalize_arabic(t) for t in transcription.split()]
+    recited_tokens = [t for t in recited_tokens if t]
+    if not recited_tokens:
+        return None
+
+    recited_joined = " ".join(recited_tokens)
+    n = len(recited_tokens)
+
+    best_score = -1.0
+    best_raw_score = -1.0
+    best_span: Tuple[int, int] = (0, 0)
+
+    for window_size in range(max(1, n - window_slack), n + window_slack + 1):
+        if window_size > len(corpus.normalized_tokens):
+            continue
+        for i in range(0, len(corpus.normalized_tokens) - window_size + 1):
+            candidate = " ".join(corpus.normalized_tokens[i : i + window_size])
+            partial = fuzz.partial_ratio(recited_joined, candidate)
+            sorted_ = fuzz.token_sort_ratio(recited_joined, candidate)
+            raw_score = 0.6 * partial + 0.4 * sorted_
+
+            score = raw_score
+            if preferred_range is not None:
+                ps, pe = preferred_range
+                if ps <= i <= pe:
+                    score = min(100.0, raw_score + preferred_bonus)
+
+            if score > best_score:
+                best_score = score
+                best_raw_score = raw_score
+                best_span = (i, i + window_size - 1)
+                if raw_score >= 98:
+                    return AlignmentMatch(
+                        start_word_idx=best_span[0],
+                        end_word_idx=best_span[1],
+                        score=raw_score,
+                        recited_text=transcription,
+                    )
+
+    if best_raw_score < min_score_threshold:
+        return None
+
+    return AlignmentMatch(
+        start_word_idx=best_span[0],
+        end_word_idx=best_span[1],
+        score=best_raw_score,
+        recited_text=transcription,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Yardımcı — sonucu okunabilir şekilde formatla
+# ---------------------------------------------------------------------------
+
+def format_match(match: AlignmentMatch, corpus: QuranCorpus) -> str:
+    """Eşleşmeyi insan-okunabilir string olarak döndür."""
+    if not match:
+        return "(eşleşme yok)"
+    words = corpus.words[match.start_word_idx : match.end_word_idx + 1]
+    start = words[0]
+    end = words[-1]
+    if start.surah == end.surah and start.ayah == end.ayah:
+        loc = f"Sure {start.surah}:{start.ayah} (kelime {start.word_index+1}-{end.word_index+1})"
+    else:
+        loc = f"Sure {start.surah}:{start.ayah} → {end.surah}:{end.ayah}"
+    matched_text = " ".join(w.text for w in words)
+    return f"{loc}\n  {matched_text}\n  (skor: {match.score:.1f}/100)"

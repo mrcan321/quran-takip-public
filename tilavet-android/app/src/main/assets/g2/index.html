@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tilavet Takip · G2</title>
+<style>
+  /* Even uygulamasinda telefondaki sayfa: baglanti durumu + gozlukte gorunenin onizlemesi */
+  :root { --bg: #f8f2e6; --ink: #0e2a1f; --green: #1d5a3d; --gold: #9c7838; --dim: #6b6b5e; --hud: #0b130f; --hudtext: #7dfc9a; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+  header { background: var(--ink); color: #f1e8d7; padding: 16px; border-bottom: 2px solid #c6a15b; }
+  header h1 { margin: 0; font: 600 20px/1.2 Georgia, serif; }
+  header p { margin: 4px 0 0; color: #c6a15b; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+  main { padding: 16px; max-width: 640px; margin: 0 auto; }
+  #link { font-weight: 600; margin: 0 0 4px; }
+  #link.ok { color: var(--green); }
+  #link.wait { color: #a5532a; }
+  #glasses { color: var(--dim); font-size: 13px; margin: 0 0 6px; }
+  #diag { color: var(--dim); font: 11px/1.4 ui-monospace, monospace; margin: 0 0 10px; word-break: break-all; }
+  #direct { display: none; margin: 0 0 14px; padding: 10px 14px; border: 0; border-radius: 10px; background: var(--green);
+    color: #fff; font: 600 14px system-ui, sans-serif; }
+  .hud { background: var(--hud); border-radius: 14px; padding: 10px 12px; box-shadow: 0 6px 18px rgba(29, 90, 61, .25); }
+  .hud pre { margin: 0; white-space: pre-wrap; font: 14px/1.45 ui-monospace, monospace; color: var(--hudtext); }
+  #pv-hdr { opacity: .8; margin-bottom: 6px !important; }
+  #pv-ar { display: none; width: 100%; max-width: 576px; image-rendering: pixelated; margin: 4px 0 6px; }
+  #pv-big { display: none; width: 100%; max-width: 576px; filter: sepia(1) hue-rotate(70deg) saturate(4); }
+  h2 { font: 600 15px/1.3 Georgia, serif; color: var(--gold); margin: 22px 0 6px; }
+  ol { padding-left: 20px; margin: 0; }
+  li { margin: 4px 0; }
+  code { background: #efe5d2; padding: 1px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tilavet Takip · G2</h1>
+  <p>Okunan ayet ve meali gözlükte</p>
+</header>
+<main>
+  <p id="link" class="wait">Bağlanıyor…</p>
+  <p id="glasses">Gözlük bekleniyor…</p>
+  <p id="diag"></p>
+  <button id="direct" type="button">Köprüye doğrudan bağlan</button>
+  <div class="hud">
+    <pre id="pv-hdr"></pre>
+    <canvas id="pv-ar" width="576" height="112"></canvas>
+    <canvas id="pv-big" width="576" height="288"></canvas>
+    <pre id="pv-body"></pre>
+  </div>
+  <h2>Nasıl kullanılır</h2>
+  <ol>
+    <li>Telefonda Tilavet Takip → Ayarlar → <b>G2 GÖZLÜK: AÇIK</b>. <b>G2 YAZI: BÜYÜK</b> (varsayılan) sadece meali sığan
+      en büyük yazıyla gösterir; <b>NORMAL</b> başlık + daha çok satır; <b>G2'DE ARAPÇA</b> ayet metnini de çizer.</li>
+    <li>Bu eklenti açıkken Tilavet Takip'e dönüp mikrofona basın; telefon cebe girebilir, ekran kapanabilir.</li>
+    <li>Gözlükte uzun meal birkaç sayfa ise sayfalar imam okudukça ilerler; dokunmatik yüzeyde kaydırarak
+      önceki / sonraki sayfa.</li>
+  </ol>
+  <h2>Köprü</h2>
+  <p>Uygulama bu bilgiyi telefonun içinde <code>http://localhost:18765</code> adresinden verir; internet gerekmez.</p>
+</main>
+<script type="module" src="./boot.js"></script>
+</body>
+</html>

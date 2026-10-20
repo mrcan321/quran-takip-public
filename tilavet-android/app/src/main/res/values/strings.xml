@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tilavet Takip</string>
+    <string name="status_ready">Hazır</string>
+    <string name="status_waiting">Bekleniyor</string>
+    <string name="status_listening">Dinleniyor</string>
+    <string name="status_stopped">Durduruldu</string>
+    <string name="status_surah_end">Sure sonu</string>
+    <string name="empty_title">Tilavet Takip</string>
+    <string name="empty_subtitle">Başlatmak için mikrofona dokun</string>
+    <string name="permission_title">Mikrofon İzni</string>
+    <string name="permission_message">Tilavet takibi için mikrofon erişimi gerekli. Ses kaydı sadece yerel olarak işlenir, internete gönderilmez.</string>
+    <string name="permission_grant">İzin ver</string>
+    <string name="permission_settings">Ayarlardan aç</string>
+    <string name="settings_title">Ayarlar</string>
+    <string name="settings_close">Kapat</string>
+    <string name="settings_theme">TEMA</string>
+    <string name="settings_arabic_size">ARAPÇA YAZI BOYUTU</string>
+    <string name="settings_meal_size">TÜRKÇE MEAL BOYUTU</string>
+    <string name="settings_motion">HAREKET / ANİMASYON</string>
+    <string name="settings_idle_opacity">ESKİ AYET SOLUKLUĞU</string>
+    <string name="motion_none">Yok</string>
+    <string name="motion_subtle">Az</string>
+    <string name="motion_full">Tam</string>
+    <string name="meta_surah">SURE</string>
+    <string name="meta_confidence">GÜVEN</string>
+    <string name="meta_audio">SES</string>
+    <string name="theme_dark">Karanlık</string>
+    <string name="theme_night">Gece</string>
+    <string name="theme_ink">Mürekkep</string>
+    <string name="theme_light">Gündüz</string>
+    <string name="theme_sefa">Sefa</string>
+    <string name="theme_yesim">Yeşim</string>
+    <string name="theme_bordo">Bordo</string>
+</resources>

@@ -1,0 +1,120 @@
+name: ASR model export
+
+# NeMo → ONNX export (scripts/onnx_full_export.py) ve GitHub Release'e yukleme.
+# Tag'de model varsa hicbir sey yapmaz (force ile yeniden export edilir).
+#   android.yml → APK'nin kullandigi tag
+#   eval.yml    → degerlendirmenin kullandigi tag
+# Export script'i degisince yeni tag kullan (asr-model-v1, v2, ...) — eski APK'lar eski tag'le calismaya devam eder.
+#   asr-compare.yml → ASR model yarisinin adaylari (asr-cand-*): baska hibrit model (model_name) ve / veya INT8 (quantize)
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      force:
+        type: boolean
+        default: false
+      model_name:
+        type: string
+        default: ""
+      quantize:
+        type: string
+        default: "none"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (orn. asr-model-v2)"
+        type: string
+        required: true
+      force:
+        description: "Tag'de model olsa bile yeniden export et (ustune yazar)"
+        type: boolean
+        default: false
+      model_name:
+        description: "NeMo hibrit model (bos = nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0; HF org/ad, .nemo URL'si)"
+        type: string
+        default: ""
+      quantize:
+        description: "none / int8 (ana graph'in MatMul/Gemm agirliklari)"
+        type: string
+        default: "none"
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    name: Export (${{ inputs.tag }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MODEL_TAG: ${{ inputs.tag }}
+      FORCE_EXPORT: ${{ inputs.force }}
+      MODEL_NAME: ${{ inputs.model_name || 'nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0' }}
+      QUANTIZE: ${{ inputs.quantize || 'none' }}
+    steps:
+      - name: Release'te model var mi?
+        id: check
+        run: |
+          if [ "$FORCE_EXPORT" = "true" ]; then
+            echo "Yeniden export istendi"
+            echo "export=true" >> "$GITHUB_OUTPUT"
+          elif gh release view "$MODEL_TAG" -R "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' 2>/dev/null \
+               | grep -qx 'fastconformer_full.onnx.data'; then
+            echo "Model release'te mevcut ($MODEL_TAG), export atlaniyor"
+            echo "export=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Model release'te yok ($MODEL_TAG) — NeMo'dan export edilecek (~5-10 dk)"
+            echo "export=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.check.outputs.export == 'true'
+        uses: actions/checkout@v5
+
+      - name: Disk alani ac
+        if: steps.check.outputs.export == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - if: steps.check.outputs.export == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Export bagimliliklari
+        if: steps.check.outputs.export == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.11.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r scripts/requirements-export.txt
+          pip list 2>/dev/null | grep -Ei '^(torch|nemo|onnx|onnxscript|onnxruntime|numpy|librosa|sentencepiece) '
+
+      - name: NeMo → ONNX export
+        if: steps.check.outputs.export == 'true'
+        run: python scripts/onnx_full_export.py --out-dir model-out --model-name "$MODEL_NAME" --quantize "$QUANTIZE"
+
+      - name: Modeli release'e yukle
+        if: steps.check.outputs.export == 'true'
+        run: |
+          if ! gh release view "$MODEL_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$MODEL_TAG" -R "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "ASR modeli ($MODEL_TAG)" \
+              --notes "NeMo $MODEL_NAME → ONNX (quantize: $QUANTIZE). scripts/onnx_full_export.py ile CI'da uretildi. Rapor: export_report.txt" \
+              --latest=false
+          fi
+          FILES="model-out/fastconformer_full.onnx model-out/fastconformer_full.onnx.data model-out/tokenizer.model model-out/meta.json model-out/export_report.txt"
+          for f in model-out/rnnt_decoder.onnx model-out/rnnt_joint.onnx; do
+            if [ -f "$f" ]; then FILES="$FILES $f"; fi
+          done
+          # shellcheck disable=SC2086
+          gh release upload "$MODEL_TAG" -R "$GITHUB_REPOSITORY" --clobber $FILES
+          cat model-out/export_report.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Export raporu (hata durumunda)
+        if: failure() && steps.check.outputs.export == 'true'
+        run: cat model-out/export_report.txt 2>/dev/null || true

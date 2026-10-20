@@ -1,0 +1,11 @@
+{
+  "_aciklama": "ASR model yarisi (.github/workflows/asr-compare.yml, tests/asr_compare.py). Bu dosya degisince CI adaylari export edip ayni kayitlarla olcer. tag: release adi (asr-cand-*), model: NeMo hibrit model (bos = NVIDIA temel modeli; HF org/ad ya da .nemo URL'si), quantize: none / int8. sets: data (data/*.wav + server/recordings), ext-v1 / ext-v2 (dis kaynak gercek kayitlar), synth (sentetik; EveryAyah ile egitilmis adaylarda sizinti var — Alafasy / Husary / Sureym).",
+  "base": "asr-model-v2",
+  "sets": ["data", "ext-v1", "ext-v2"],
+  "candidates": [
+    {"tag": "asr-model-v2", "model": "", "quantize": "none", "not": "simdiki model (APK)"},
+    {"tag": "asr-cand-int8", "model": "", "quantize": "int8", "not": "simdiki model, kodlayici agirliklari INT8"},
+    {"tag": "asr-cand-quran-msy", "model": "msyukriafifi/fastconformer-quran-ar", "quantize": "none",
+     "not": "ayni temel modelin Kur'an ince ayari (tarteel-ai/everyayah)"}
+  ]
+}

@@ -1,0 +1,109 @@
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ============================================================
+# ASR modelleri ve büyük binary asset'ler
+# ============================================================
+# Bunlar 400+ MB, GitHub max 100 MB dosya izin veriyor
+*.onnx
+*.onnx.data
+*.pt
+*.bin
+*.tflite
+tokenizer.model
+
+# NeMo model cache
+.cache/
+~/.cache/nemo/
+
+# ============================================================
+# Android build artifacts
+# ============================================================
+tilavet-android/build/
+tilavet-android/app/build/
+tilavet-android/.gradle/
+tilavet-android/.idea/
+tilavet-android/local.properties
+tilavet-android/output/
+tilavet-android/captures/
+*.iml
+*.apk
+*.aab
+*.ap_
+*.class
+*.dex
+
+# Kotlin
+.kotlin/
+
+# ============================================================
+# Asset staging (build_quran_assets.py runtime uretimi)
+# ============================================================
+android-assets-staged/
+android-assets/
+
+# Ancak APK icin gerekli olan kucuk asset'leri istisna tut
+# quran.bin ve meal.bin GitHub Actions'da yeniden uretilecek
+
+# ============================================================
+# Test fixtures (Python script'lerle regenerate edilebilir)
+# ============================================================
+fuzzy_test_fixture.json
+# aligner_test_fixture.json ve state_machine_fixture.json
+# android-assets-staged/ altinda zaten ignore edildi
+
+# ============================================================
+# Zip yedekler
+# ============================================================
+*.zip
+!scripts/*.zip
+
+# ============================================================
+# ONNX çalışma dizini (export sırasında oluşuyor)
+# ============================================================
+onnx/
+!scripts/onnx_*.py
+
+# ============================================================
+# Editor / OS
+# ============================================================
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.direnv/
+
+# ============================================================
+# Log dosyalari
+# ============================================================
+*.log
+logs/
+tilavet-log-*.txt
+
+# ============================================================
+# Server runtime
+# ============================================================
+server/uploads/
+server/data/
+server/*.db
+server/*.sqlite
+
+# ============================================================
+# Kuran / meal raw JSON'lar (indirilebilir, git'e girmemeli)
+# ============================================================
+# scripts/download_meal.py ve download_surah_names.py
+# bunlari ~/.cache/quran-align/ altina indiriyor, zaten ignore

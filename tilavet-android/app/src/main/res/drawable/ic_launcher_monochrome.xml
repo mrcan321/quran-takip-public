@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Namazda Anla logosu — tilavet-android/tools/gen_launcher_icon.py uretir, elle degistirme -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M24,54 A30,30 0 1,1 84,54 A30,30 0 1,1 24,54 Z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M44,53.2 L44,40.6 C44,35.6,47.6,33.9,50.6,32.8 C52.3,32.2,53.4,31.3,54,29.9 C54.6,31.3,55.7,32.2,57.4,32.8 C60.4,33.9,64,35.6,64,40.6 L64,53.2"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="3"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M54,35.2 C54.16,37.07,54.53,37.44,56.4,37.6 C54.53,37.76,54.16,38.13,54,40 C53.84,38.13,53.47,37.76,51.6,37.6 C53.47,37.44,53.84,37.07,54,35.2 Z"
+        android:fillColor="#FF000000" />
+    <path
+        android:pathData="M46.1,42.2 L49.6,41 L49.6,53 L46.1,53 Z"
+        android:fillColor="#FF000000" />
+    <path
+        android:pathData="M58.3,44.2 C59.2,43,60.6,42.1,61.9,41.7 L61.9,53 L58.3,53 Z"
+        android:fillColor="#FF000000" />
+    <path
+        android:pathData="M46.6,41.2 C51.6,42.6,57.6,47.2,62,53 L57.4,53 C54.6,49.4,50.8,46.4,47.2,45.4 C46.4,44.6,46.1,42.2,46.6,41.2 Z"
+        android:fillColor="#FF000000" />
+    <path
+        android:pathData="M30.6,52.4 L77.4,52.4 C78.6,52.4,79,53.4,78.5,54.4 L77.6,57 L75.6,57 L75.9,55.2 L32.1,55.2 L32.4,57 L30.4,57 L29.5,54.4 C29,53.4,29.4,52.4,30.6,52.4 Z"
+        android:fillColor="#FF000000" />
+    <path
+        android:pathData="M33.2,54.8 C32.9,59.6,35.4,63.4,40.6,63.4 C45.6,63.4,48.6,61.2,50.6,57.8 L52.4,55.2"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M74.8,54.8 C75.1,59.6,72.6,63.4,67.4,63.4 C62.4,63.4,59.4,61.2,57.4,57.8 L55.6,55.2"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M49.8,54.8 C51.6,55.4,52.8,56.4,54,57.6 C55.2,56.4,56.4,55.4,58.2,54.8"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M32.6,62.4 C39.6,63.8,46.8,67,53.4,72 C46.4,69.4,39.4,66.6,32.6,65.2 C31.6,65,31.4,62.6,32.6,62.4 Z"
+        android:fillColor="#FF000000" />
+    <path
+        android:pathData="M30.6,66.2 C38.4,66.7,46.6,70.4,54,77.8 C46,73.2,38,69.6,30.8,69.2 C29.8,69,29.6,66.4,30.6,66.2 Z"
+        android:fillColor="#FF000000" />
+    <path
+        android:pathData="M75.4,62.4 C68.4,63.8,61.2,67,54.6,72 C61.6,69.4,68.6,66.6,75.4,65.2 C76.4,65,76.6,62.6,75.4,62.4 Z"
+        android:fillColor="#FF000000" />
+    <path
+        android:pathData="M77.4,66.2 C69.6,66.7,61.4,70.4,54,77.8 C62,73.2,70,69.6,77.2,69.2 C78.2,69,78.4,66.4,77.4,66.2 Z"
+        android:fillColor="#FF000000" />
+</vector>

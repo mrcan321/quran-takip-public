@@ -1,0 +1,281 @@
+{
+  "replay": {
+    "rnnt": {
+      "first_ok": 19,
+      "first_wrong": 0,
+      "first_none": 0,
+      "first_median": 10.0,
+      "first_mean": 9.74,
+      "sections": 57,
+      "sections_locked": 57,
+      "delay_median": 6.0,
+      "delay_mean": 7.41,
+      "wrong_chunks": 0,
+      "shown_wrong": 0
+    },
+    "rnnt-hibrit": {
+      "first_ok": 19,
+      "first_wrong": 0,
+      "first_none": 0,
+      "first_median": 10.0,
+      "first_mean": 9.74,
+      "sections": 57,
+      "sections_locked": 57,
+      "delay_median": 5.3,
+      "delay_mean": 7.41,
+      "wrong_chunks": 0,
+      "shown_wrong": 0
+    }
+  },
+  "stress": {
+    "rnnt": {
+      "S1": {
+        "sections": 33,
+        "sections_locked": 33,
+        "delay_median": 6.0,
+        "delay_mean": 6.2,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "S2": {
+        "sections": 16,
+        "sections_locked": 3,
+        "delay_median": 55.0,
+        "delay_mean": 51.67,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "S3": {
+        "sections": 43,
+        "sections_locked": 43,
+        "delay_median": 6.0,
+        "delay_mean": 6.9,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "S4": {
+        "sections": 285,
+        "sections_locked": 279,
+        "delay_median": 6.0,
+        "delay_mean": 8.46,
+        "wrong_chunks": 13,
+        "shown_wrong": 13
+      },
+      "S5": {
+        "sections": 285,
+        "sections_locked": 283,
+        "delay_median": 6.0,
+        "delay_mean": 7.54,
+        "wrong_chunks": 4,
+        "shown_wrong": 0
+      }
+    },
+    "rnnt-hibrit": {
+      "S1": {
+        "sections": 33,
+        "sections_locked": 33,
+        "delay_median": 5.0,
+        "delay_mean": 6.06,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "S2": {
+        "sections": 16,
+        "sections_locked": 3,
+        "delay_median": 51.6,
+        "delay_mean": 50.8,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "S3": {
+        "sections": 43,
+        "sections_locked": 43,
+        "delay_median": 6.0,
+        "delay_mean": 7.01,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "S4": {
+        "sections": 285,
+        "sections_locked": 277,
+        "delay_median": 6.0,
+        "delay_mean": 9.08,
+        "wrong_chunks": 16,
+        "shown_wrong": 13
+      },
+      "S5": {
+        "sections": 285,
+        "sections_locked": 284,
+        "delay_median": 5.3,
+        "delay_mean": 7.39,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      }
+    }
+  },
+  "compose": {
+    "rnnt": {
+      "teravih": {
+        "sections": 40,
+        "sections_locked": 40,
+        "delay_median": 6.0,
+        "delay_mean": 6.92,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "hatimle": {
+        "sections": 4,
+        "sections_locked": 4,
+        "delay_median": 8.5,
+        "delay_mean": 9.75,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "4_rekatli": {
+        "sections": 4,
+        "sections_locked": 4,
+        "delay_median": 6.5,
+        "delay_mean": 6.25,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      }
+    },
+    "rnnt-hibrit": {
+      "teravih": {
+        "sections": 40,
+        "sections_locked": 40,
+        "delay_median": 5.0,
+        "delay_mean": 7.57,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "hatimle": {
+        "sections": 4,
+        "sections_locked": 4,
+        "delay_median": 10.0,
+        "delay_mean": 9.45,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "4_rekatli": {
+        "sections": 4,
+        "sections_locked": 4,
+        "delay_median": 8.9,
+        "delay_mean": 8.85,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      }
+    }
+  },
+  "signals": {
+    "signal_false_alarms": 0,
+    "kamet_detected": 45,
+    "selam_detected": 53,
+    "ruku_detected": 36,
+    "texts_scanned": 3973,
+    "ezan_detected": 0
+  },
+  "app": {
+    "app_diffs": 0,
+    "chunks": 5539
+  },
+  "kotlin": {
+    "fuzzy_passed": 51,
+    "fuzzy_total": 51,
+    "aligner_passed": 41,
+    "aligner_total": 43,
+    "state_machine_passed": 289,
+    "state_machine_total": 289,
+    "fixture_failures": 0,
+    "kotlin_trace_diffs": 0,
+    "kotlin_trace_recordings": 266,
+    "golden_diffs": 0,
+    "rakat_errors": 0,
+    "namaz_errors": 0,
+    "chunk_diffs": 0,
+    "chunk_cases": 74,
+    "wav_diffs": 0,
+    "wav_cases": 25,
+    "synth_rakat_errors": 2,
+    "synth_namaz_errors": 4,
+    "ext_ezan_opened": 6,
+    "ext_ezan_false_opened": 0,
+    "ext_rakat_errors": 0,
+    "zikir_false_alarms": 0,
+    "zikir_shown": 290,
+    "glasses_passed": 60,
+    "glasses_total": 60,
+    "glasses_failures": 0,
+    "hide_false": 0,
+    "hide_missing": 0,
+    "hide_latency_median": 7.0,
+    "hide_latency_max": 21.0
+  },
+  "synth": {
+    "rnnt": {
+      "ayahs": 337,
+      "ayah_followed": 298,
+      "ayah_follow_pct": 88.4,
+      "ayah_latency_median": 5.17,
+      "ayah_wrong_shown": 0,
+      "sections": 56,
+      "sections_locked": 56,
+      "delay_median": 4.65,
+      "wrong_chunks": 0
+    },
+    "rnnt-hibrit": {
+      "ayahs": 337,
+      "ayah_followed": 309,
+      "ayah_follow_pct": 91.7,
+      "ayah_latency_median": 5.03,
+      "ayah_wrong_shown": 1,
+      "sections": 56,
+      "sections_locked": 56,
+      "delay_median": 4.6,
+      "wrong_chunks": 1
+    }
+  },
+  "external": {
+    "rnnt": {
+      "first_ok": 56,
+      "first_wrong": 0,
+      "first_none": 1,
+      "first_median": 10.0,
+      "first_mean": 10.27,
+      "sections": 70,
+      "sections_locked": 69,
+      "delay_median": 10.0,
+      "delay_mean": 10.01,
+      "wrong_chunks": 0,
+      "shown_wrong": 0
+    },
+    "rnnt-hibrit": {
+      "first_ok": 56,
+      "first_wrong": 0,
+      "first_none": 1,
+      "first_median": 10.0,
+      "first_mean": 10.27,
+      "sections": 70,
+      "sections_locked": 69,
+      "delay_median": 10.0,
+      "delay_mean": 10.29,
+      "wrong_chunks": 0,
+      "shown_wrong": 0
+    },
+    "signals": {
+      "signal_false_alarms": 1,
+      "kamet_detected": 0,
+      "selam_detected": 0,
+      "ruku_detected": 0,
+      "ezan_detected": 50,
+      "texts_scanned": 6382
+    }
+  },
+  "g2": {
+    "g2_passed": 15,
+    "g2_failures": 0,
+    "dropped_chars": 0,
+    "g2_meals": 6236,
+    "g2_max_pages": 4
+  }
+}

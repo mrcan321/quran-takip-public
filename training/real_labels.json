@@ -1,0 +1,49 @@
+{
+  "_aciklama": "Gercek cami kayitlarinin (data/*.wav) egitim etiketleri. split: train = ince ayara girer, test = sadece olcum (egitime ve gurultu havuzuna girmez). segments: Kuran okumasi (surah + ayahs [ilk, son]; Hanefi: Fatiha'da besmele sessiz → 1:2'den) — Asama B'de temel modelin CTC'siyle zorla hizalanip kelime sinirindan 4-15 sn parcalara bolunur, hizalama puani dusukse atilir. kamet: [bas, son] sn — kanonik kamet metniyle hizalanir. phrases: [bas, son, metin] (tekbir / semiallah / selam / dua, kanonik metin). negatives: [bas, son] — etiketi BOS olacak bolumler (Turkce vaaz, gurultu; icinde Arapca zikir OLMAMALI). Zamanlar eval_pipeline TIMELINE'i + kelime zamanli transkriptten. Ilk 6 kayit (ayni imam) test: egitim yeni tarihli kayitlardan, her 4. yeni kayit da test.",
+  "kamet_text": "اللَّهُ أَكْبَرُ اللَّهُ أَكْبَرُ اللَّهُ أَكْبَرُ اللَّهُ أَكْبَرُ أَشْهَدُ أَنْ لَا إِلَٰهَ إِلَّا اللَّهُ أَشْهَدُ أَنْ لَا إِلَٰهَ إِلَّا اللَّهُ أَشْهَدُ أَنَّ مُحَمَّدًا رَسُولُ اللَّهِ أَشْهَدُ أَنَّ مُحَمَّدًا رَسُولُ اللَّهِ حَيَّ عَلَى الصَّلَاةِ حَيَّ عَلَى الصَّلَاةِ حَيَّ عَلَى الْفَلَاحِ حَيَّ عَلَى الْفَلَاحِ قَدْ قَامَتِ الصَّلَاةُ قَدْ قَامَتِ الصَّلَاةُ اللَّهُ أَكْبَرُ اللَّهُ أَكْبَرُ لَا إِلَٰهَ إِلَّا اللَّهُ",
+  "phrase_texts": {
+    "tekbir": "اللَّهُ أَكْبَرُ",
+    "semiallah": "سَمِعَ اللَّهُ لِمَنْ حَمِدَهُ",
+    "rabbena": "رَبَّنَا لَكَ الْحَمْدُ",
+    "selam": "السَّلَامُ عَلَيْكُمْ وَرَحْمَةُ اللَّهِ",
+    "dua": "اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ",
+    "amin": "آمِينَ"
+  },
+  "files": {
+    "namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav": {
+      "date": "2026-09-27", "namaz": "aksam", "imam": "imam-1", "split": "test",
+      "segments": [{"start": 18, "end": 56, "surah": 1, "ayahs": [2, 7]}, {"start": 56, "end": 101, "surah": 99, "ayahs": [1, 8]},
+                   {"start": 138, "end": 175, "surah": 1, "ayahs": [2, 7]}, {"start": 175, "end": 210, "surah": 109, "ayahs": [1, 6]}]
+    },
+    "namaz_aksam2_fatiha_rad_fatiha_ibrahim.wav": {
+      "date": "2026-10-01", "namaz": "aksam", "imam": "imam-1", "split": "test",
+      "segments": [{"start": 11, "end": 47, "surah": 1, "ayahs": [2, 7]}, {"start": 53, "end": 151, "surah": 13, "ayahs": [38, 43]},
+                   {"start": 199, "end": 238, "surah": 1, "ayahs": [2, 7]}, {"start": 238, "end": 295, "surah": 14, "ayahs": [1, 3]}]
+    },
+    "namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav": {
+      "date": "2026-10-02", "namaz": "cuma", "imam": "imam-1", "split": "test",
+      "kamet": [6, 56],
+      "segments": [{"start": 82, "end": 117, "surah": 1, "ayahs": [2, 7]}, {"start": 117, "end": 166, "surah": 21, "ayahs": [102, 104]},
+                   {"start": 215, "end": 249, "surah": 1, "ayahs": [2, 7]}, {"start": 249, "end": 284, "surah": 94, "ayahs": [1, 8]}]
+    },
+    "namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav": {
+      "date": "2026-10-09", "namaz": "cuma", "imam": "imam-1", "split": "test",
+      "kamet": [0, 35],
+      "segments": [{"start": 60, "end": 96, "surah": 1, "ayahs": [2, 7]}, {"start": 96, "end": 141, "surah": 102, "ayahs": [1, 8]},
+                   {"start": 189, "end": 223, "surah": 1, "ayahs": [2, 7]}, {"start": 223, "end": 245, "surah": 103, "ayahs": [1, 3]}]
+    },
+    "namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav": {
+      "date": "2026-10-16", "namaz": "cuma", "imam": "imam-1", "split": "test",
+      "kamet": [10, 45],
+      "segments": [{"start": 82, "end": 118, "surah": 1, "ayahs": [2, 7]}, {"start": 118, "end": 143, "surah": 113, "ayahs": [1, 5]},
+                   {"start": 192, "end": 226, "surah": 1, "ayahs": [2, 7]}, {"start": 226, "end": 250, "surah": 114, "ayahs": [1, 6]}]
+    },
+    "namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav": {
+      "date": "2026-10-19", "namaz": "yatsi", "imam": "imam-1", "split": "test",
+      "kamet": [684, 735],
+      "segments": [{"start": 744, "end": 776, "surah": 1, "ayahs": [2, 7]}, {"start": 776, "end": 855, "surah": 7, "ayahs": [51, 53]},
+                   {"start": 892, "end": 930, "surah": 1, "ayahs": [2, 7]}, {"start": 930, "end": 980, "surah": 7, "ayahs": [54, 55]}],
+      "negatives": [[36, 332], [352, 422], [452, 683]]
+    }
+  }
+}

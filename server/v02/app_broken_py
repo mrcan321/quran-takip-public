@@ -1,0 +1,413 @@
+"""
+v0.2 — Gün 3: Session state + preferred_range + sure isimleri
+---------------------------------------------------------------
+Gelişmeler:
+- Chunk 4 saniye (daha fazla bağlam, daha az yanlış pozitif)
+- Session state: son eşleşme pozisyonu + ayetel tracking
+- Preferred_range: önceki eşleşmeye yakın yerler tercih edilir
+- Minimum 3 kelime filtresi (tek kelime Kuran'da çok yerde geçer)
+- Ses enerjisi kontrolü: sessiz chunk'ları NeMo'ya verme
+- Sure isimleri: Türkçe + Arapça
+"""
+import json
+import sys
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional, Tuple
+
+import numpy as np
+import soundfile as sf
+from flask import Flask, render_template, request
+from flask_sock import Sock
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from aligner import (
+    QuranCorpus, align_transcription, normalize_arabic,
+)
+
+import nemo.collections.asr as nemo_asr
+
+# --- Konfigürasyon ---
+SAMPLE_RATE = 16000
+CHUNK_DURATION_SEC = 4.0          # 3 → 4: daha fazla kelime, daha güvenli match
+OVERLAP_DURATION_SEC = 0.7        # 0.5 → 0.7: kelime sınırı koruması
+CHUNK_SAMPLES = int(SAMPLE_RATE * CHUNK_DURATION_SEC)
+OVERLAP_SAMPLES = int(SAMPLE_RATE * OVERLAP_DURATION_SEC)
+
+# Ses enerjisi eşiği — bundan düşükse ASR'ye bile gönderme
+MIN_RMS_ENERGY = 0.005            # ~-46 dBFS
+# Minimum transkripsiyon uzunluğu — tek kelime Kuran'da onlarca yerde geçer
+MIN_WORD_COUNT = 3
+# Güven eşiği
+MIN_CONFIDENCE = 50               # 40 → 50: daha katı
+
+# Preferred range — son eşleşmeden kaç kelime ileri/geriye bak
+PREFERRED_WINDOW = 60             # son pozisyondan +60 kelime (yaklaşık 3-5 ayet)
+PREFERRED_BONUS = 30              # bu bölgedeki eşleşmelere +20 puan
+PREFERRED_BACKWARD_TOLERANCE = 0
+# Ardışık kaç chunk kayıp olunca pozisyonu sıfırla
+RESET_AFTER_LOST_CHUNKS = 3
+MAX_GAP_FILL = 3
+
+MODEL_NAME = "nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0"
+
+RECORDINGS_DIR = Path(__file__).parent / "recordings"
+RECORDINGS_DIR.mkdir(exist_ok=True)
+
+CACHE_DIR = Path.home() / ".cache" / "quran-align"
+MEAL_CACHE = CACHE_DIR / "meal-tr-diyanet.json"
+SURAH_NAMES_CACHE = CACHE_DIR / "surah-names.json"
+
+app = Flask(__name__)
+sock = Sock(app)
+
+# --- Bir kez yükle ---
+print("NeMo yükleniyor...", file=sys.stderr)
+_t0 = time.time()
+ASR_MODEL = nemo_asr.models.EncDecHybridRNNTCTCBPEModel.from_pretrained(
+    model_name=MODEL_NAME,
+)
+ASR_MODEL = ASR_MODEL.to("cpu")
+ASR_MODEL.eval()
+ASR_MODEL.change_decoding_strategy(decoder_type="rnnt")
+print(f"NeMo hazır ({time.time() - _t0:.1f} sn)", file=sys.stderr)
+
+print("Kuran korpusu yükleniyor...", file=sys.stderr)
+CORPUS = QuranCorpus.load()
+CORPUS_VOCAB = set(CORPUS.normalized_tokens)
+print("Korpus hazır.", file=sys.stderr)
+
+print("Meal yükleniyor...", file=sys.stderr)
+if not MEAL_CACHE.exists():
+    print(f"HATA: Meal cache yok: {MEAL_CACHE}", file=sys.stderr)
+    print("Önce: python scripts/download_meal.py", file=sys.stderr)
+    sys.exit(1)
+with open(MEAL_CACHE, "r", encoding="utf-8") as f:
+    MEALS = json.load(f)
+print(f"Meal hazır: {len(MEALS)} ayet", file=sys.stderr)
+
+print("Sure isimleri yükleniyor...", file=sys.stderr)
+if not SURAH_NAMES_CACHE.exists():
+    print(f"HATA: Sure isim cache yok: {SURAH_NAMES_CACHE}", file=sys.stderr)
+    print("Önce: python scripts/download_surah_names.py", file=sys.stderr)
+    sys.exit(1)
+with open(SURAH_NAMES_CACHE, "r", encoding="utf-8") as f:
+    SURAH_NAMES = json.load(f)
+print(f"Sure isimleri hazır: {len(SURAH_NAMES)} sure", file=sys.stderr)
+
+
+@dataclass
+class SessionState:
+    """Bir WebSocket oturumunun hafızası."""
+    last_word_index: Optional[int] = None      # Kuran korpusunda son pozisyon
+    last_surah: Optional[int] = None
+    last_ayah: Optional[int] = None
+    lost_chunks: int = 0                        # ardışık başarısız chunk sayısı
+    total_chunks: int = 0
+    matched_chunks: int = 0
+
+
+def compute_rms(audio_np: np.ndarray) -> float:
+    """Ses enerjisi (RMS) — 0-1 arası."""
+    if len(audio_np) == 0:
+        return 0.0
+    return float(np.sqrt(np.mean(audio_np ** 2)))
+
+
+def transcribe_chunk(audio_np: np.ndarray) -> str:
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        sf.write(tmp.name, audio_np, SAMPLE_RATE)
+        tmp_path = tmp.name
+
+    try:
+        output = ASR_MODEL.transcribe([tmp_path], verbose=False)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    if output and hasattr(output[0], "text"):
+        return output[0].text.strip()
+    if output and isinstance(output[0], str):
+        return output[0].strip()
+    if output and isinstance(output[0], list) and output[0]:
+        first = output[0][0]
+        return (first.text if hasattr(first, "text") else str(first)).strip()
+    return ""
+
+
+def score_transcription(text: str, match) -> Tuple[float, dict]:
+    tokens = [normalize_arabic(t) for t in text.split()]
+    tokens = [t for t in tokens if t]
+    if not tokens:
+        return 0.0, {"reason": "boş", "word_count": 0}
+
+    fuzzy = match.score if match else 0
+    in_vocab = sum(1 for t in tokens if t in CORPUS_VOCAB)
+    vocab_coverage = in_vocab / len(tokens)
+    unique_ratio = len(set(tokens)) / len(tokens)
+
+    max_consec = 1
+    c = 1
+    for i in range(1, len(tokens)):
+        if tokens[i] == tokens[i - 1]:
+            c += 1
+            max_consec = max(max_consec, c)
+        else:
+            c = 1
+
+    score = fuzzy * (vocab_coverage ** 0.5) * (unique_ratio ** 0.3)
+    reason = ""
+    if max_consec >= 3:
+        score *= 0.3
+        reason = f"{max_consec}x tekrar"
+    if vocab_coverage < 0.3:
+        score *= 0.5
+        reason = reason or f"vocab düşük ({vocab_coverage:.0%})"
+
+    return round(score, 1), {
+        "fuzzy": fuzzy,
+        "vocab_coverage": round(vocab_coverage, 2),
+        "word_count": len(tokens),
+        "reason": reason,
+    }
+
+
+def get_surah_info(surah_num: int) -> dict:
+    """Sure metadata — Türkçe + Arapça."""
+    info = SURAH_NAMES.get(str(surah_num), {})
+    return {
+        "number": surah_num,
+        "name_tr": info.get("turkish", f"Sure {surah_num}"),
+        "name_ar": info.get("arabic", ""),
+        "name_en": info.get("english", ""),
+    }
+
+
+def collect_verses(start_idx: int, end_idx: int):
+    seen = set()
+    verses = []
+    for i in range(start_idx, end_idx + 1):
+        w = CORPUS.words[i]
+        key = (w.surah, w.ayah)
+        if key not in seen:
+            seen.add(key)
+            verses.append(key)
+    return verses
+
+
+def build_verse_payload(surah: int, ayah: int):
+    arabic_words = [
+        w.text for w in CORPUS.words
+        if w.surah == surah and w.ayah == ayah
+    ]
+    arabic = " ".join(arabic_words)
+    meal = MEALS.get(f"{surah}:{ayah}", "")
+    surah_info = get_surah_info(surah)
+    return {
+        "surah": surah,
+        "ayah": ayah,
+        "surah_name_tr": surah_info["name_tr"],
+        "surah_name_ar": surah_info["name_ar"],
+        "arabic": arabic,
+        "meal": meal,
+    }
+
+
+def process_chunk(audio_np, chunk_index, state: SessionState):
+    """Ana chunk işleme fonksiyonu — session state kullanır."""
+    state.total_chunks += 1
+
+    result = {
+        "type": "chunk",
+        "index": chunk_index,
+    }
+
+    # Adım 1: Ses enerjisi kontrolü
+    rms = compute_rms(audio_np)
+    result["rms"] = round(rms, 4)
+
+    if rms < MIN_RMS_ENERGY:
+        result["status"] = "silent"
+        result["reason"] = f"sessiz (RMS={rms:.4f})"
+        return result
+
+    # Adım 2: Transkripsiyon
+    t0 = time.time()
+    text = transcribe_chunk(audio_np)
+    result["asr_time"] = round(time.time() - t0, 2)
+    result["text"] = text
+
+    if not text:
+        result["status"] = "empty"
+        state.lost_chunks += 1
+        return result
+
+    # Adım 3: Minimum kelime kontrolü
+    tokens = [normalize_arabic(t) for t in text.split() if t]
+    word_count = len([t for t in tokens if t])
+    if word_count < MIN_WORD_COUNT:
+        result["status"] = "too_short"
+        result["reason"] = f"{word_count} kelime (min {MIN_WORD_COUNT})"
+        state.lost_chunks += 1
+        return result
+
+    # Adım 4: Preferred range hesapla
+    preferred_range = None
+    if state.last_word_index is not None:
+        # Geriye gitme yasak — namazda imam hep ileri okur
+        preferred_range = (
+            state.last_word_index,
+            state.last_word_index + PREFERRED_WINDOW,
+        )
+    # Adım 5: Hizalama (preferred_range ile)
+    match = align_transcription(
+        text, CORPUS,
+        preferred_range=preferred_range,
+        preferred_bonus=PREFERRED_BONUS,
+    )
+    score, score_details = score_transcription(text, match)
+    result["confidence"] = score
+    result["word_count"] = score_details["word_count"]
+
+    # Preferred_range içinde mi?
+    in_preferred = False
+    if match and preferred_range:
+        ps, pe = preferred_range
+        if ps <= match.start_word_idx <= pe:
+            in_preferred = True
+    result["in_preferred"] = in_preferred
+
+    if score < MIN_CONFIDENCE or not match:
+        result["status"] = "low_confidence"
+        result["reason"] = score_details.get("reason") or f"skor {score}"
+        state.lost_chunks += 1
+        # Çok fazla ardışık kayıp varsa state'i sıfırla
+        if state.lost_chunks >= RESET_AFTER_LOST_CHUNKS:
+            state.last_word_index = None
+            state.last_surah = None
+            state.last_ayah = None
+            result["state_reset"] = True
+        return result
+
+    # Başarılı eşleşme
+# Başarılı eşleşme
+    verses = collect_verses(match.start_word_idx, match.end_word_idx)
+
+    # ARAYI DOLDURMA: son gösterilen ayet ile yeni ayet arasında boşluk varsa doldur
+    if verses and state.last_surah is not None and state.last_ayah is not None:
+        first_surah, first_ayah = verses[0]
+        # Sadece aynı sure içinde boşluk doldur (farklı sureye geçtiyse doldurma)
+        if first_surah == state.last_surah:
+            gap = first_ayah - state.last_ayah - 1
+            if 0 < gap <= MAX_GAP_FILL:
+                # Atlanan ayetleri başa ekle
+                filled = [(state.last_surah, state.last_ayah + i + 1)
+                          for i in range(gap)]
+                verses = filled + verses
+                result["gap_filled"] = gap
+
+    result["status"] = "matched"
+    result["verses"] = [build_verse_payload(s, a) for s, a in verses]
+
+    # Session state güncelle — son kelime pozisyonunu kaydet
+    state.last_word_index = match.end_word_idx
+    if verses:
+        state.last_surah, state.last_ayah = verses[-1]
+    state.lost_chunks = 0
+    state.matched_chunks += 1
+
+    return result
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@sock.route("/audio")
+def audio_ws(ws):
+    print(f"[WS] Bağlantı: {request.remote_addr}")
+
+    session_id = str(int(time.time()))
+    session_path = RECORDINGS_DIR / f"session_{session_id}.wav"
+    state = SessionState()
+
+    full_audio = []
+    chunk_buffer = []
+    chunk_buffer_samples = 0
+    chunk_index = 0
+    overlap_tail = np.array([], dtype=np.float32)
+
+    try:
+        while True:
+            msg = ws.receive()
+            if msg is None:
+                break
+
+            if isinstance(msg, str):
+                try:
+                    data = json.loads(msg)
+                    if data.get("type") == "stop":
+                        break
+                except json.JSONDecodeError:
+                    pass
+                continue
+
+            if not isinstance(msg, bytes):
+                continue
+
+            audio_np = np.frombuffer(msg, dtype=np.float32)
+            full_audio.append(audio_np)
+            chunk_buffer.append(audio_np)
+            chunk_buffer_samples += len(audio_np)
+
+            if chunk_buffer_samples >= CHUNK_SAMPLES:
+                current = np.concatenate([overlap_tail] + chunk_buffer)
+                process_len = min(len(current), CHUNK_SAMPLES + OVERLAP_SAMPLES)
+                to_process = current[:process_len]
+
+                overlap_tail = current[CHUNK_SAMPLES - OVERLAP_SAMPLES:CHUNK_SAMPLES]
+
+                result = process_chunk(to_process, chunk_index, state)
+                ws.send(json.dumps(result, ensure_ascii=False))
+
+                # Terminal log
+                if result["status"] == "matched":
+                    v = result["verses"]
+                    summary = ", ".join(
+                        f"{x['surah_name_tr']} {x['surah']}:{x['ayah']}"
+                        for x in v
+                    )
+                    pref_tag = " [tercihli]" if result.get("in_preferred") else ""
+                    gap_tag = f" [+{result['gap_filled']} ara]" if result.get("gap_filled") else ""
+                    print(f"[chunk {chunk_index}] ✓ {summary} "
+                          f"(güven {result['confidence']}, {result['asr_time']}sn){pref_tag}{gap_tag}")    
+            else:
+                    extra = ""
+                    if result.get("state_reset"):
+                        extra = " [STATE RESET]"
+                    text_preview = result.get('text', '')[:30]
+                    print(f"[chunk {chunk_index}] ⊘ {result['status']}"
+                          f"{' | ' + text_preview if text_preview else ''}{extra}")
+
+                chunk_index += 1
+                chunk_buffer = []
+                chunk_buffer_samples = 0
+
+    except Exception as e:
+        import traceback
+        print(f"[WS] Hata: {e}")
+        traceback.print_exc()
+
+    finally:
+        if full_audio:
+            full = np.concatenate(full_audio)
+            sf.write(str(session_path), full, SAMPLE_RATE)
+            duration = len(full) / SAMPLE_RATE
+            print(f"[WS] Oturum: {session_path.name} ({duration:.1f}sn, "
+                  f"{state.matched_chunks}/{state.total_chunks} chunk matched)")
+
+
+if __name__ == "__main__":
+    print(f"Kayıt dizini: {RECORDINGS_DIR}")
+    app.run(host="0.0.0.0", port=5000, debug=False)
