@@ -1,15 +1,14 @@
 name: Skor degerlendirmesi
 
 # Telefondaki zinciri (chunk → ONNX CTC ASR → aligner → skor) repodaki kayitlar uzerinde
-# calistirir: data/*.wav + server/recordings/*.wav. Esik/skor kalibrasyonu APK kurmadan yapilir.
+# calistirir: data/*.wav + server/recordings/*.wav (ozel repodan: tools/kayitlari_cek.sh). Esik/skor kalibrasyonu
+# APK kurmadan yapilir. Kayitlar bu repoda olmadigi icin push'ta data/** degisikligi tetiklemez; yeni kayitta elle.
 # Sonuc tablosu run ozetinde (Summary). Model: asr-model-v2 (CTC + RNNT parcalari); yoksa once export edilir.
 
 on:
   push:
     paths:
       - "scripts/**"
-      - "data/**"
-      - "server/recordings/**"
       - ".github/workflows/eval.yml"
   workflow_dispatch:
     inputs:
@@ -42,6 +41,7 @@ jobs:
     uses: ./.github/workflows/model-export.yml
     with:
       tag: asr-model-v2
+    secrets: inherit   # KAYIT_TOKEN: model release'i ozel repodan kopyalanabilsin
 
   # Elle: Turkce meal baskilari — hangisi ayet ayet ayrik (tr.diyanet ardisik ayetleri birlestirip tekrarliyor)
   meal:
@@ -67,6 +67,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
+
+      # Ses kayitlari bu (herkese acik) repoda yok: ozel repodan (tools/kayitlari_cek.sh, secret KAYIT_TOKEN)
+      - name: Ses kayitlari (ozel repo)
+        env:
+          KAYIT_TOKEN: ${{ secrets.KAYIT_TOKEN }}
+        run: bash tools/kayitlari_cek.sh
 
       - uses: actions/setup-python@v5
         with:

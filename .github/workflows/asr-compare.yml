@@ -51,6 +51,7 @@ jobs:
       tag: ${{ matrix.tag }}
       model_name: ${{ matrix.model }}
       quantize: ${{ matrix.quantize }}
+    secrets: inherit   # KAYIT_TOKEN: model release'i ozel repodan kopyalanabilsin
 
   evaluate:
     name: ASR (${{ matrix.tag }} · ${{ matrix.set }})
@@ -68,6 +69,13 @@ jobs:
       SET: ${{ matrix.set }}
     steps:
       - uses: actions/checkout@v5
+
+      # Ses kayitlari bu (herkese acik) repoda yok: ozel repodan (tools/kayitlari_cek.sh, secret KAYIT_TOKEN)
+      - name: Ses kayitlari (ozel repo)
+        if: matrix.set == 'data'
+        env:
+          KAYIT_TOKEN: ${{ secrets.KAYIT_TOKEN }}
+        run: bash tools/kayitlari_cek.sh
 
       - uses: actions/setup-python@v5
         with:
@@ -160,6 +168,12 @@ jobs:
       TAG: ${{ matrix.tag }}
     steps:
       - uses: actions/checkout@v5
+
+      # Ses kayitlari bu (herkese acik) repoda yok: ozel repodan (tools/kayitlari_cek.sh, secret KAYIT_TOKEN)
+      - name: Ses kayitlari (ozel repo)
+        env:
+          KAYIT_TOKEN: ${{ secrets.KAYIT_TOKEN }}
+        run: bash tools/kayitlari_cek.sh
 
       - uses: actions/setup-python@v5
         with:

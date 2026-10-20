@@ -85,7 +85,7 @@ jobs:
   gate:
     name: Test kapisi
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120   # hizalama onbellegi bosken (yeni repo / aligner.py degisince) ~45 dk; dolu ~20 dk
     env:
       TILAVET_ASSETS_DIR: ${{ github.workspace }}/android-assets-staged
     steps:

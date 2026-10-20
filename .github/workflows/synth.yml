@@ -35,6 +35,7 @@ jobs:
     uses: ./.github/workflows/model-export.yml
     with:
       tag: asr-model-v2
+    secrets: inherit   # KAYIT_TOKEN: model release'i ozel repodan kopyalanabilsin
 
   synth:
     name: Sentetik kayitlar + degerlendirme
@@ -50,6 +51,12 @@ jobs:
       SEED: ${{ inputs.seed || '1' }}
     steps:
       - uses: actions/checkout@v5
+
+      # Ses kayitlari bu (herkese acik) repoda yok: ozel repodan (tools/kayitlari_cek.sh, secret KAYIT_TOKEN)
+      - name: Ses kayitlari (ozel repo)
+        env:
+          KAYIT_TOKEN: ${{ secrets.KAYIT_TOKEN }}
+        run: bash tools/kayitlari_cek.sh
 
       - uses: actions/setup-python@v5
         with:
