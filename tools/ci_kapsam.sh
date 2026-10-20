@@ -9,7 +9,8 @@
 #
 # Kullanim: bash tools/ci_kapsam.sh <taban-commit> "<commit mesaji>" <varsayilan-dal> <olay>
 #   taban bos / 000.. / bilinmiyorsa varsayilan dalla ortak ataya gore; o da yoksa hepsi. Mesajda [tam-test] ya da olay
-#   workflow_dispatch → hepsi. GITHUB_OUTPUT varsa recog= g2= suites= oraya yazilir.
+#   workflow_dispatch → hepsi ([tam-test] sadece commit basliginda — govdede kurali anlatan yazi tetiklemesin).
+#   GITHUB_OUTPUT varsa recog= g2= suites= oraya yazilir.
 set -euo pipefail
 BASE="${1:-}"
 MSG="${2:-}"
@@ -20,7 +21,7 @@ HEAD_REF="${KAPSAM_HEAD:-HEAD}"   # denemek icin: KAPSAM_HEAD=<commit>
 ALL_SUITES="replay,stress,compose,external,synth,signals,app,kotlin,g2"
 G2_SUITES="g2,glasses"
 G2_RE='^(tilavet-android/app/src/main/assets/g2/|tilavet-android/app/src/main/java/com/tilavet/takip/glasses/|tilavet-android/g2-plugin/|tests/g2/|tests/jvm/src/main/kotlin/GlassesTests\.kt$|tests/lib/g2\.py$)'
-RECOG_RE='^(scripts/|server/|tests/|tilavet-android/app/src/main/java/com/tilavet/takip/(session|aligner|audio|asr)/|tools/(ci_kapsam|kayitlari_cek)\.sh$|\.github/workflows/tests\.yml$)'
+RECOG_RE='^(scripts/|server/|tests/|tilavet-android/app/src/main/java/com/tilavet/takip/(session|aligner|audio|asr)/|tools/kayitlari_cek\.sh$|\.github/workflows/tests\.yml$)'
 
 out() {
   echo "recog=$1"; echo "g2=$2"; echo "suites=$3"
@@ -29,7 +30,8 @@ out() {
   fi
 }
 
-if [ "$EVENT" = workflow_dispatch ] || [[ "$MSG" == *"[tam-test]"* ]]; then
+SUBJECT="${MSG%%$'\n'*}"
+if [ "$EVENT" = workflow_dispatch ] || [[ "$SUBJECT" == *"[tam-test]"* ]]; then
   echo "kapsam: hepsi ($EVENT${MSG:+, mesaj})"
   out true true "$ALL_SUITES"
   exit 0

@@ -1377,8 +1377,10 @@ Log export için gerekli. `xml/file_paths.xml` içinde `cache-path name="logs"` 
 
 **Build GitHub Actions'ta yapılır** (`.github/workflows/android.yml`) — yerel build yok.
 Her push'ta (tüm branch'ler; sadece `**.md` değişince değil), PR'da ve elle (`workflow_dispatch`) çalışır. **APK sadece onayla**
-(20.10'dan beri; kullanıcı: "taleplerimi biriktir, sonra sor, onay verirsem APK üret"): `model` + `apk` işleri commit mesajında
-`[apk]` varsa ya da elle; diğer push'larda sadece test kapısı. İstekler birikince kullanıcıya liste sunulur, onayla `[apk]` push.
+(20.10'dan beri; kullanıcı: "taleplerimi biriktir, sonra sor, onay verirsem APK üret"): `model` + `apk` işleri commit mesajı
+**`[apk]` ile başlıyorsa** ya da elle; diğer push'larda sadece test kapısı. İstekler birikince kullanıcıya liste sunulur, onayla
+başlığı `[apk] ...` olan commit push. DİKKAT: işaretleri commit gövdesinde de yazma (ilk sürümde "içinde geçiyor mu" bakılıyordu,
+kuralı anlatan commit'in gövdesi APK #105'i onaysız derletti; `[tam-test]` de sadece başlıkta).
 
 1. **`model` job** (`model-export.yml`, tekrar kullanılabilir) — `asr-model-v2` release'inde model
    var mı bakar. Yoksa önce özel repodaki aynı tag'in release'inden **aynen kopyalar** (KAYIT_TOKEN; aynı dosyalar → aynı
@@ -1438,7 +1440,7 @@ Mikrofon butonu (alttaki yuvarlak) → gerçek pipeline başlat. Solundaki dosya
   `tests.yml` her push'ta android.yml'den çağrılır (elle de; `seeds` girdisi). **Kapsam** (`tools/ci_kapsam.sh`, `scope` işi):
   ses tanıma / kilit / state machine / test verisi (`scripts/`, `server/`, `tests/`, uygulamanın session / aligner / audio / asr
   kodu) değiştiyse tüm kümeler; sadece G2 eklentisi / köprüsü değiştiyse `g2,glasses` + simülatör; ikisi de değilse (arayüz) test
-  yok; `tests/baseline.json` nötr; commit mesajında `[tam-test]` → hepsi. `eval.yml` push'ta sadece ASR / parçalayıcı / eval
+  yok; `tests/baseline.json` nötr; commit başlığında `[tam-test]` → hepsi. `eval.yml` push'ta sadece ASR / parçalayıcı / eval
   dosyaları değişince (state machine'i kapı kayıtlı transkriptlerle ölçer).
 - **Algılama değişikliği denetimi:** değişiklik hiçbir kayıtta kötüleştirmemeli — eski / yeni kodu kayıt kayıt (en eski tarihliden)
   karşılaştır (karar izi, ilk kilit, bölüm kilitleri, yanlış kilit / aday) + test kapısının tüm kümeleri aynı veri ve tohumla; kötüleştiren

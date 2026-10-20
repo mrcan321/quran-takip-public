@@ -19,8 +19,9 @@ name: Android CI
 # tasindi, run numarasi 1'den basladi. versionCode geriye giderse Android yeni APK'yi eskisinin ustune kurmaz.
 
 # APK SADECE ONAYLA (kullanici: "taleplerimi biriktir, sonra sor; onay verirsem APK uret"): model + apk isleri commit
-# mesajinda [apk] varsa ya da elle (Run workflow) calisir. Diger push'larda sadece test kapisi (kapsami degisen dosyalara
-# gore, bkz. tests.yml / tools/ci_kapsam.sh).
+# mesaji "[apk]" ile BASLIYORSA ya da elle (Run workflow) calisir — mesajin icinde gecmesi yetmez (ilk denemede kurali
+# anlatan commit govdesindeki "[apk]" yaziyla APK #105 onaysiz derlendi). Diger push'larda sadece test kapisi (kapsami
+# degisen dosyalara gore, bkz. tests.yml / tools/ci_kapsam.sh).
 
 on:
   push:
@@ -54,8 +55,8 @@ jobs:
   model:
     name: ASR modeli
     # Tag'de model yoksa NeMo'dan export edip yukler (bkz. model-export.yml). Tag env.MODEL_TAG ile ayni olmali.
-    # Sadece APK derlenecekse (onay: commit mesajinda [apk] ya da elle)
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[apk]') }}
+    # Sadece APK derlenecekse (onay: commit mesaji "[apk]" ile basliyor ya da elle)
+    if: ${{ github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, '[apk]') }}
     uses: ./.github/workflows/model-export.yml
     with:
       tag: asr-model-v2
