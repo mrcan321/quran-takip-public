@@ -37,13 +37,31 @@ data class GlassesState(
     /** Ayarlar → G2 SABİT YAZI BOYUTU: buyuk yazi her metinde textPx (kisa metin buyutulmez, uzun meal kucultulmez). */
     val fixedSize: Boolean = false,
     /**
-     * Ses kesildi (TextHold): okunan ayet metni kalkti — gozlukte sadece ust satir (rekat / durus), alti bos. Kullanici:
-     * "zammdan sonra rukuya gidilince ayet asili kalmasin, ekran bos kalsin; ust bilgi dursun".
+     * Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR: buyuk yazida uzun meal sayfalara bolunmez, punto gerektigi kadar kuculur
+     * (eklentide layout.js ONE_PAGE_MIN_PX'e kadar). Kullanici: "bir ayet 2 veya 3 sayfada gosterilince tum ayeti okumak zor".
+     */
+    val onePage: Boolean = false,
+    /**
+     * Ses kesildi (TextHold): okunan ayet metni kalkti — gozlukte alti bos, ustte rekat / durus (blankHeader) ya da ekran
+     * bombos. Kullanici: "zammdan sonra rukuya gidilince ayet asili kalmasin, ekran bos kalsin".
      */
     val blank: Boolean = false,
+    /**
+     * Ayarlar → G2 BOŞ EKRANDA ÜST BİLGİ: bos ekranda (blank) ustte rekat / durus. Varsayilan KAPALI — kullanici (APK
+     * #102): "ekran bos kaldiginda ust bilgi durmasin; bir ayara bagla" (APK #52-102 hep gosteriyordu).
+     */
+    val blankHeader: Boolean = false,
+    /**
+     * Ayarlar → G2 DURUM YAZISINI GİZLE: dinleme kapaliyken ("Dinleme kapalı") ve dinlenirken ayet bulunana kadar
+     * ("Dinleniyor", "Kamet · Fatiha bekleniyor") gozluk ekrani bos. Kullanici: "ekran bombos olsun".
+     */
+    val hideStatus: Boolean = false,
     /** "2. REKÂT · KIYAM" (RakatTracker), bos = gosterme. */
     val rakat: String = "",
-    /** Zikir karti / ezan penceresi: baslik ("TEKBİR", "KAMET"), okunus, Turkce anlami; bos baslik = yok. */
+    /**
+     * Zikir karti / ezan penceresi: baslik ("TEKBİR", "KAMET"), okunus, Turkce anlami; bos baslik = yok. Gozlukte sadece
+     * Turkce anlami yazilir (layout.js noteText; kullanici: "Allahu ekber Allah en buyuktur olmasin"), okunus yedek.
+     */
     val noteTitle: String = "",
     val noteReading: String = "",
     val noteTurkish: String = "",
@@ -69,7 +87,10 @@ data class GlassesState(
         sb.append(",\"textPx\":").append(textPx)
         sb.append(",\"bigHeader\":").append(bigHeader)
         sb.append(",\"fixedSize\":").append(fixedSize)
+        sb.append(",\"onePage\":").append(onePage)
         sb.append(",\"blank\":").append(blank)
+        sb.append(",\"blankHeader\":").append(blankHeader)
+        sb.append(",\"hideStatus\":").append(hideStatus)
         sb.append(",\"rakat\":").append(quote(rakat))
         sb.append(",\"noteTitle\":").append(quote(noteTitle))
         sb.append(",\"noteReading\":").append(quote(noteReading))

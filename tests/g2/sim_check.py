@@ -77,6 +77,8 @@ MAX_TILES = {
     # sabit yazi boyutunda blok ustten: 2 satirlik kisa metin sadece ust karolarda, alt karolar (zaten bos) gitmez
     "sabit_tekbir": 2,
 }
+# bilerek bombos ekran (ust bilgi / durum yazisi gizli): gozluk goruntusunde cizili piksel OLMAMALI
+EXPECT_EMPTY = {"bos_ustsuz", "durum_gizli_bosta", "durum_gizli_dinleniyor"}
 
 
 def scenario(arabic):
@@ -114,10 +116,21 @@ def scenario(arabic):
                               meal="Şu halde Rabbin için namaz kıl ve kurban kes."), [], 2.5),
         ("sabit_tekbir", dict(BIG, noteTitle="TEKBİR", noteReading="Allâhu ekber", noteTurkish="Allah en büyüktür",
                               fixedSize=True), [], 2.5),
+        # Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR: Bakara 2:282 (en uzun meal) tek sayfada, kucuk puntoda
+        ("tek_sayfa_uzun", dict(BIG, surah=2, ayah=282, surahName="Bakara", surahAyahCount=286, progress=0.5,
+                                meal=LONG_TR, onePage=True), [], 3.0),
+        ("tek_sayfa_kursi_basliksiz", dict(BIGN, **KURSI, progress=0.5, onePage=True), [], 3.0),
         # ses kesildi (zamm bitti, rukû): ayet metni kalkar, ustte rekat / durus (goruntu karolari yeniden kurulumla silinir)
-        ("bos_rukû", dict(BIG, **KURSI, blank=True, rakat="1. REKÂT · RÜKÛ / SECDE"), [], 2.5),
+        ("bos_rukû", dict(BIG, **KURSI, blank=True, blankHeader=True, rakat="1. REKÂT · RÜKÛ / SECDE"), [], 2.5),
+        # Ayarlar → G2 BOŞ EKRANDA ÜST BİLGİYİ GİZLE (varsayilan): ekran bombos
+        ("bos_ustsuz", dict(BIG, **KURSI, blank=True, blankHeader=False, rakat="1. REKÂT · RÜKÛ / SECDE"), [], 2.5),
         ("bos_sonra_okuma", dict(BIG, surah=108, ayah=2, surahName="Kevser", surahAyahCount=3, progress=1.0,
                                  meal="Şu halde Rabbin için namaz kıl ve kurban kes."), [], 2.5),
+        # Ayarlar → G2 DURUM YAZISINI GİZLE: "Dinleme kapalı" / "Dinleniyor" yerine bos ekran; ayet gelince meal
+        ("durum_gizli_bosta", dict(BIG, listening=False, status="Hazır", hideStatus=True), [], 2.5),
+        ("durum_gizli_dinleniyor", dict(BIG, rakat="", hideStatus=True), [], 2.5),
+        ("durum_gizli_ayet", dict(BIG, surah=108, ayah=2, surahName="Kevser", surahAyahCount=3, progress=1.0,
+                                  meal="Şu halde Rabbin için namaz kıl ve kurban kes.", hideStatus=True), [], 2.5),
 
         ("bosta", dict(listening=False, status="Hazır", bigText=False), [], 2.5),
         ("dinleniyor", dict(BASE, rakat=""), [], 2.0),
@@ -295,11 +308,12 @@ def main():
             png = http_get("/api/screenshot/glasses")
             p = out / f"{i:02d}_{name}.png"
             p.write_bytes(png)
-            ok = png_nonblank(png)
+            drawn = png_nonblank(png)
+            ok = not drawn if name in EXPECT_EMPTY else drawn
             sent = transfers() - before
-            report.append(f"{p.name}: {'ok' if ok else 'BOS EKRAN'} (karo {sent})")
+            report.append(f"{p.name}: {'ok' if ok else ('CIZILI EKRAN' if drawn else 'BOS EKRAN')} (karo {sent})")
             if not ok:
-                errors.append(f"bos ekran: {name}")
+                errors.append(f"{'bos olmali' if drawn else 'bos ekran'}: {name}")
             if name in MAX_TILES and sent > MAX_TILES[name]:
                 errors.append(f"{name}: gozluge {sent} karo gitti (en fazla {MAX_TILES[name]})")
         cons = json.loads(http_get("/api/console"))

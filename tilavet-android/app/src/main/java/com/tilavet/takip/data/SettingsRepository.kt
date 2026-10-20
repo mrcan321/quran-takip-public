@@ -31,6 +31,13 @@ data class AppSettings(
     val glassesBigHeader: Boolean = true,
     // Buyuk yazida sabit punto (glassesTextPx): kisa metin buyutulmez, uzun meal kucultulmez — sayfalara bolunur
     val glassesFixedSize: Boolean = false,
+    // Buyuk yazida uzun meal sayfalanmaz, punto gerektigi kadar kuculur (GlassesState.onePage)
+    val glassesOnePage: Boolean = false,
+    // Ses kesilince (bos gozluk ekrani) ustteki rekat / durus satirini da gizle (GlassesState.blankHeader = !bu);
+    // varsayilan gizli (kullanici: "ekran bos kaldiginda ust bilgi durmasin")
+    val glassesHideBlankHeader: Boolean = true,
+    // Gozlukte "Dinleme kapalı" / "Dinleniyor" gibi durum yazilari yerine bos ekran (GlassesState.hideStatus)
+    val glassesHideStatus: Boolean = false,
     // Ses kesildikten sonra okunan ayet metni bu kadar (onda bir sn, 0-100) ekranda kalir — bkz. audio/TextHold
     val textHoldTenths: Int = TextHold.DEFAULT_TENTHS,
     // === TUNER (debug) ===
@@ -57,6 +64,9 @@ class SettingsRepository(private val context: Context) {
         val GLASSES_TEXT_PX = intPreferencesKey("glasses_text_px")
         val GLASSES_BIG_HEADER = booleanPreferencesKey("glasses_big_header")
         val GLASSES_FIXED_SIZE = booleanPreferencesKey("glasses_fixed_size")
+        val GLASSES_ONE_PAGE = booleanPreferencesKey("glasses_one_page")
+        val GLASSES_HIDE_BLANK_HEADER = booleanPreferencesKey("glasses_hide_blank_header")
+        val GLASSES_HIDE_STATUS = booleanPreferencesKey("glasses_hide_status")
         val TEXT_HOLD_TENTHS = intPreferencesKey("text_hold_tenths")
         val MIN_CONFIDENCE = intPreferencesKey("min_confidence")
         val MIN_CONFIDENCE_FIRST_LOCK = intPreferencesKey("min_confidence_first_lock")
@@ -78,6 +88,9 @@ class SettingsRepository(private val context: Context) {
             glassesTextPx = prefs[Keys.GLASSES_TEXT_PX] ?: GlassesState.DEFAULT_TEXT_PX,
             glassesBigHeader = prefs[Keys.GLASSES_BIG_HEADER] ?: true,
             glassesFixedSize = prefs[Keys.GLASSES_FIXED_SIZE] ?: false,
+            glassesOnePage = prefs[Keys.GLASSES_ONE_PAGE] ?: false,
+            glassesHideBlankHeader = prefs[Keys.GLASSES_HIDE_BLANK_HEADER] ?: true,
+            glassesHideStatus = prefs[Keys.GLASSES_HIDE_STATUS] ?: false,
             textHoldTenths = prefs[Keys.TEXT_HOLD_TENTHS] ?: TextHold.DEFAULT_TENTHS,
             minConfidence = prefs[Keys.MIN_CONFIDENCE] ?: 50,
             minConfidenceFirstLock = prefs[Keys.MIN_CONFIDENCE_FIRST_LOCK] ?: 70,
@@ -134,6 +147,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGlassesFixedSize(value: Boolean) {
         context.dataStore.edit { it[Keys.GLASSES_FIXED_SIZE] = value }
+    }
+
+    suspend fun setGlassesOnePage(value: Boolean) {
+        context.dataStore.edit { it[Keys.GLASSES_ONE_PAGE] = value }
+    }
+
+    suspend fun setGlassesHideBlankHeader(value: Boolean) {
+        context.dataStore.edit { it[Keys.GLASSES_HIDE_BLANK_HEADER] = value }
+    }
+
+    suspend fun setGlassesHideStatus(value: Boolean) {
+        context.dataStore.edit { it[Keys.GLASSES_HIDE_STATUS] = value }
     }
 
     suspend fun setTextHoldTenths(value: Int) {

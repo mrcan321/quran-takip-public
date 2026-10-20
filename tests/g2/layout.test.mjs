@@ -62,7 +62,7 @@ test('baglanti yok / bosta / dinleniyor / not', () => {
   s = L.buildScreen({ ...ST, noteTitle: 'TEKBİR', noteReading: 'Allâhu ekber', noteTurkish: 'Allah en büyüktür' },
     { connected: true });
   assert.match(s.header, /^TEKBİR/);
-  assert.deepEqual(lines(s.body), ['Allâhu ekber', 'Allah en büyüktür']);
+  assert.deepEqual(lines(s.body), ['Allah en büyüktür']);   // gozlukte sadece Turkce anlami
 });
 
 test('ayet: baslik, aday sonuk, kisa meal tek sayfa', () => {
@@ -119,7 +119,7 @@ test('Arapca duzen: 5 satir meal, Arapca sayfalari ile senkron', () => {
 
 // yaklasik Manrope 700 olcusu (eklentide canvas measureText): karakter basina ~0.6 em
 const approxMeasure = (s, px) => [...s].length * px * 0.6;
-const fitBig = (t, px, h, fixed) => L.fitBigText(t, approxMeasure, L.bigOptions(px, h, fixed));
+const fitBig = (t, px, h, fixed, onePage) => L.fitBigText(t, approxMeasure, L.bigOptions(px, h, fixed, onePage));
 // satira sigmali; tireyle bolunen kelime parcasi da ("kavuş-")
 const fitsLine = (line, px, opt) => approxMeasure(line, px) <= opt.w - 2 * opt.marginX || [...line].length <= 2;
 
@@ -140,7 +140,7 @@ test('buyuk yazi: punto metne gore, kisa meal en buyuk, uzun meal en kucukte say
     }
   }
   assert.equal(long.pages.flat().join(' '), LONG);
-  // paragraf: okunus + anlam ayri satirlarda
+  // paragraf ("\n") ayri satirlarda
   assert.deepEqual(L.fitBigText('Allâhu ekber\nAllah en büyüktür', approxMeasure).pages[0].length >= 2, true);
 });
 
@@ -315,6 +315,94 @@ test('ses kesildi (blank): bos ekran, ustte rekat; not karti onde; baglanti / di
   assert.match(L.buildScreen({ ...ST, blank: true }, { connected: false }).body, /bağlanılamıyor/);
 });
 
+test('tek ekrana sigdir: uzun meal tek sayfa (punto kuculur), kisa metin ayni, ONE_PAGE_MIN_PX\'te de sigmazsa ayarla sayfalar', () => {
+  const MID = LONG.slice(0, 900);
+  for (const h of [288, 256]) {
+    for (const px of [L.BIG_PX.min, 48, L.BIG_PX.max]) {
+      // serbest: kisa metin eskisi gibi (en buyuk), uzun metin tek sayfa
+      const opt = L.bigOptions(px, h, false, true);
+      assert.equal(opt.minPx, L.ONE_PAGE_MIN_PX);
+      assert.equal(opt.pageMinPx, px);
+      assert.equal(L.fitBigText('Allah en büyüktür', approxMeasure, opt).px,
+        L.fitBigText('Allah en büyüktür', approxMeasure, L.bigOptions(px, h)).px);
+      const f = L.fitBigText(MID, approxMeasure, opt);
+      assert.equal(f.pages.length, 1, `${px}/${h}`);
+      assert.ok(f.px >= L.ONE_PAGE_MIN_PX && f.px < px, `${px}/${h}: ${f.px}`);
+      assert.ok(f.pages[0].length * f.lineH <= h - 2 * opt.marginY + 1, 'sayfa alana sigmali');
+      for (const line of f.pages[0]) assert.ok(fitsLine(line, f.px, opt), line);
+      assert.equal(f.pages.flat().map((l) => l.endsWith('-') ? l.slice(0, -1) : l + ' ').join('').trim(), MID);
+      // sabit + tek ekran: kisa metin ayardaki puntoda (buyutulmez), uzun metin kuculur
+      const fo = L.bigOptions(px, h, true, true);
+      assert.equal(L.fitBigText('Allah en büyüktür', approxMeasure, fo).px, px);
+      const ff = L.fitBigText(MID, approxMeasure, fo);
+      assert.equal(ff.pages.length, 1);
+      assert.ok(ff.px < px);
+    }
+  }
+  // en kucuk puntoda da sigmayan metin: ayardaki puntoyla sayfalanir (12 px'te sayfa sayfa okutma)
+  const HUGE = LONG.repeat(3);
+  const fh = L.fitBigText(HUGE, approxMeasure, L.bigOptions(48, 256, false, true));
+  assert.equal(fh.px, 48);
+  assert.ok(fh.pages.length > 1);
+  // duzen: onePage /state alanindan; kapaliyken eski sayfalar
+  const st = { ...ST, bigText: true, surah: 2, ayah: 282, surahName: 'Bakara', meal: MID, progress: 0.5 };
+  const tek = L.buildScreen({ ...st, onePage: true }, { connected: true, fitBig });
+  assert.equal(tek.pages, 1);
+  assert.equal(tek.page, 0);
+  assert.doesNotMatch(tek.header, /1\/1/);
+  const eski = L.buildScreen(st, { connected: true, fitBig });
+  assert.ok(eski.pages > 1);
+  assert.ok(tek.big.px < eski.big.px);
+});
+
+test('zikir / ezan karti: sadece Turkce anlami (okunus yok), yoksa okunus', () => {
+  const note = { noteTitle: 'TEKBİR', noteReading: 'Allâhu ekber', noteTurkish: 'Allah en büyüktür' };
+  for (const extra of [{ bigText: true }, { bigText: true, bigHeader: false }, { bigText: false }]) {
+    const s = L.buildScreen({ ...ST, ...extra, ...note }, { connected: true, fitBig });
+    const text = s.big ? s.big.pages.flat().join(' ') : s.body;
+    assert.equal(text, 'Allah en büyüktür', JSON.stringify(extra));
+    assert.doesNotMatch(text, /Allâhu/);
+  }
+  assert.equal(L.noteText({ noteTitle: 'KAMET', noteReading: "Kad kâmeti's-salâh", noteTurkish: '' }), "Kad kâmeti's-salâh");
+  assert.equal(L.noteText({ noteTitle: 'KAMET', noteReading: '', noteTurkish: '' }), 'KAMET');
+});
+
+test('bos ekranda ust bilgi (blankHeader) ve durum yazisi gizli (hideStatus): ekran bombos', () => {
+  const blank = { ...ST, bigText: true, blank: true, rakat: '1. REKÂT · RÜKÛ / SECDE' };
+  // alan yoksa (eski uygulama) ustte rekat; false → bos
+  assert.equal(L.buildScreen(blank, { connected: true, fitBig }).header, '1. REKÂT · RÜKÛ / SECDE');
+  assert.equal(L.buildScreen({ ...blank, blankHeader: true }, { connected: true, fitBig }).header, '1. REKÂT · RÜKÛ / SECDE');
+  for (const extra of [{}, { bigHeader: false }, { bigText: false }, { showArabic: true }, { sim: true }]) {
+    const s = L.buildScreen({ ...blank, ...extra, blankHeader: false }, { connected: true, fitBig, arabicLineCount: 2 });
+    assert.equal(s.blank, true);
+    assert.equal(s.header.trim(), '', JSON.stringify(extra));
+    assert.equal(s.body.trim(), '');
+    assert.equal(s.big, null);
+  }
+  // zikir karti bos ekrandan once
+  assert.equal(L.buildScreen({ ...blank, blankHeader: false, noteTitle: 'TEKBİR', noteTurkish: 'Allah en büyüktür' },
+    { connected: true, fitBig }).big.pages.flat().join(' '), 'Allah en büyüktür');
+  // durum yazisi gizli: dinleme kapali / dinleniyor / kamet beklemesi → bos; ayet ve not kartlari gelir
+  for (const extra of [{ bigText: true }, { bigText: true, bigHeader: false }, { bigText: false }]) {
+    for (const st of [{ ...ST, listening: false, status: 'Hazır' }, { ...ST, surah: 0, status: 'Dinleniyor' },
+      { ...ST, surah: 0, status: 'Kamet · Fatiha bekleniyor', sim: true }]) {
+      const s = L.buildScreen({ ...st, ...extra, hideStatus: true }, { connected: true, fitBig });
+      assert.equal(s.blank, true, JSON.stringify([extra, st.status]));
+      assert.equal(s.header.trim() + s.body.trim(), '');
+      assert.equal(s.big, null);
+    }
+    const ayet = L.buildScreen({ ...ST, ...extra, hideStatus: true }, { connected: true, fitBig });
+    assert.notEqual(ayet.blank, true);
+    const not = L.buildScreen({ ...ST, ...extra, listening: false, hideStatus: true, noteTitle: 'SELAM',
+      noteTurkish: "Allah'ın selamı ve rahmeti üzerinize olsun" }, { connected: true, fitBig });
+    assert.notEqual(not.blank, true);
+  }
+  // kapaliyken eski yazi; baglanti yoksa tani ekrani (ayar bilinmiyor)
+  assert.equal(L.buildScreen({ ...ST, bigText: true, listening: false }, { connected: true, fitBig }).big.pages[0].join(' '),
+    'Dinleme kapalı');
+  assert.match(L.buildScreen({ ...ST, hideStatus: true }, { connected: false }).body, /bağlanılamıyor/);
+});
+
 test('baslik sigmazsa rekat kisalir, sonra atilir', () => {
   const st = { ...ST, surahName: 'Ankebût Ankebût Ankebût', surah: 29, ayah: 45, rakat: '2. REKÂT SONRASI · SESSİZ',
     meal: LONG, tentative: true };
@@ -367,7 +455,14 @@ test('tum mealler: font, satir, bayt', { skip: !MEAL_BIN || !fs.existsSync(MEAL_
   const bigPages = [];
   const bigHPages = [];
   const bigFixedPages = [];
+  const onePx = [];
+  let onePaged = 0;
   for (const [s, a, meal] of meals) {
+    // tek ekrana sigdir (baslikli, 48 px): kac meal yine sayfali, en kucuk punto
+    const op = L.buildScreen({ ...ST, bigText: true, onePage: true, surah: s, ayah: a, surahName: names[s - 1] || 'X', meal },
+      { connected: true, fitBig });
+    if (op.pages > 1) onePaged++;
+    else onePx.push(op.big.px);
     // buyuk yazi (yaklasik olcu, varsayilan en kucuk punto): kac meal tek sayfaya sigmiyor, punto / sayfa dagilimi
     const bf = L.fitBigText(L.sanitizeBig(meal), approxMeasure);
     const bp = bf.pages.length;
@@ -410,5 +505,7 @@ test('tum mealler: font, satir, bayt', { skip: !MEAL_BIN || !fs.existsSync(MEAL_
     big_max_pages: bigMax, big_paged: bigPaged, big_px_median: median(bigPx), big_pages_median: median(bigPages),
     big_header_pages_median: median(bigHPages), big_header_max_pages: Math.max(...bigHPages),
     big_fixed_pages_median: median(bigFixedPages), big_fixed_max_pages: Math.max(...bigFixedPages),
+    onepage_paged: onePaged, onepage_px_min: Math.min(...onePx), onepage_px_median: median(onePx),
+    onepage_below_20: onePx.filter((x) => x < 20).length,
     dropped: Object.fromEntries(dropped) })}`);
 });

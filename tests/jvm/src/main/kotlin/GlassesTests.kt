@@ -73,6 +73,12 @@ fun glassesTests(): Int {
         JSONObject(GlassesState(fixedSize = true).toJson(0)).getBoolean("fixedSize"))
     ck.ok("json bos ekran (ses kesildi)", !JSONObject(GlassesState().toJson(0)).getBoolean("blank") &&
         JSONObject(GlassesState(blank = true).toJson(0)).getBoolean("blank"))
+    ck.ok("json tek ekrana sigdir", !JSONObject(GlassesState().toJson(0)).getBoolean("onePage") &&
+        JSONObject(GlassesState(onePage = true).toJson(0)).getBoolean("onePage"))
+    ck.ok("json bos ekranda ust bilgi (varsayilan yok)", !JSONObject(GlassesState().toJson(0)).getBoolean("blankHeader") &&
+        JSONObject(GlassesState(blankHeader = true).toJson(0)).getBoolean("blankHeader"))
+    ck.ok("json durum yazisi gizli", !JSONObject(GlassesState().toJson(0)).getBoolean("hideStatus") &&
+        JSONObject(GlassesState(hideStatus = true).toJson(0)).getBoolean("hideStatus"))
 
     // 2. Kopru: gercek soket, rastgele port
     val files = mapOf(
@@ -242,7 +248,8 @@ fun glassesServe(dir: File, fontDir: File, port: Int): Int {
             progress = s.optDouble("progress", 0.0), meal = s.optString("meal"), arabic = s.optString("arabic"),
             showArabic = s.optBoolean("showArabic"), bigText = s.optBoolean("bigText", true),
             textPx = s.optInt("textPx", GlassesState.DEFAULT_TEXT_PX), bigHeader = s.optBoolean("bigHeader", true),
-            fixedSize = s.optBoolean("fixedSize"), blank = s.optBoolean("blank"),
+            fixedSize = s.optBoolean("fixedSize"), onePage = s.optBoolean("onePage"), blank = s.optBoolean("blank"),
+            blankHeader = s.optBoolean("blankHeader"), hideStatus = s.optBoolean("hideStatus"),
             rakat = s.optString("rakat"),
             noteTitle = s.optString("noteTitle"), noteReading = s.optString("noteReading"), noteTurkish = s.optString("noteTurkish"),
         ))

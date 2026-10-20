@@ -257,10 +257,11 @@ function measureBig(s, px) {
   return measureCtx.measureText(s).width;
 }
 
-/** Metin → buyuk yazi yerlesimi (onbellekli; punto ayardan, /state textPx + fixedSize); font yoksa null → normal duzen. */
-function fitBig(text, textPx, areaH, fixed) {
-  const opt = L.bigOptions(textPx, areaH, fixed);
-  const key = opt.minPx + '-' + opt.maxPx + '/' + opt.h + '\n' + text;
+/** Metin → buyuk yazi yerlesimi (onbellekli; punto ayardan, /state textPx + fixedSize + onePage); font yoksa null →
+ * normal duzen. */
+function fitBig(text, textPx, areaH, fixed, onePage) {
+  const opt = L.bigOptions(textPx, areaH, fixed, onePage);
+  const key = opt.minPx + '-' + opt.maxPx + '/' + opt.h + '/' + (opt.pageMinPx || 0) + '\n' + text;
   let f = S.fitCache.get(key);
   if (!f) {
     f = L.fitBigText(text, measureBig, opt);
@@ -451,7 +452,9 @@ function reportScreen() {
 /** Kopruye bildirilen gozluk duzeni (uygulamada Ayarlar → G2 GÖZLÜK satirinda gorunur): "buyuk 48px", "normal", "arapca". */
 function screenDesc(screen) {
   if (screen.blank) return S.screenDesc || 'bos';   // ses kesildi (bos ekran): ayardaki duzen degismedi
-  if (BIG_LAYOUTS.has(screen.layout)) return `buyuk ${screen.big.px}px` + (screen.bigFixed ? ' sabit' : '');
+  if (BIG_LAYOUTS.has(screen.layout)) {
+    return `buyuk ${screen.big.px}px` + (screen.bigFixed ? ' sabit' : '') + (S.st && S.st.onePage ? ' tek' : '');
+  }
   return screen.layout === 'arabic' ? 'arapca' : 'normal';
 }
 

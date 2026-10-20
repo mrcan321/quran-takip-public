@@ -190,15 +190,25 @@ export const BIG = { minPx: 48, maxPx: 120, step: 2, lineH: 1.16, marginX: 6, ma
 /** Ayardaki en kucuk punto araligi (GlassesState.MIN/MAX/DEFAULT_TEXT_PX ile ayni); cift sayi (adim 2). */
 export const BIG_PX = { min: 30, max: 80, def: 48 };
 export const BIG_TILES = LAYOUTS.big.tiles;
+/**
+ * Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR (/state onePage; kullanici: "ayet 2-3 sayfada gosterilince tum ayeti okumak zor"):
+ * punto bu sinira kadar kuculur. Tum meallerde (Ali Bulac) olculdu: en uzunu Bakara 2:282 (1129 karakter) baslikli
+ * duzende ~12 px, 2:102 / 4:12 ~14 px; baslikli duzende 431 meal 24 px'in, 99'u 20 px'in altina iniyor.
+ */
+export const ONE_PAGE_MIN_PX = 12;
 
 /**
  * /state textPx → fitBigText secenekleri (gecersizse varsayilan); h: yazi alani yuksekligi (baslikli duzende 256);
  * fixed: Ayarlar → G2 SABİT YAZI BOYUTU — her metin tam bu puntoda (kisa metin buyutulmez, uzun meal kucultulmez,
  * sayfalara bolunur; kullanici: "hepsinde font boyutu ayni olsun").
+ * onePage: Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR — sigmayan metin sayfalanmaz, punto ONE_PAGE_MIN_PX'e kadar kuculur
+ * (sabit boyut da aciksa kisa metin ayardaki puntoda kalir, sadece sigmayan kuculur); ONE_PAGE_MIN_PX'te de sigmazsa
+ * ayardaki puntoyla sayfalar (pageMinPx).
  */
-export function bigOptions(textPx, h = SCREEN_H, fixed = false) {
+export function bigOptions(textPx, h = SCREEN_H, fixed = false, onePage = false) {
   const n = Math.round(Number(textPx));
   const px = !Number.isFinite(n) || n <= 0 ? BIG.minPx : Math.min(BIG_PX.max, Math.max(BIG_PX.min, n - (n % 2)));
+  if (onePage) return { ...BIG, minPx: ONE_PAGE_MIN_PX, maxPx: fixed ? px : BIG.maxPx, pageMinPx: px, h };
   if (fixed) return { ...BIG, minPx: px, maxPx: px, h };
   return px === BIG.minPx && h === BIG.h ? BIG : { ...BIG, minPx: px, h };
 }
@@ -212,6 +222,7 @@ export function bigAreaHeight(layoutName) {
 /**
  * Buyuk yazi yerlesimi: {px, lineH, perPage, pages: [[satir...]...]}. measure(metin, px) → piksel genislik
  * (eklentide canvas measureText; testte yaklasik). "\n" paragraf sonu. Satira sigmayan tek kelime tireyle bolunur.
+ * Tek sayfaya sigan punto yoksa opt.pageMinPx (yoksa minPx) puntosunda sayfalar.
  */
 export function fitBigText(text, measure, opt = BIG) {
   const paras = String(text ?? '').trim().split('\n');
@@ -251,7 +262,7 @@ export function fitBigText(text, measure, opt = BIG) {
       return { px, lineH: Math.round(px * opt.lineH), perPage: per, pages: [[...lines]] };
     }
   }
-  const px = opt.minPx;
+  const px = opt.pageMinPx || opt.minPx;
   const lines = wrapAt(px);
   const per = perPageAt(px);
   // satirlar sayfalara esit dagilir, farki en fazla 1 (4 satir / 3'luk sayfa → 2 + 2; son sayfada tek satir kalmasin)
@@ -291,6 +302,14 @@ export function ayahLabel(st) {
   return `${st.surahName || 'Sure ' + st.surah}: ${st.ayah}`;
 }
 
+/**
+ * Zikir karti / ezan penceresi gozlukte: sadece Turkce anlami (kullanici: "Allahu ekber Allah en buyuktur olmasin, direkt
+ * Allah en buyuktur yazsin" — tekbir, kamet, ezan, selam, namaz sonu duasi). Anlam yoksa okunus, o da yoksa baslik.
+ */
+export function noteText(st) {
+  return st.noteTurkish || st.noteReading || st.noteTitle || ' ';
+}
+
 export function ayahKey(st) {
   return st && st.surah ? st.surah + ':' + st.ayah : '';
 }
@@ -312,19 +331,26 @@ function pickPage(st, pages, manual) {
  * Uzun mealde sayfa imamin ayetteki ilerlemesiyle (progress) secilir; kullanici kaydirdiysa (manual) o sayfa,
  * ta ki ilerleme yeni bir sayfaya gecene ya da ayet degisene kadar.
  * Buyuk yazi duzeninde (st.bigText, Arapca kapali) sadece metin cizilir: meal / zikir-ezan anlami / kisa durum.
+ * Bos ekran (blank: true): ses kesildi (ustte rekat — Ayarlar → G2 BOŞ EKRANDA ÜST BİLGİ) ya da durum yazisi gizli.
  */
 export function buildScreen(st, ui = {}) {
   const layoutName = !(ui.connected && st) ? 'text'
     : st.showArabic ? 'arabic' : st.bigText && ui.fitBig ? (st.bigHeader === false ? 'big' : 'bigh') : 'text';
+  const empty = (header) => ({
+    layout: 'text', header, headerColor: BRIGHT.header, body: ' ', bodyColor: BRIGHT.body, page: 0, pages: 1,
+    autoPage: 0, arabicPage: -1, arabicPages: 0, big: null, bigDim: false, bigFixed: false, blank: true,
+  });
   // Ses kesildi (/state blank, uygulamada TextHold): ayet metni kalkti → bos ekran, ustte rekat / durus (gozlugun kendi
   // yazisi; goruntu karolari tek seferde yeniden kurulumla silinir). Zikir / ezan karti varsa o gosterilir.
+  // blankHeader false (Ayarlar → G2 BOŞ EKRANDA ÜST BİLGİ: KAPALI; kullanici: "ekran bos kaldiginda ust bilgi durmasin"):
+  // ekran bombos. Alan yoksa (eski uygulama) ustte rekat.
   if (ui.connected && st && st.blank && st.listening && !st.noteTitle) {
-    return {
-      layout: 'text', header: headerLine((st.rakat || APP) + (st.sim ? ' · SİM' : ''), '', ''), headerColor: BRIGHT.header,
-      body: ' ', bodyColor: BRIGHT.body, page: 0, pages: 1, autoPage: 0, arabicPage: -1, arabicPages: 0, big: null,
-      bigDim: false, bigFixed: false, blank: true,
-    };
+    return empty(st.blankHeader === false ? ' ' : headerLine((st.rakat || APP) + (st.sim ? ' · SİM' : ''), '', ''));
   }
+  // Durum yazisi gizli (Ayarlar → G2 DURUM YAZISINI GİZLE, /state hideStatus; kullanici: "Dinleme kapali yazisi
+  // cikmasin, ekran bombos olsun"): dinleme kapaliyken ve dinlenirken ayet bulunana kadar ("Dinleniyor", "Kamet · Fatiha
+  // bekleniyor") ekran bos. Zikir / ezan karti yine gosterilir; baglanti yoksa tani ekrani (ayar bilinmiyor).
+  if (ui.connected && st && st.hideStatus === true && !st.noteTitle && (!st.listening || !st.surah)) return empty(' ');
   const L = LAYOUTS[layoutName];
   const out = {
     layout: layoutName, header: APP, headerColor: BRIGHT.header, body: ' ', bodyColor: BRIGHT.body,
@@ -332,13 +358,14 @@ export function buildScreen(st, ui = {}) {
   };
   if (layoutName === 'big' || layoutName === 'bigh') {
     const withHeader = layoutName === 'bigh';
-    const fit = (t) => ui.fitBig(sanitizeBig(t), st.textPx, bigAreaHeight(layoutName), st.fixedSize === true);
+    const fit = (t) => ui.fitBig(sanitizeBig(t), st.textPx, bigAreaHeight(layoutName), st.fixedSize === true,
+      st.onePage === true);
     out.bigFixed = st.fixedSize === true;
     const rakat = st.rakat || '';
     out.header = ' ';
     let text;
     if (st.noteTitle) {
-      text = [st.noteReading, st.noteTurkish].filter(Boolean).join('\n') || st.noteTitle;
+      text = noteText(st);
       if (withHeader) out.header = headerLine(st.noteTitle, rakat, '');
     } else if (!st.listening) {
       text = 'Dinleme kapalı';
@@ -380,7 +407,7 @@ export function buildScreen(st, ui = {}) {
   const rakat = st.rakat || '';
   if (st.noteTitle) {
     out.header = headerLine(st.noteTitle, rakat, '');
-    out.body = body([st.noteReading, st.noteTurkish].filter(Boolean).join('\n'));
+    out.body = body(noteText(st));
     return out;
   }
   if (!st.listening) {

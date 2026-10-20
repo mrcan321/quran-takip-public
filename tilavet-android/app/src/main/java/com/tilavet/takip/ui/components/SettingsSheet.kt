@@ -54,6 +54,9 @@ fun SettingsSheet(
     onGlassesTextPx: (Int) -> Unit = {},
     onGlassesBigHeader: (Boolean) -> Unit = {},
     onGlassesFixedSize: (Boolean) -> Unit = {},
+    onGlassesOnePage: (Boolean) -> Unit = {},
+    onGlassesHideBlankHeader: (Boolean) -> Unit = {},
+    onGlassesHideStatus: (Boolean) -> Unit = {},
     onMinConfidence: (Int) -> Unit = {},
     onMinConfidenceFirstLock: (Int) -> Unit = {},
     onWindowSlack: (Int) -> Unit = {},
@@ -192,8 +195,8 @@ fun SettingsSheet(
             SettingGroup(
                 label = "SES KESİLİNCE METİN",
                 trailing = "${settings.textHoldTenths / 10},${settings.textHoldTenths % 10} sn",
-                hint = "İmamın sesi kesildikten (rükû, secde) bu kadar sonra okunan ayet ekrandan ve gözlükten kalkar; gözlükte " +
-                    "üstte rekât bilgisi kalır. Okuma devam edince ayet geri gelir.",
+                hint = "İmamın sesi kesildikten (rükû, secde) bu kadar sonra okunan ayet ekrandan ve gözlükten kalkar (gözlükte " +
+                    "üstte rekât bilgisi: G2 BOŞ EKRANDA ÜST BİLGİYİ GİZLE ayarı). Okuma devam edince ayet geri gelir.",
             ) {
                 AppSlider(
                     value = settings.textHoldTenths.toFloat(),
@@ -226,7 +229,11 @@ fun SettingsSheet(
                     SettingGroup(
                         label = "G2 YAZI BOYUTU",
                         trailing = "${settings.glassesTextPx} px",
-                        hint = if (settings.glassesFixedSize) {
+                        hint = if (settings.glassesOnePage) {
+                            "Gözlükte yazı bu boyutta" + (if (settings.glassesFixedSize) "" else " ya da kısa metinde daha büyük") +
+                                " (gözlüğün kendi yazısının satırı 27 px); sığmayan ayet tek ekrana sığana kadar küçülür " +
+                                "(G2 AYETİ TEK EKRANA SIĞDIR). Değişiklik gözlükte hemen görünür."
+                        } else if (settings.glassesFixedSize) {
                             "Gözlükte yazı her zaman bu boyutta (gözlüğün kendi yazısının satırı 27 px); sığmayan meal " +
                                 "sayfalara bölünür, sayfalar imam okudukça ilerler. Değişiklik gözlükte hemen görünür."
                         } else {
@@ -250,12 +257,35 @@ fun SettingsSheet(
                         OnOffRow(current = settings.glassesFixedSize, onSelect = onGlassesFixedSize)
                     }
                     SettingGroup(
-                        label = "G2'DE SURE / AYET ADI",
-                        hint = "Açıkken büyük yazının üstünde küçük bir satırda sure adı, ayet numarası ve sayfa (ör. Bakara 2:255 · " +
-                            "1/3) gözlüğün kendi yazısıyla görünür; aday ayet orada \"ADAY\" yazar. Kapalıyken ekranın tamamı meal.",
+                        label = "G2 AYETİ TEK EKRANA SIĞDIR",
+                        hint = "Açıkken uzun ayet sayfalara bölünmez, tamamı tek ekranda: yazı gerektiği kadar küçülür (en uzun " +
+                            "ayette, Bakara 282, ~12 px; gözlüğün kendi yazısının satırı 27 px). Sığan metin eskisi gibi çizilir " +
+                            "(SABİT YAZI BOYUTU açıksa ayardaki boyutta). Kapalıyken sığmayan meal sayfalara bölünür.",
+                    ) {
+                        OnOffRow(current = settings.glassesOnePage, onSelect = onGlassesOnePage)
+                    }
+                    SettingGroup(
+                        label = "G2 ÜST BİLGİ (AYET OKUNURKEN)",
+                        hint = "Açıkken büyük yazının üstünde küçük bir satırda sure adı, ayet numarası, rekât ve sayfa (ör. Bakara: " +
+                            "255 · 1. REKÂT · KIYAM 1/3) gözlüğün kendi yazısıyla görünür; aday ayet orada \"ADAY\" yazar. " +
+                            "Kapalıyken üst bilgi hiç çıkmaz, ekranın tamamı meal.",
                     ) {
                         OnOffRow(current = settings.glassesBigHeader, onSelect = onGlassesBigHeader)
                     }
+                }
+                SettingGroup(
+                    label = "G2 BOŞ EKRANDA ÜST BİLGİYİ GİZLE",
+                    hint = "Ses kesilince (rükû, secde — SES KESİLİNCE METİN) gözlükte ayet kalkar. Açıkken ekran bomboş kalır; " +
+                        "kapalıyken üstte rekât ve duruş (ör. 1. REKÂT · RÜKÛ / SECDE) yazar.",
+                ) {
+                    OnOffRow(current = settings.glassesHideBlankHeader, onSelect = onGlassesHideBlankHeader)
+                }
+                SettingGroup(
+                    label = "G2 DURUM YAZISINI GİZLE",
+                    hint = "Açıkken gözlükte \"Dinleme kapalı\", \"Dinleniyor\", \"Kamet · Fatiha bekleniyor\" gibi durum yazıları " +
+                        "çıkmaz, ekran bomboş kalır; ayet bulununca meal gelir. Zikir / ezan kartı yine gösterilir.",
+                ) {
+                    OnOffRow(current = settings.glassesHideStatus, onSelect = onGlassesHideStatus)
                 }
                 SettingGroup(
                     label = "G2'DE ARAPÇA",

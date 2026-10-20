@@ -31,7 +31,9 @@ def layout_tests(meal_bin):
     if m:
         d = json.loads(m.group(1))
         r.update({"g2_meals": d["meals"], "g2_max_pages": d["max_pages"], "dropped_chars": d["dropped_chars"],
-                  "g2_big_max_pages": d.get("big_max_pages"), "g2_big_paged": d.get("big_paged")})
+                  "g2_big_max_pages": d.get("big_max_pages"), "g2_big_paged": d.get("big_paged"),
+                  "g2_onepage_paged": d.get("onepage_paged"), "g2_onepage_px_min": d.get("onepage_px_min"),
+                  "g2_onepage_px_median": d.get("onepage_px_median"), "g2_onepage_below_20": d.get("onepage_below_20")})
         if d["dropped"]:
             notes.append(f"g2: gozluk fontunda olmayan meal karakterleri (atiliyor): {d['dropped']}")
     elif "TILAVET_MEAL_BIN" not in e:

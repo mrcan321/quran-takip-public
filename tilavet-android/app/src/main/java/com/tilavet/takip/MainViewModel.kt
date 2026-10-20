@@ -859,6 +859,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setGlassesTextPx(value: Int) { viewModelScope.launch { settingsRepo.setGlassesTextPx(value) } }
     fun setGlassesBigHeader(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesBigHeader(value) } }
     fun setGlassesFixedSize(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesFixedSize(value) } }
+    fun setGlassesOnePage(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesOnePage(value) } }
+    fun setGlassesHideBlankHeader(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHideBlankHeader(value) } }
+    fun setGlassesHideStatus(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHideStatus(value) } }
     fun setTextHoldTenths(value: Int) { viewModelScope.launch { settingsRepo.setTextHoldTenths(value) } }
     fun setMinConfidence(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidence(value) } }
     fun setMinConfidenceFirstLock(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidenceFirstLock(value) } }
@@ -940,7 +943,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val parts = desc.split(' ')
         return when (parts[0]) {
             "buyuk" -> " · büyük yazı" + (parts.getOrNull(1)?.removeSuffix("px")?.toIntOrNull()?.let { " $it px" } ?: "") +
-                (if (parts.getOrNull(2) == "sabit") " sabit" else "")
+                (if ("sabit" in parts.drop(2)) " sabit" else "") + (if ("tek" in parts.drop(2)) " tek sayfa" else "")
             "normal" -> " · normal yazı"
             "arapca" -> " · arapça + meal"
             else -> ""
@@ -991,12 +994,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             textPx = s.settings.glassesTextPx,
             bigHeader = s.settings.glassesBigHeader,
             fixedSize = s.settings.glassesFixedSize,
+            onePage = s.settings.glassesOnePage,
+            blankHeader = !s.settings.glassesHideBlankHeader,
+            hideStatus = s.settings.glassesHideStatus,
             rakat = s.rakatLabel ?: "",
             noteTitle = noteTitle,
             noteReading = noteReading,
             noteTurkish = noteTurkish,
         )
-        // Ses kesildi: ayet metni yok, gozlukte ust satirda rekat (zikir / ezan karti varsa o gosterilir)
+        // Ses kesildi: ayet metni yok, gozlukte bos ekran / ust satirda rekat (zikir / ezan karti varsa o gosterilir)
         if (s.textHidden && s.isListening) return base.copy(blank = true)
         val m = s.mushaf ?: return base
         val a = s.currentAyah ?: return base

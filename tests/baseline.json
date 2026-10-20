@@ -203,8 +203,8 @@
     "ext_rakat_errors": 0,
     "zikir_false_alarms": 0,
     "zikir_shown": 290,
-    "glasses_passed": 60,
-    "glasses_total": 60,
+    "glasses_passed": 63,
+    "glasses_total": 63,
     "glasses_failures": 0,
     "hide_false": 0,
     "hide_missing": 0,
@@ -272,7 +272,7 @@
     }
   },
   "g2": {
-    "g2_passed": 15,
+    "g2_passed": 19,
     "g2_failures": 0,
     "dropped_chars": 0,
     "g2_meals": 6236,
