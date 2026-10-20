@@ -48,6 +48,15 @@ class RakatTracker {
          * zaten yok sayiyor).
          */
         const val SELAM_MIN_AFTER_RECITATION_SEC = 20.0
+        /**
+         * Semiallah duyulmadiysa sessiz rekatlar sayilamiyor → selamda son okumadan gecen sureden tahmin. Son okuma → selam
+         * (parca sonu zamanlari): 2 rekatli gercek cumalar 90-100 sn, sentetik namaz / teravih / hatim 95-125 sn, bilesik
+         * teravih 85-95 sn; 3 rekatli aksamlar 140 / 150 sn; 4 rekatli yatsilar 240 / 250 sn. Yatsi #2 (20.10): hicbir semiallah
+         * taninmadi, sayac "2 rekat" dedi; aksam #2 de "2 rekat". Bu kadar sn ve ustu → 1 / 2 sessiz rekat (125 denendi:
+         * sentetik teravihte 125 sn'lik 2 rekatli namaz 3 sayildi).
+         */
+        const val SILENT_ONE_RAKAT_SEC = 132.0
+        const val SILENT_TWO_RAKAT_SEC = 195.0
     }
 
     /** Su anki namazin rekati (0 = bilinmiyor / namaz yok). */
@@ -94,8 +103,16 @@ class RakatTracker {
         if (signal == "selam") {
             if (rakat == 0 && posture == Posture.SELAM) return null   // selamin ikinci tarafi
             if (t - lastRecitationSec < SELAM_MIN_AFTER_RECITATION_SEC) return null   // okuma arasinda uydurma selam
-            if (rakat > 0) { completedTotal += rakat; completedNamaz += 1 }
-            val ended = rakat
+            // Sessiz rekatlar (semiallah duyulmadiysa) okuma → selam suresinden — bkz. SILENT_ONE_RAKAT_SEC
+            val gap = t - lastRecitationSec
+            val estimated = when {
+                rakat < 2 -> rakat
+                gap >= SILENT_TWO_RAKAT_SEC -> 4
+                gap >= SILENT_ONE_RAKAT_SEC -> 3
+                else -> 2
+            }
+            val ended = maxOf(rakat, estimated)
+            if (ended > 0) { completedTotal += ended; completedNamaz += 1 }
             rakat = 0; posture = Posture.SELAM; selamSec = t; rukuDone = false; maxFatihaAyah = 0
             rakatStartSec = Double.NEGATIVE_INFINITY
             return "selam (namaz bitti${if (ended > 0) ", $ended rekat" else ""})"

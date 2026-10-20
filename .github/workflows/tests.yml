@@ -7,16 +7,14 @@ name: Test kapisi
 # simulatorunde uctan uca (g2sim). Metrikler tests/baseline.json ile karsilastirilir; herhangi biri
 # kotulesirse ya da birebirlik tutmazsa job kirmizi → android.yml APK'yi derlemez.
 #
-# android.yml bu workflow'u cagirir (needs: test, secrets: inherit). Tek basina: server/** ya da tests/** degisince ve elle.
+# android.yml bu workflow'u her push'ta cagirir (needs: test, secrets: inherit); elle de calisir (hepsi).
 # Gercek WAV'lar (Kotlin kumesi) ozel repodan: tools/kayitlari_cek.sh (KAYIT_TOKEN).
+# Kapsam (tools/ci_kapsam.sh; kullanici: "goruntu / kullanim yeniligiyse ses tanima testlerini bosuna kosma"):
+#   ses tanima / kilit / state machine / test verisi degistiyse tum kumeler; sadece G2 eklentisi / koprusu degistiyse
+#   g2 + glasses kumeleri ve simulator; ikisi de degilse (arayuz) test yok. Commit mesajinda [tam-test] → hepsi.
 
 on:
   workflow_call:
-  push:
-    paths:
-      - "server/**"
-      - "tests/**"
-      - ".github/workflows/tests.yml"
   workflow_dispatch:
     inputs:
       seeds:
@@ -25,6 +23,26 @@ on:
         default: "5"
 
 jobs:
+  scope:
+    name: Kapsam
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      recog: ${{ steps.k.outputs.recog }}
+      g2: ${{ steps.k.outputs.g2 }}
+      suites: ${{ steps.k.outputs.suites }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Degisen dosyalara gore testler
+        id: k
+        env:
+          BEFORE: ${{ github.event.before }}
+          MSG: ${{ github.event.head_commit.message }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: bash tools/ci_kapsam.sh "$BEFORE" "$MSG" "${DEFAULT_BRANCH:-main}" "$GITHUB_EVENT_NAME"
+
   # Ses verisi kaynak taramasi (Hugging Face / archive.org meta verisi; yerel oturumun ag erisimi kapali). Sadece commit
   # mesajinda [scout] varsa ya da elle: tests/scout_sources.py
   scout:
@@ -84,6 +102,8 @@ jobs:
 
   gate:
     name: Test kapisi
+    needs: scope
+    if: ${{ needs.scope.outputs.recog == 'true' || needs.scope.outputs.g2 == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120   # hizalama onbellegi bosken (yeni repo / aligner.py degisince) ~45 dk; dolu ~20 dk
     env:
@@ -91,8 +111,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Ses kayitlari bu (herkese acik) repoda yok: ozel repodan (tools/kayitlari_cek.sh, secret KAYIT_TOKEN)
+      # Ses kayitlari bu (herkese acik) repoda yok: ozel repodan (tools/kayitlari_cek.sh, secret KAYIT_TOKEN); sadece G2
+      # kapsaminda gerekmez
       - name: Ses kayitlari (ozel repo)
+        if: ${{ needs.scope.outputs.recog == 'true' }}
         env:
           KAYIT_TOKEN: ${{ secrets.KAYIT_TOKEN }}
         run: bash tools/kayitlari_cek.sh
@@ -150,10 +172,11 @@ jobs:
       - name: Test kapisi
         env:
           SEEDS: ${{ inputs.seeds || '5' }}
+          SUITES: ${{ needs.scope.outputs.suites }}
         run: |
           mkdir -p ~/.cache/tilavet-gate
           TILAVET_ALIGN_CACHE=~/.cache/tilavet-gate/align.pkl python tests/gate.py \
-            --assets "$TILAVET_ASSETS_DIR" --seeds "$SEEDS" \
+            --assets "$TILAVET_ASSETS_DIR" --seeds "$SEEDS" --suites "$SUITES" \
             --summary "$GITHUB_STEP_SUMMARY" --results gate-results.json
 
   # G2 gozluk eklentisi (tilavet-android/app/src/main/assets/g2) Even Hub simulatorunde: uygulamanin kendi koprusu
@@ -161,6 +184,8 @@ jobs:
   # gozluk ekrani + konsol hatasi. Iki mod: gelistirici (sayfa kopruden) ve .ehpk gibi baska kaynaktan (CORS).
   g2sim:
     name: G2 eklentisi (Even simulatoru)
+    needs: scope
+    if: ${{ needs.scope.outputs.g2 == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

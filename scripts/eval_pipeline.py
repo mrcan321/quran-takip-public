@@ -108,6 +108,7 @@ EXPECTED = {
     # okunan Fatiha (9-34), Felak (333-350), Fatiha (423-451) → kamet 685-735 → Fatiha → A'raf 7:51-53 → rukû/secde →
     # Fatiha → A'raf 7:54-55 → 3-4. rekat sessiz (semiallah 1075, 1135) → selam 1217/1224 → dua 1237
     "namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav": "coklu",
+    "namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -155,6 +156,12 @@ TIMELINE = {
     "namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav": [(0, None), (9, 1), (35, None), (333, 113), (351, None),
                                                       (423, 1), (451, None), (744, 1), (776, 7), (855, None),
                                                       (892, 1), (930, 7), (980, None)],
+    # yatsi #2 (20.10, APK #102): namazdan once biri Ihlas'i 3 kez (62-65 arasi 3 sn duraklama + besmele) ve Saffat
+    # 37:180-182 okuyor; kamet 165-247; Fatiha 274; Taha 20:100-111 (321-436); semiallah ~451; Fatiha 487; Taha 20:112-115
+    # (527-586); 3-4. rekat sessiz; selam 820-830 + dua. Fatiha → zamm arasi diger kayitlardaki gibi Fatiha bolumunde.
+    "namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav": [(0, None), (20, 112), (62, None), (67, 112), (95, 37),
+                                                       (121, None), (274, 1), (321, 20), (437, None), (487, 1),
+                                                       (527, 20), (587, None)],
 }
 
 

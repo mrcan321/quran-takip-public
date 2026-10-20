@@ -29,7 +29,7 @@ anahtarı (`debug.keystore`) bilerek repoda (Play Store yok; gerekirse değişti
 - `aligner.py`: **ana** — QuranCorpus, trigram index, align_transcription (fuzzy match). Kotlin port'u için referans. `ZERO_WIDTH` normalize eklenmiş.
 - `build_quran_assets.py`: `quran.bin` (3.5 MB) + `meal.bin` (~1 MB, Ali Bulaç meali) üretir. Android asset olarak kullanılır.
 - `build_aligner_fixture.py`: 43 test case üretir, `aligner_test_fixture.json`
-- `build_state_machine_fixture.py`: 19 senaryo × 289 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
+- `build_state_machine_fixture.py`: 20 senaryo × 312 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
   fixture telefon varsayılanlarıyla: ilk kilit 70, pencere ±2)
 - `onnx_full_export.py`: NeMo `nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0` → ONNX (opset 18, preprocessor+encoder+CTC birleşik)
 - `sp_manual_decoder.py`: SentencePiece manuel decoder (Android'de Java SentencePiece yok, protobuf ile decode)
@@ -85,7 +85,7 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
 │   ├── EzanTracker.kt         — ezan/kamet penceresi icin cumle takibi (UI; state machine'i etkilemez)
 │   ├── ZikirTracker.kt        — namaz zikirleri karti: tekbir, semiallah, rabbena, selam, namaz sonu duasi (UI, JVM'de test)
 │   ├── RakatTracker.kt        — rekat sayaci + kaba durus (UI; state machine'i etkilemez, JVM'de test)
-│   └── StateMachineTestRunner.kt — 289 chunk × 19 senaryo test (5-8. = gerçek namaz akışları; 289/289)
+│   └── StateMachineTestRunner.kt — 312 chunk × 20 senaryo test (5-8. = gerçek namaz akışları; 312/312)
 ├── data/
 │   ├── MushafData.kt          — tum Kuran listesi: ayet/sure tablolari, liste satirlari, besmele gizleme
 │   ├── AppSettings.kt         — kullanıcı ayarları (SettingsRepository.kt içinde)
@@ -1242,6 +1242,38 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
 - Kalan: gerçek modelle ilk çalıştırma kiralık makinedeki duman testi (`run_all.sh --smoke`, ~30-45 dk); EveryAyah klasör adları
   yoklanıyor (olmayan kâri atlanır); GitHub Actions faturalama limiti (20.10) çözülmeden CI / APK yok.
 
+### 20. Yatsı #2 (20.10, APK #102): kayıp kilitte kamet, rükûda kısa zayıf eşleşme, rekât sayısı, dua kartı (APK #105+)
+- `data/namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav` (özel repoda; camide telefon, 15 dk 15 sn; telefon log'u logcat'ten — ilk
+  90 sn tamponda yok): 0-120 namazdan önce biri İhlas'ı 3 kez + Sâffât 37:180-182 okuyor → kamet 165-247 → iftitah ~262 → Fatiha
+  274-311 → Tâhâ 20:100-111 (321-436) → semiallah ~451 → Fatiha 487-518 → Tâhâ 20:112-115 (527-586) → 3-4. rekât sessiz → selam
+  820-830 → dua. TIMELINE kelime zamanlı transkriptten (yerelde: model public release'ten indirilip `eval_pipeline --words`;
+  sabit parça transkripti CI'dakiyle birebir — cuma #3'te 76/76 parça). Yerel hibrit tekrar = telefon kararları (parça parça).
+- Kilit gecikmeleri iyi (Fatiha 5 sn, Tâhâ 20:100 ~5 sn, 2. Fatiha ~6 sn, 20:112 hatim devamı ~5 sn), yanlış sure kilidi yok. Sorunlar:
+  - **Kamet geç (194 sn, kamet 165'te başladı):** namaz öncesi okuma 37:182'de ZAMM kilidi bıraktı, 50 sn sessizlikten sonra kamet
+    tekbirleri ("الله اغبر" ×2, 175-180) ve "شهود لا اله الا الله" (189) ZAMM'da zikir sayılmadı (37:35 belirsiz adayı). Düzeltme:
+    kilit kaybolmuşsa (`ABANDON_LOCK_AFTER_LOST`+ kayıp parça) zikir ifadesi ve tekbir + tevhid kuralı ZAMM / FATIHA'da da →
+    kamet 189 sn.
+  - **Rükûda okunmamış ayet:** 20:111 bitti (436), 3 boş parça, semiallah ASR'de "لم يعد" → 20:112'ye 62.9 → ekranda 20:112
+    (2. rekâtta okundu). Düzeltme (`PAUSE_LOST_CHUNKS` 2): ZAMM'da ≥ 2 ardışık kayıp parçadan sonra < 3 kelime ve < ilk kilit
+    eşiği eşleşme devam sayılmaz. FATIHA'da denendi, alınmadı: Fatiha → zamm arasındaki âminden sonra zammın kısa ilk parçası
+    ("إن الإنسان") Fatiha'ya zayıf eşleşip kayıp sayacını sıfırlıyor; reddedilince bileşik teravihte Asr bölümü hiç kilitlenmedi.
+  - **Rekât sayacı "2 rekât"** (semiallah hiç tanınmadı): `RakatTracker` selamda son okumadan geçen süreden sessiz rekât tahmini
+    (`SILENT_ONE_RAKAT_SEC` 132 / `SILENT_TWO_RAKAT_SEC` 195; son okuma → selam: 2 rekâtlı gerçek cumalar 90-100 sn, sentetik
+    95-125, bileşik teravih 85-95; akşamlar 140 / 150; yatsılar 240 / 250 — 125 denendi, sentetik teravihte 2 rekât 3 sayıldı).
+    Yatsı #2 → 4, akşam #2 (eskiden 2) → 3.
+  - **Duada 3. selam kartı:** duadaki "ومنك السلام" ASR'de "السلام عليكم" → `ZikirTracker`: dua kartından sonra
+    (`DUA_AFTER_SELAM_SEC` içinde) selam kartı açılmaz. Dua kartının dua sürerken tekrarı kalır ("selam başına bir kez" denendi:
+    akşam #2'de 475 / 480 sn kartları kalkıp kart dua ortasında kapanıyordu — alınmadı).
+  - Kalan: 20:100 başı parça sınırına düştü (âmin + "شركة الهدى" uydurması) → kilit ~5 sn; semiallah bu imamda ASR'de tanınmıyor.
+- **Değişiklik denetimi (kullanıcı: "ayet algılamadaki hiçbir değişiklik bizi kötüye götürmemeli; her değişikliği en eski
+  kayıttan başlayarak test et"):** eski / yeni / sadece kamet / sadece rükû kuralı her kayıtta ayrı ayrı (2026-04-24 server
+  oturumlarından 20.10'a, 38 kayıt × 2 zincir): 37 eski kayıtta karar izi birebir aynı, yatsı #2'de sadece hedeflenen 2 parça;
+  test kapısının Python kümelerinde (aynı veri / zaman çizelgesi / tohum) 170 metrikten tek fark S4 gürültü hibrit yanlış kilitli
+  parça 10 → 9; Kotlin = Python 272 kayıt, app.py = referans, fixture 312/312 (senaryo 20).
+- **CI / APK düzeni (kullanıcı: "taleplerimi biriktir, sonra sor; onay verirsem APK üret"; "görüntü / kullanım yeniliğiyse ses tanıma
+  testlerini boşuna koşma"):** APK yalnız commit mesajında `[apk]` (ya da elle) — bkz. "Nasıl build edilir"; test kapsamı değişen
+  dosyalara göre (`tools/ci_kapsam.sh`).
+
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)
@@ -1284,7 +1316,9 @@ CANDIDATE_WINDOW_MARGIN=2   ← geçiş adayı ±4 ayetinde tüm Kuran kadar iyi
 DHIKR_PHRASES / DHIKR_EXTRA_MAX=1   ← kilit yokken sadece "محمد رسول الله" / "لا اله الا الله" / "ان شاء الله" / "اله الا الله" /
   "الله اكبر" (+1 kelime; tamamen tekbir hariç) → boş; şehadet BEKLEME'de kamet, bekleme sürerken zikir beklemeyi uzatır (bkz. 14, 15)
 AMBIGUOUS_MARGIN=3   ← BEKLEME / kilit kaybı adayında ikinci yer bu kadar yakınsa `ambiguous` (UI ekranı kaydırmaz; bkz. 15)
-TEKBIR_TEVHID_CHUNKS=2   ← kilit yokken (BEKLEME / ARA, bekleme dışı) tamamen tekbir parçasından ≤2 parça sonra tevhid → kamet (bkz. 17)
+TEKBIR_TEVHID_CHUNKS=2   ← kilit yokken (BEKLEME / ARA, kayıp kilit — bkz. 20 — bekleme dışı) tamamen tekbir parçasından ≤2
+  parça sonra tevhid → kamet (bkz. 17)
+PAUSE_LOST_CHUNKS=2   ← ZAMM'da ≥2 ardışık kayıp parçadan sonra <3 kelime ve <ilk kilit eşiği eşleşme devam sayılmaz (bkz. 20)
 FALAQ_PREV={برب, رب}   ← "(ب)رب الفلاح" (Felak "برب الفلق" ASR'de) kamet kelimesi sayılmaz (bkz. 17)
 AYAH_START_TIE_MARGIN=2, MUQATTAAT   ← Fatiha sonunda doğal geçiş ayet ortasına oturduysa ≤2 kötü ikinci yer ayet başıysa o
   (besmele / mukattaa atlanır; 6:70 → 7:51, bkz. 17)
@@ -1342,7 +1376,9 @@ Log export için gerekli. `xml/file_paths.xml` içinde `cache-path name="logs"` 
 ## Nasıl build edilir
 
 **Build GitHub Actions'ta yapılır** (`.github/workflows/android.yml`) — yerel build yok.
-Her push'ta (tüm branch'ler), PR'da ve elle (`workflow_dispatch`) çalışır:
+Her push'ta (tüm branch'ler; sadece `**.md` değişince değil), PR'da ve elle (`workflow_dispatch`) çalışır. **APK sadece onayla**
+(20.10'dan beri; kullanıcı: "taleplerimi biriktir, sonra sor, onay verirsem APK üret"): `model` + `apk` işleri commit mesajında
+`[apk]` varsa ya da elle; diğer push'larda sadece test kapısı. İstekler birikince kullanıcıya liste sunulur, onayla `[apk]` push.
 
 1. **`model` job** (`model-export.yml`, tekrar kullanılabilir) — `asr-model-v2` release'inde model
    var mı bakar. Yoksa önce özel repodaki aynı tag'in release'inden **aynen kopyalar** (KAYIT_TOKEN; aynı dosyalar → aynı
@@ -1389,7 +1425,7 @@ python scripts/build_state_machine_fixture.py
 Top bar'daki 6 ikon:
 - **Σ** Fuzzy Test — 51 case, ~10-35ms (bit-perfect)
 - **#** Aligner Test — 43 case, 2-5 dakika (yavaş!)
-- **▶** State Machine Test — 289 chunk × 19 senaryo, ~2-3 dakika (289/289 bit-perfect)
+- **▶** State Machine Test — 312 chunk × 20 senaryo, ~2-3 dakika (312/312 bit-perfect)
 - **🔬** ASR Test — 5sn mikrofon kaydı → transkripsiyon (sonuç durum satırında)
 - **📤** Log Export — logcat share intent
 - **⚙️** Settings — tema + tuner
@@ -1399,7 +1435,14 @@ Mikrofon butonu (alttaki yuvarlak) → gerçek pipeline başlat. Solundaki dosya
 
 ### Test kapısı — her kod değişikliğinden sonra, APK'dan önce (`tests/gate.py`, CI: `tests.yml`)
 - `android.yml`'de `apk` job'u `test` job'unu bekler (`needs: [model, test]`): kapı kırmızıysa **APK derlenmez**.
-  `tests.yml` tek başına da çalışır (`server/**`, `tests/**` değişince, elle; `seeds` girdisi).
+  `tests.yml` her push'ta android.yml'den çağrılır (elle de; `seeds` girdisi). **Kapsam** (`tools/ci_kapsam.sh`, `scope` işi):
+  ses tanıma / kilit / state machine / test verisi (`scripts/`, `server/`, `tests/`, uygulamanın session / aligner / audio / asr
+  kodu) değiştiyse tüm kümeler; sadece G2 eklentisi / köprüsü değiştiyse `g2,glasses` + simülatör; ikisi de değilse (arayüz) test
+  yok; `tests/baseline.json` nötr; commit mesajında `[tam-test]` → hepsi. `eval.yml` push'ta sadece ASR / parçalayıcı / eval
+  dosyaları değişince (state machine'i kapı kayıtlı transkriptlerle ölçer).
+- **Algılama değişikliği denetimi:** değişiklik hiçbir kayıtta kötüleştirmemeli — eski / yeni kodu kayıt kayıt (en eski tarihliden)
+  karşılaştır (karar izi, ilk kilit, bölüm kilitleri, yanlış kilit / aday) + test kapısının tüm kümeleri aynı veri ve tohumla; kötüleştiren
+  kural alınmaz (bkz. açık sorun 20).
 - Kümeler (`--suites`, varsayılan hepsi):
   - **replay** — gerçek kayıtların CI ASR transkriptleri (`tests/trjson/*.trjson`, 36 kayıt × rnnt + rnnt-hibrit) ASR'siz
     tekrar oynatılır: ilk kilit (doğru / yanlış / yok, süre), sure bölümü başına kilit gecikmesi, yanlış kilitli parça,

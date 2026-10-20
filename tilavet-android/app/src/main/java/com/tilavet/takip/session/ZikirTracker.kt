@@ -119,10 +119,15 @@ class ZikirTracker {
             r.status != ChunkStatus.MATCHED && duaOpening(r.text)) {
             found.add(NamazZikri.DUA)
         }
+        // Dua basladiktan sonra (selamdan sonra DUA_AFTER_SELAM_SEC icinde) duadaki "السلام" selam karti acmaz: yatsi #2
+        // (20.10) "أنت السلام ومنك السلام" → ASR "السلام عليكم" 3. selam karti. Dua karti dua surdukce tekrar gosterilir
+        // (aksam #2: 470 / 475 / 480 sn — dua okunurken kart acik kalsin).
+        val inDua = duaAfterSelam && t - lastSelamSec <= DUA_AFTER_SELAM_SEC
         val out = found.filter { z ->
             when (z) {
                 NamazZikri.TEKBIR -> r.status != ChunkStatus.MATCHED && tekbirDominant(r.text)
-                NamazZikri.SELAM, NamazZikri.DUA -> t - lastRecitationSec >= AFTER_RECITATION_SEC
+                NamazZikri.SELAM -> t - lastRecitationSec >= AFTER_RECITATION_SEC && !inDua
+                NamazZikri.DUA -> t - lastRecitationSec >= AFTER_RECITATION_SEC
                 else -> true
             }
         }

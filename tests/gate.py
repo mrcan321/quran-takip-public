@@ -18,6 +18,8 @@ Kumeler (--suites, virgulle; varsayilan hepsi):
   kotlin   uygulamanin Kotlin kodu (tests/jvm): Fuzzy/Aligner/StateMachine fixture'lari, Kotlin = Python karar izi
            (gercek kayitlar + bilesik senaryolar), RakatTracker/EzanTracker altin dosyalari, ChunkBuilder = vad_chunker,
            WavReader = soundfile, G2 gozluk koprusu (GlassesBridge: JSON, uzun yoklama, dosyalar, CORS)
+  glasses  sadece G2 gozluk koprusu (JvmTests glasses; kotlin kumesinin parcasi) — tanima kodu degismeden G2 degisince
+           (tests.yml kapsam)
   g2       G2 gozluk eklentisinin ekran duzeni (assets/g2/layout.js, node --test): satir kirma, sayfalar, kutu boyutlari;
            <assets>/asr/meal.bin varsa tum mealler (satir / bayt siniri, fontta olmayan karakter sayisi). Simulator
            denemesi ayri: tests/g2/sim_check.py (tests.yml g2sim)
@@ -390,6 +392,14 @@ def main():
         results["kotlin"].update(gl)
         notes += [f"G2 koprusu: {f}" for f in gfails]
         print(f"[kotlin] G2 koprusu {gl['glasses_passed']}/{gl['glasses_total']}", flush=True)
+
+    if "glasses" in suites and "kotlin" not in suites:
+        from lib import kotlin
+        kotlin.ensure_built(offline=args.offline)
+        gl, gfails = kotlin.glasses()
+        results.setdefault("kotlin", {}).update(gl)
+        notes += [f"G2 koprusu: {f}" for f in gfails]
+        print(f"[glasses] G2 koprusu {gl['glasses_passed']}/{gl['glasses_total']}", flush=True)
 
     if "g2" in suites:
         from lib import g2

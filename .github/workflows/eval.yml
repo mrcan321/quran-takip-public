@@ -5,10 +5,16 @@ name: Skor degerlendirmesi
 # APK kurmadan yapilir. Kayitlar bu repoda olmadigi icin push'ta data/** degisikligi tetiklemez; yeni kayitta elle.
 # Sonuc tablosu run ozetinde (Summary). Model: asr-model-v2 (CTC + RNNT parcalari); yoksa once export edilir.
 
+# Push'ta sadece gercek ASR ciktisini degistiren dosyalar (ses tanima, parcalayici, eval'in kendisi): state machine /
+# aligner degisikligini test kapisi kayitli transkriptlerle zaten olcer (kullanici: "bosuna test kosma"). Yeni kayit
+# transkripti yerelde (model public release'ten) ya da elle.
 on:
   push:
     paths:
-      - "scripts/**"
+      - "scripts/onnx_asr.py"
+      - "scripts/vad_chunker.py"
+      - "scripts/sp_manual_decoder.py"
+      - "scripts/eval_pipeline.py"
       - ".github/workflows/eval.yml"
   workflow_dispatch:
     inputs:

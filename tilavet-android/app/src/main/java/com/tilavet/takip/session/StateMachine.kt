@@ -233,6 +233,15 @@ class StateMachine(
         // parca icinde sadece tekbir duyulduysa tek basina tevhid kamet/ezan sayilir. Ezan / kamet sonundaki tekbir + tevhid
         // bekleme surerken geldigi icin tetiklemez (zikir olarak beklemeyi uzatir); namazda tevhid sesli soylenmez.
         const val TEKBIR_TEVHID_CHUNKS = 2
+        // Kilit kaybolmussa (ABANDON_LOCK_AFTER_LOST+ kayip parca) zamm kilidi yok sayilir: zikir ifadesi ve tekbir + tevhid
+        // kurali orada da gecer. Yatsi #2 (20.10): namazdan once Saffat 37:180-182 → ZAMM kilidi, 50 sn sessizlik, kamet
+        // "الله اغبر" ×2 → "شهود لا اله الا الله" (189 sn) ZAMM'da zikir sayilmadi (37:35 belirsiz adayi); kamet ancak 194'te.
+        //
+        // Zamm okunurken ara verildiyse (ZAMM'da bu kadar ardisik kayip parca: rukû / secde, sessiz kisim) kisa (< ilk kilit
+        // kelime sayisi) ve zayif (< ilk kilit esigi) eslesme okumanin devami sayilmaz. Yatsi #2: Taha 20:111 bitti, rukûdan
+        // kalkarken "سمع الله لمن حمده" → ASR "لم يعد" 20:112'ye 62.9 → rukûda ekranda henuz okunmamis ayet. FATIHA'da
+        // uygulanmaz (aminden sonra zammin kisa ilk parcasi; bilesik teravihte Asr bolumu kilitsiz kaldi).
+        const val PAUSE_LOST_CHUNKS = 2
         // Belirsiz aday (UI): BEKLEME / kilit kaybi adayinda ikinci yer bu kadar yakinsa aday ekranda gosterilmez
         // (ChunkResult.ambiguous; state machine ayni, dogrulaninca kayar). 39 + 44 kayit (gercek, sentetik, dis kaynak)
         // × 2 zincir: ekrandaki 22 yanlis adayin farki 0-2.7 ("قل أعوذ برب" 113:1 / 114:1, "ألم تر كيف" 105:1 / 89:6 /
@@ -659,8 +668,10 @@ class StateMachine(
 
         // 3a. Namaz yapisi sinyali (kamet / selam / rukû) — bkz. KAMET_HOLD_CHUNKS
         var signal = namazSignal(transcribedText)
-        // Zamm kilitli degilken tek basina zikir ifadesi — bkz. DHIKR_PHRASES
-        val (dhikr, sehadet) = if (signal == null && state.state != NamazState.ZAMM) {
+        // Zamm kilitli degilken (ya da kilit kaybolmusken) tek basina zikir ifadesi — bkz. DHIKR_PHRASES, PAUSE_LOST_CHUNKS
+        val abandoned = state.lostChunks >= ABANDON_LOCK_AFTER_LOST &&
+            (state.state == NamazState.FATIHA || state.state == NamazState.ZAMM)
+        val (dhikr, sehadet) = if (signal == null && (state.state != NamazState.ZAMM || abandoned)) {
             dhikrOnly(transcribedText)
         } else {
             Pair(false, false)
@@ -668,7 +679,7 @@ class StateMachine(
         val inHold = state.holdUntil.let { it != null && chunkIndex <= it }
         val lastTekbir = state.lastTekbirChunk
         val tekbirTevhid = dhikr && !inHold &&
-            (state.state == NamazState.BEKLEME || state.state == NamazState.ARA) &&
+            (state.state == NamazState.BEKLEME || state.state == NamazState.ARA || abandoned) &&
             lastTekbir != null && chunkIndex - lastTekbir <= TEKBIR_TEVHID_CHUNKS && isTevhid(transcribedText)
         if (isTekbirOnly(transcribedText.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() })) {
             state.lastTekbirChunk = chunkIndex
@@ -685,7 +696,7 @@ class StateMachine(
                 rms = rms,
                 text = transcribedText,
                 reason = when {
-                    tekbirTevhid -> "tekbir + tevhid (kilit yok) — kamet/ezan, Fatiha bekleniyor"
+                    tekbirTevhid -> "tekbir + tevhid (kilit yok / kayip) — kamet/ezan, Fatiha bekleniyor"
                     dhikr -> "kelime-i sehadet (kilit yok) — kamet/ezan, Fatiha bekleniyor"
                     else -> "kamet/ezan — yeni namaz, Fatiha bekleniyor"
                 },
@@ -1012,16 +1023,22 @@ class StateMachine(
         }
 
         val insufficientWords = requireMinWords > 0 && wordCount < requireMinWords
+        // Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS
+        val pausedWeak = state.state == NamazState.ZAMM && !relock && !opening && state.lostChunks >= PAUSE_LOST_CHUNKS &&
+            wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < minConfidenceFirstLock
 
         // 6. Skor / kelime yetersizse low_confidence
         // Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
-        if ((score < effectiveThreshold && !opening) || match == null || insufficientWords) {
+        if ((score < effectiveThreshold && !opening) || match == null || insufficientWords || pausedWeak) {
             val where = match?.let { m ->
                 collectVerses(m.startWordIdx, m.endWordIdx).firstOrNull()?.let { (s0, a0) -> " @ $s0:$a0" }
             } ?: ""
             val reason = withNotes(when {
                 match == null -> "eslesme yok"
                 insufficientWords -> "yetersiz kelime ($wordCount<$requireMinWords)$where"
+                pausedWeak && score >= effectiveThreshold ->
+                    "okuma ara verdi (${state.lostChunks} kayip parca): kisa zayif eslesme ($wordCount kelime, " +
+                        "skor ${"%.1f".format(score)}$where < ${"%.0f".format(minConfidenceFirstLock)})"
                 else -> {
                     val tag = when {
                         relock -> "yeniden kilit esigi"

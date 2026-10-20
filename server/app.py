@@ -728,6 +728,9 @@ DHIKR_EXTRA_MAX = 1
 # tekbir duyulduysa tek basina tevhid kamet/ezan sayilir (yatsi 19.10: kamet 24 sn geç tanindi; referans:
 # build_state_machine_fixture.TEKBIR_TEVHID_CHUNKS)
 TEKBIR_TEVHID_CHUNKS = 2
+# Kilit kaybolmussa zikir / tekbir + tevhid kurali ZAMM'da da (yatsi #2) ve zamm okunurken ara verildiyse kisa + zayif
+# eslesme devam sayilmaz (FATIHA'da degil) — bkz. scripts/build_state_machine_fixture.py PAUSE_LOST_CHUNKS
+PAUSE_LOST_CHUNKS = 2
 
 
 def is_tevhid(text: str) -> bool:
@@ -1092,10 +1095,12 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
 
     # Namaz yapisi sinyali (kamet / selam / rukû)
     signal = namaz_signal(text)
-    # Zamm kilitli degilken tek basina zikir ifadesi — bkz. DHIKR_PHRASES
-    dhikr, sehadet = (dhikr_only(text) if signal is None and state.state != NamazState.ZAMM else (False, False))
+    # Zamm kilitli degilken (ya da kilit kaybolmusken) tek basina zikir ifadesi — bkz. DHIKR_PHRASES
+    abandoned = (state.lost_chunks >= ABANDON_LOCK_AFTER_LOST and state.state in (NamazState.FATIHA, NamazState.ZAMM))
+    dhikr, sehadet = (dhikr_only(text) if signal is None and (state.state != NamazState.ZAMM or abandoned)
+                      else (False, False))
     in_hold = state.hold_until is not None and chunk_index <= state.hold_until
-    tekbir_tevhid = (dhikr and not in_hold and state.state in (NamazState.BEKLEME, NamazState.ARA)
+    tekbir_tevhid = (dhikr and not in_hold and (state.state in (NamazState.BEKLEME, NamazState.ARA) or abandoned)
                      and state.last_tekbir_chunk is not None
                      and chunk_index - state.last_tekbir_chunk <= TEKBIR_TEVHID_CHUNKS and is_tevhid(text))
     if is_tekbir_only([t for t in (bare_token(w) for w in text.split()) if t]):
@@ -1342,12 +1347,18 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
         require_min_words = 0
 
     insufficient_words = (require_min_words > 0 and word_count < require_min_words)
+    # Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS
+    paused_weak = (state.state == NamazState.ZAMM and not relock and not opening and state.lost_chunks >= PAUSE_LOST_CHUNKS
+                   and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
 
     # Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
-    if (score < effective_threshold and not opening) or not match or insufficient_words:
+    if (score < effective_threshold and not opening) or not match or insufficient_words or paused_weak:
         result["status"] = "low_confidence"
         if insufficient_words:
             result["reason"] = f"yetersiz kelime ({word_count}<{require_min_words})"
+        elif paused_weak and score >= effective_threshold:
+            result["reason"] = (f"okuma ara verdi ({state.lost_chunks} kayip parca): kisa zayif eslesme "
+                                f"({word_count} kelime, skor {score:.1f} < {MIN_CONFIDENCE_FIRST_LOCK})")
         else:
             tag = ""
             if relock:

@@ -4,7 +4,8 @@ name: Android CI
 #   model — ASR modeli (ONNX) GitHub Release'te (MODEL_TAG) yoksa NeMo'dan export edip oraya yukler
 #           (model-export.yml). Model repoda tutulamayacak kadar buyuk (~450 MB); bir kez uretilir.
 #   test  — APK oncesi test kapisi (tests.yml → tests/gate.py): gercek kayit transkriptleri, zorlama + teravih
-#           bilesimleri, Kotlin = Python birebirlik; baseline'dan kotu sonuc → APK derlenmez.
+#           bilesimleri, Kotlin = Python birebirlik; baseline'dan kotu sonuc → APK derlenmez. Kapsam degisen dosyalara
+#           gore (tools/ci_kapsam.sh).
 #   apk   — Kuran asset'leri + test fixture'lari uretir, modeli release'ten indirir, release APK derler
 #           (debuggable degil → ART tam optimize eder; imza repodaki sabit keystore, minify kapali).
 #           Push build'lerinde APK "apk-ci<N>" release'ine yuklenir, "Latest" isaretlenir, eski APK release'leri
@@ -17,18 +18,14 @@ name: Android CI
 # Build numarasi = GitHub run numarasi + BUILD_OFFSET (100): kod mrcan321/quran-takip'ten (son build #53) bu repoya
 # tasindi, run numarasi 1'den basladi. versionCode geriye giderse Android yeni APK'yi eskisinin ustune kurmaz.
 
+# APK SADECE ONAYLA (kullanici: "taleplerimi biriktir, sonra sor; onay verirsem APK uret"): model + apk isleri commit
+# mesajinda [apk] varsa ya da elle (Run workflow) calisir. Diger push'larda sadece test kapisi (kapsami degisen dosyalara
+# gore, bkz. tests.yml / tools/ci_kapsam.sh).
+
 on:
   push:
-    # APK'yi etkilemeyen degisikliklerde 520 MB'lik build'i atla (eval.yml bunlari ayrica isler)
     paths-ignore:
       - "**.md"
-      - "scripts/eval_pipeline.py"
-      - ".github/workflows/eval.yml"
-      - "benchmark/**"
-      - "data/**"
-      - "server/**"
-      - "tests/**"          # tests.yml ayrica calisir
-      - ".github/workflows/tests.yml"
   pull_request:
   workflow_dispatch:
     inputs:
@@ -57,6 +54,8 @@ jobs:
   model:
     name: ASR modeli
     # Tag'de model yoksa NeMo'dan export edip yukler (bkz. model-export.yml). Tag env.MODEL_TAG ile ayni olmali.
+    # Sadece APK derlenecekse (onay: commit mesajinda [apk] ya da elle)
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[apk]') }}
     uses: ./.github/workflows/model-export.yml
     with:
       tag: asr-model-v2
@@ -71,6 +70,8 @@ jobs:
   apk:
     name: APK
     needs: [model, test]
+    # model sadece onayla calisir; test kapisi kapsam disinda (arayuz degisikligi) tamamen atlanmis olabilir
+    if: ${{ always() && needs.model.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

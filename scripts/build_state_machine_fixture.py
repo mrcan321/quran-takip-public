@@ -442,6 +442,16 @@ DHIKR_EXTRA_MAX = 1
 # parca icinde sadece tekbir duyulduysa tek basina tevhid kamet/ezan sayilir. Ezan / kamet sonundaki tekbir + tevhid
 # bekleme surerken geldigi icin tetiklemez (zikir olarak beklemeyi uzatir); namazda tevhid sesli soylenmez.
 TEKBIR_TEVHID_CHUNKS = 2
+# Kilit kaybolmussa (ABANDON_LOCK_AFTER_LOST+ kayip parca) zamm kilidi yok sayilir: zikir ifadesi ve tekbir + tevhid kurali
+# orada da gecer. Yatsi #2 (20.10): namazdan once biri Saffat 37:180-182 okudu → ZAMM kilidi, 50 sn sessizlik, kamet
+# "الله اغبر" ×2 → "شهود لا اله الا الله" (189 sn) ZAMM'da zikir sayilmadi, 37:35 belirsiz adayi oldu; kamet ancak 194'te.
+
+# Zamm okunurken ara verildiyse (ZAMM'da PAUSE_LOST_CHUNKS+ ardisik kayip parca: rukû / secde, sessiz kisim) kisa (< ilk
+# kilit kelime sayisi) ve zayif (< ilk kilit esigi) eslesme okumanin devami sayilmaz. Yatsi #2: Taha 20:111 bitti (436 sn),
+# rukûdan kalkarken "سمع الله لمن حمده" → ASR "لم يعد" 20:112'ye 62.9 → rukûda ekranda henuz okunmamis ayet (20:112 2.
+# rekatta okundu). FATIHA'da uygulanmaz: Fatiha → zamm arasindaki aminden sonra zammin kisa ilk parcasi ("إن الإنسان")
+# Fatiha'ya zayif eslesip kayip sayacini sifirliyor; reddedilince bilesik teravihte Asr bolumu hic kilitlenmedi.
+PAUSE_LOST_CHUNKS = 2
 
 
 def is_tevhid(text):
@@ -880,11 +890,12 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
 
     # Namaz yapisi sinyali (kamet / selam / rukû) — bkz. KAMET_HOLD_CHUNKS
     signal = namaz_signal(transcribed_text)
-    # Zamm kilitli degilken tek basina zikir ifadesi — bkz. DHIKR_PHRASES
-    dhikr, sehadet = (dhikr_only(transcribed_text) if signal is None and state.state != NamazState.ZAMM
+    # Zamm kilitli degilken (ya da kilit kaybolmusken) tek basina zikir ifadesi — bkz. DHIKR_PHRASES, TEKBIR_TEVHID_CHUNKS
+    abandoned = (state.lost_chunks >= ABANDON_LOCK_AFTER_LOST and state.state in (NamazState.FATIHA, NamazState.ZAMM))
+    dhikr, sehadet = (dhikr_only(transcribed_text) if signal is None and (state.state != NamazState.ZAMM or abandoned)
                       else (False, False))
     in_hold = state.hold_until is not None and chunk_index <= state.hold_until
-    tekbir_tevhid = (dhikr and not in_hold and state.state in (NamazState.BEKLEME, NamazState.ARA)
+    tekbir_tevhid = (dhikr and not in_hold and (state.state in (NamazState.BEKLEME, NamazState.ARA) or abandoned)
                      and state.last_tekbir_chunk is not None
                      and chunk_index - state.last_tekbir_chunk <= TEKBIR_TEVHID_CHUNKS and is_tevhid(transcribed_text))
     if is_tekbir_only([t for t in (bare_token(w) for w in transcribed_text.split()) if t]):
@@ -1086,9 +1097,12 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
         eff_thresh = MIN_CONFIDENCE
         req_min = 0
     insufficient = req_min > 0 and word_count < req_min
+    # Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS
+    paused_weak = (state.state == NamazState.ZAMM and not relock and not opening and state.lost_chunks >= PAUSE_LOST_CHUNKS
+                   and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
 
     # Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
-    if (score < eff_thresh and not opening) or not match or insufficient:
+    if (score < eff_thresh and not opening) or not match or insufficient or paused_weak:
         state.lost_chunks += 1
         cleanup_stale_candidates(state, chunk_index)
         new_state = transition_state(state, False, None, None)
@@ -1510,6 +1524,30 @@ SCENARIOS = [
             (0.03, "من شر ماخلق ومن شر غاشق إذا عرف"),        # 1: Felak 113:2-3
             (0.03, "غاصق إذا وقب ومن شر النفاثات في الرقد"),   # 2: Felak 113:3-4
             (0.03, "في العقد ومن شر حاسد إذا حاسد"),          # 3: Felak 113:4-5
+        ],
+    },
+    # ============ Senaryo 20: yatsi #2 (20.10) — kayip kilitte kamet, rukûda kisa zayif eslesme ============
+    {
+        "description": "Namaz oncesi Saffat kilidi → 7 parca sessiz (kilit kayip) → tekbir ×2 + tevhid KAMET (eskiden ZAMM'da "
+                       "zikir sayilmiyordu); Taha 20:111 → 3 bos parca → 'لم يعد' (semiallah) devam sayilmaz, 3+ kelimelik "
+                       "gercek devam kabul",
+        "chunks": [
+            (0.1, "سبحان ربك رب العزة عما يصفون"),             # 0: 37:180 aday
+            (0.1, "وسلام على المرسلين والحمد لله رب العالمين"),  # 1: dogrulandi → ZAMM
+            (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""),         # 2-5: sessiz
+            (0.0, ""), (0.0, ""), (0.0, ""),                    # 6-8: sessiz (kayip 7 → kilit kayip)
+            (0.1, "الله اغبر"),                                  # 9: tekbir
+            (0.1, "الله اغبر"),                                  # 10: tekbir
+            (0.12, "شهود لا الهَ الاّ الله"),                    # 11: kilit kayip + tekbir + tevhid → KAMET
+            (0.1, "الحمد لله رب العالمين"),                      # 12: Fatiha (bekleme)
+            (0.1, "الرحمن الرحيم مالك يوم الدين"),               # 13
+            (0.1, "اياك نعبد واياك نستعين اهدنا الصراط المستقيم"),  # 14
+            (0.1, "صراط الذين انعمت عليهم غير المغضوب عليهم ولا الضالين"),  # 15: Fatiha sonu
+            (0.1, "يعلم ما بين ايديهم وما خلفهم ولا يحيطون به علما"),  # 16: Taha 20:110 dogal gecis
+            (0.1, "وعنت الوجوه للحي القيوم وقد خاب من حمل ظلما"),   # 17: 20:111
+            (0.1, ""), (0.1, ""), (0.1, ""),                    # 18-20: rukû (ASR bos)
+            (0.1, "لم يعد"),                                     # 21: semiallah bozuk → devam sayilmaz
+            (0.1, "ومن يعمل من الصالحات وهو مؤمن"),             # 22: gercek devam 20:112 (3+ kelime)
         ],
     },
 ]
