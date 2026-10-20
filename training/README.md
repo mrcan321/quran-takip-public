@@ -5,8 +5,9 @@ EveryAyah okumaları (test kârileri hariç) + yapay cami akustiği + gerçek ca
 Türkçe vaaz) + genel Arapça hatırlatma. Mimari, tokenizer ve çıktı yazımı aynı kalır → uygulamada kod değişmez, sadece
 model dosyaları (`asr-model-v3`) değişir.
 
-**Ne zaman:** yeterli cami kaydı birikince (hedef 20-30 sesli namaz; telefonda `Download/Tilavet Takip/`). Kayıtlar repoya
-girip `training/real_labels.json`'da etiketlenir (bunu Claude yapar); ilk 6 kayıt ve `server/recordings` hep **test**.
+**Ne zaman:** yeterli cami kaydı birikince (hedef 20-30 sesli namaz; telefonda `Download/Tilavet Takip/`). Kayıtlar **özel**
+repoya (`mrcan321/quran-takip`, `data/`) girip `training/real_labels.json`'da etiketlenir (bunu Claude yapar); ilk 6 kayıt ve
+`server/recordings` hep **test**. Kod herkese açık repoda (`mrcan321/quran-takip-public`), ses dosyaları orada yok.
 
 ## Makine
 
@@ -22,8 +23,9 @@ RunPod / Vast.ai / Lambda gibi bir yerde "PyTorch" ya da düz Ubuntu imajı yete
 ## Çalıştırma
 
 ```bash
-# 1. Kod (özel repo: GitHub token ya da `gh auth login`)
-git clone https://<TOKEN>@github.com/mrcan321/quran-takip.git && cd quran-takip
+# 1. Kod (herkese açık repo) + ses kayıtları (özel repo; token = CI'daki KAYIT_TOKEN gibi, sadece Contents read-only)
+git clone https://github.com/mrcan321/quran-takip-public.git && cd quran-takip-public
+export KAYIT_TOKEN=<token>          # run_all.sh kayıtları kendisi çeker (tools/kayitlari_cek.sh)
 
 # 2. tmux içinde (bağlantı koparsa iş sürsün)
 tmux new -s tt
@@ -37,7 +39,7 @@ bash training/run_all.sh
 # 5. Sonuç tablosu → Claude'a gönder (kopyala-yapıştır yeter)
 cat ~/tilavet-train/eval/summary.md
 
-# 6. "ADAY" çıktıysa ve Claude onaylarsa: modeli GitHub release'ine yükle
+# 6. "ADAY" çıktıysa ve Claude onaylarsa: modeli GitHub release'ine yükle (quran-takip-public'e yazma izinli token)
 gh auth login        # ya da export GH_TOKEN=...
 bash training/publish.sh v3
 ```
@@ -67,6 +69,8 @@ Seçenekler: `--epochs 4`, `--lr 5e-5`, `--freeze 6` (kodlayıcının ilk 6 katm
 - Test kârileri eğitime giremez (`build_dataset.py` durdurur): Alafasy, Husary, Şureym (sentetik küme), Sudeys, Maher
   el-Muaykılî, Hani Rifai, Medine imamları (dış küme). Doğrulama kârisi: Ali Hajjaj es-Süveysi.
 - Gerçek kayıt gürültüsü yalnız `split: train` kayıtlardan alınır (test kayıtlarının cami sesi eğitime sızmasın).
+- Ses kayıtları özel repoda: `KAYIT_TOKEN` yoksa `run_all.sh` uyarır; eğitim kayıtsız da çalışır (sadece EveryAyah + FLEURS)
+  ama değerlendirmenin `data` kümesi (gerçek namazlar) boş kalır → önce `bash tools/kayitlari_cek.sh`.
 - Lisanslar: NVIDIA modeli CC-BY-4.0; FLEURS CC-BY-4.0; EveryAyah kayıtlarının lisansı belirsiz — kişisel proje.
 - Betikler GPU'suz ortamda küçük rastgele bir modelle (aynı mimari ve tokenizer) ve `--smoke --fake` verisiyle A → B → C → D
   uçtan uca denendi; gerçek modelle ilk çalıştırma kiralık makinedeki duman testi.

@@ -7,7 +7,8 @@ name: Test kapisi
 # simulatorunde uctan uca (g2sim). Metrikler tests/baseline.json ile karsilastirilir; herhangi biri
 # kotulesirse ya da birebirlik tutmazsa job kirmizi → android.yml APK'yi derlemez.
 #
-# android.yml bu workflow'u cagirir (needs: test). Tek basina: server/** ya da tests/** degisince ve elle.
+# android.yml bu workflow'u cagirir (needs: test, secrets: inherit). Tek basina: server/** ya da tests/** degisince ve elle.
+# Gercek WAV'lar (Kotlin kumesi) ozel repodan: tools/kayitlari_cek.sh (KAYIT_TOKEN).
 
 on:
   workflow_call:
@@ -89,6 +90,12 @@ jobs:
       TILAVET_ASSETS_DIR: ${{ github.workspace }}/android-assets-staged
     steps:
       - uses: actions/checkout@v5
+
+      # Ses kayitlari bu (herkese acik) repoda yok: ozel repodan (tools/kayitlari_cek.sh, secret KAYIT_TOKEN)
+      - name: Ses kayitlari (ozel repo)
+        env:
+          KAYIT_TOKEN: ${{ secrets.KAYIT_TOKEN }}
+        run: bash tools/kayitlari_cek.sh
 
       - uses: actions/setup-python@v5
         with:

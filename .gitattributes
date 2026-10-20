@@ -1,0 +1,18 @@
+# Satir sonlari repoda hep LF (Windows'ta duzenlenen / yuklenen dosyalar da). Kabuk betikleri ve CI Linux'ta calisir.
+* text=auto eol=lf
+
+# Ikili dosyalar: satir sonu donusumu yok
+*.wav binary
+*.mp3 binary
+*.ttf binary
+*.otf binary
+*.png binary
+*.jpg binary
+*.webp binary
+*.keystore binary
+*.jks binary
+*.bin binary
+*.onnx binary
+*.ehpk binary
+*.zip binary
+*.gz binary

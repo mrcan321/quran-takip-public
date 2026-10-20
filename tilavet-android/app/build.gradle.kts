@@ -9,8 +9,9 @@ plugins {
 val tilavetAssetsDir: String = System.getenv("TILAVET_ASSETS_DIR")
     ?: rootProject.file("../android-assets-staged").absolutePath
 
-// CI'da her build'in versionCode'u artar (GitHub Actions run numarasi) — ustune kurulum sorunsuz olsun.
-val ciBuildNumber: Int? = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+// CI'da her build'in versionCode'u artar — ustune kurulum sorunsuz olsun. TILAVET_BUILD = run numarasi + 100
+// (android.yml; repo tasininca run numarasi 1'den basladi, eski repoda son build #53), yoksa GitHub run numarasi.
+val ciBuildNumber: Int? = (System.getenv("TILAVET_BUILD") ?: System.getenv("GITHUB_RUN_NUMBER"))?.toIntOrNull()
 // Ekranin durum satirinda gosterilen commit (hangi kod test ediliyor): CI'da GITHUB_SHA, yerelde "yerel"
 val gitShortSha: String = System.getenv("GITHUB_SHA")?.take(7) ?: "yerel"
 

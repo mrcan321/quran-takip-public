@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 V="${1:?surum ver: v3}"
 WORK="${WORK:-$HOME/tilavet-train}"
-REPO="${REPO:-mrcan321/quran-takip}"
+REPO="${REPO:-mrcan321/quran-takip-public}"   # CI modeli bu repodaki release'ten indirir
 M="$WORK/eval/cand/model"
 for f in fastconformer_full.onnx fastconformer_full.onnx.data rnnt_decoder.onnx rnnt_joint.onnx tokenizer.model meta.json; do
   [ -f "$M/$f" ] || { echo "HATA: $M/$f yok (once run_all.sh eval)"; exit 1; }

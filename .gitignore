@@ -107,3 +107,12 @@ server/*.sqlite
 # ============================================================
 # scripts/download_meal.py ve download_surah_names.py
 # bunlari ~/.cache/quran-align/ altina indiriyor, zaten ignore
+
+# ============================================================
+# Ses kayitlari — bu repo HERKESE ACIK; cami / telefon kayitlari ozel repoda (mrcan321/quran-takip)
+# ============================================================
+# CI ve yerel kopya tools/kayitlari_cek.sh ile ceker (KAYIT_TOKEN). Yeni kayit ozel repoya eklenir.
+data/*.wav
+data/*.mp3
+data/*.m4a
+server/recordings/*.wav

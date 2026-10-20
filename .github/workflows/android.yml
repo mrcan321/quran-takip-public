@@ -12,8 +12,10 @@ name: Android CI
 #           https://github.com/<repo>/releases/latest/download/tilavet-takip.apk
 #           Ayni release'te Even Realities G2 eklentisi (tilavet-takip-g2.ehpk) ve gelistirici modu QR'i.
 #
-# APK ~500 MB oldugu icin workflow artifact'i olarak yuklenmiyor (private repo artifact kotasi dolar);
-# release asset'leri kotaya sayilmiyor.
+# APK ~500 MB oldugu icin workflow artifact'i olarak yuklenmiyor; release asset'i olarak yukleniyor.
+#
+# Build numarasi = GitHub run numarasi + BUILD_OFFSET (100): kod mrcan321/quran-takip'ten (son build #53) bu repoya
+# tasindi, run numarasi 1'den basladi. versionCode geriye giderse Android yeni APK'yi eskisinin ustune kurmaz.
 
 on:
   push:
@@ -45,6 +47,7 @@ permissions:
 env:
   MODEL_TAG: asr-model-v2   # model job'undaki tag ile ayni olmali (v2: CTC + RNNT)
   APK_TAG_PREFIX: apk-
+  BUILD_OFFSET: 100   # build numarasi = run numarasi + 100 (bkz. yukarisi; G2 eklenti surumu, release adi, versionCode)
   APK_NAME: tilavet-takip.apk
   # Even Realities G2 eklentisi (assets/g2 + tilavet-android/g2-plugin/app.json) ve gelistirici modu QR'i — APK ile ayni release'te
   G2_NAME: tilavet-takip-g2.ehpk
@@ -58,10 +61,12 @@ jobs:
     with:
       tag: asr-model-v2
       force: ${{ inputs.force_model_export == true }}
+    secrets: inherit   # KAYIT_TOKEN: model release'i ozel repodan kopyalanabilsin
 
   test:
     name: Test kapisi
     uses: ./.github/workflows/tests.yml
+    secrets: inherit   # KAYIT_TOKEN: ses kayitlari ozel repodan (tools/kayitlari_cek.sh)
 
   apk:
     name: APK
@@ -73,6 +78,11 @@ jobs:
       TILAVET_ASSETS_DIR: ${{ github.workspace }}/android-assets-staged
     steps:
       - uses: actions/checkout@v5
+
+      - name: Build numarasi
+        run: |
+          echo "TILAVET_BUILD=$((GITHUB_RUN_NUMBER + BUILD_OFFSET))" >> "$GITHUB_ENV"
+          echo "build #$((GITHUB_RUN_NUMBER + BUILD_OFFSET)) (run $GITHUB_RUN_NUMBER + $BUILD_OFFSET)"
 
       - uses: actions/setup-python@v5
         with:
@@ -131,7 +141,7 @@ jobs:
         run: |
           cp tilavet-android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/$APK_NAME"
           ls -la "$RUNNER_TEMP/$APK_NAME"
-          echo "APK: $(du -h "$RUNNER_TEMP/$APK_NAME" | cut -f1), build #$GITHUB_RUN_NUMBER, ${GITHUB_SHA::7}" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK: $(du -h "$RUNNER_TEMP/$APK_NAME" | cut -f1), build #$TILAVET_BUILD, ${GITHUB_SHA::7}" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/setup-node@v4
         with:
@@ -146,7 +156,7 @@ jobs:
         run: |
           # Surum 0.<build>.0: build numarasi orta hanede (#48'e kadar 0.1.<build> — kullanici: Even yeni build'i
           # algilamadi, son hanenin degismesi yetmiyor olabilir). Ayni dosya surumlu adla da yuklenir.
-          G2_VER="0.$GITHUB_RUN_NUMBER.0"
+          G2_VER="0.$TILAVET_BUILD.0"
           jq --arg v "$G2_VER" '.version = $v' tilavet-android/g2-plugin/app.json > "$RUNNER_TEMP/app.json"
           # paketin surumu paketin icinde de (g2-paket.json): eklenti sayfasinda ve uygulamanin ayarlarinda gorunur
           cp -r tilavet-android/app/src/main/assets/g2 "$RUNNER_TEMP/g2pkg"
@@ -167,9 +177,9 @@ jobs:
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          TAG="${APK_TAG_PREFIX}ci${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
-          TITLE="Tilavet Takip — build #$GITHUB_RUN_NUMBER"
-          NOTES="Branch: \`$GITHUB_REF_NAME\` · Commit: $GITHUB_SHA · versionName 0.2.0-ci$GITHUB_RUN_NUMBER"
+          TAG="${APK_TAG_PREFIX}ci${TILAVET_BUILD}-${GITHUB_RUN_ATTEMPT}"
+          TITLE="Tilavet Takip — build #$TILAVET_BUILD"
+          NOTES="Branch: \`$GITHUB_REF_NAME\` · Commit: $GITHUB_SHA · versionName 0.2.0-ci$TILAVET_BUILD"
           FILES=("$RUNNER_TEMP/$APK_NAME")
           for f in "$RUNNER_TEMP/$G2_NAME" "$RUNNER_TEMP"/tilavet-takip-g2-0.*.ehpk "$RUNNER_TEMP/$G2_QR"; do
             [ -s "$f" ] && FILES+=("$f")

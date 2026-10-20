@@ -1,6 +1,15 @@
 # Tilavet Takip — Kuran Tilavet Tanıma Projesi
 
-**Proje hedefi:** Namaz kılarken imamı sesli olarak takip eden Android uygulaması. **Tamamen offline** çalışır (namazda internet yok, cami koşulu). Kullanıcı: mch — DevOps, İstanbul. Aile ve yakın çevre için kişisel proje. Play Store hedefi yok, manuel install. Hedef telefon: Samsung Galaxy A34 5G (MediaTek Dimensity 1080, 8GB RAM, arm64-v8a).
+**Proje hedefi:** Namaz kılarken imamı sesli olarak takip eden Android uygulaması. **Tamamen offline** çalışır (namazda internet yok, cami koşulu). Kişisel proje. Play Store hedefi yok, manuel install. Hedef telefon: Samsung Galaxy A34 5G (MediaTek Dimensity 1080, 8GB RAM, arm64-v8a).
+
+**Repo düzeni (20.10'dan beri):** kod **herkese açık** `mrcan321/quran-takip-public` (GitHub Actions dakikası ücretsiz; özel
+repoda aylık 2.000 dk kotası doluyordu). **Ses kayıtları** (cami namazları, telefon okumaları, test konuşmaları: `data/*.wav`,
+`server/recordings/*.wav`) **özel** `mrcan321/quran-takip` repoda, dal `claude/vigilant-davinci-emx2rt` (orada Actions kapalı;
+kodun 20.10'a kadarki geçmişi de orada). Public repoda bu klasörlerin ses dosyaları `.gitignore`'da; CI her iş akışında
+`tools/kayitlari_cek.sh` ile çeker (secret `KAYIT_TOKEN`: fine-grained, sadece özel repo, Contents read-only; model release'i
+de bununla kopyalanır). Yerelde / kiralık makinede: `KAYIT_TOKEN=... bash tools/kayitlari_cek.sh`. **Yeni kayıt:** WAV özel
+reponun `data/`'sına; transkript (`tests/trjson`), `EXPECTED` / `TIMELINE`, `training/real_labels.json` public repoya. İmza
+anahtarı (`debug.keystore`) bilerek repoda (Play Store yok; gerekirse değiştirilir → telefonlarda bir kez kaldır-kur).
 
 **Kullanıcı iletişim tercihleri:**
 - Türkçe konuş
@@ -25,6 +34,7 @@
 - `onnx_full_export.py`: NeMo `nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0` → ONNX (opset 18, preprocessor+encoder+CTC birleşik)
 - `sp_manual_decoder.py`: SentencePiece manuel decoder (Android'de Java SentencePiece yok, protobuf ile decode)
 - `explore_rapidfuzz.py`: RapidFuzz partial_ratio algoritmasını debug için
+- `../tools/kayitlari_cek.sh`: ses kayıtlarını özel repodan çeker (bkz. "Repo düzeni")
 - `vad_chunker.py`: duraklamada kesen parçalayıcı — `AudioPipeline.kt` `ChunkBuilder`'ın referansı (birebir);
   hibrit: `chunks_pause(audio, pause_enabled=...)` — duraklama kesimi sadece kilitliyken
 - `eval_pipeline.py` + `onnx_asr.py`: telefonsuz değerlendirme (bkz. "Offline değerlendirme")
@@ -1309,12 +1319,13 @@ Log export için gerekli. `xml/file_paths.xml` içinde `cache-path name="logs"` 
 Her push'ta (tüm branch'ler), PR'da ve elle (`workflow_dispatch`) çalışır:
 
 1. **`model` job** (`model-export.yml`, tekrar kullanılabilir) — `asr-model-v2` release'inde model
-   var mı bakar. Yoksa (ya da `force_model_export` input'u ile) NeMo'yu kurup
+   var mı bakar. Yoksa önce özel repodaki aynı tag'in release'inden **aynen kopyalar** (KAYIT_TOKEN; aynı dosyalar → aynı
+   meta.json, telefon modeli yeniden kopyalamaz), orada da yoksa (ya da `force_model_export` input'u ile) NeMo'yu kurup
    `scripts/onnx_full_export.py` çalıştırır (~5 dk) ve model dosyalarını + `export_report.txt`'yi
    release'e yükler.
    Bağımlılıklar: `scripts/requirements-export.txt` (torch 2.11 CPU + NeMo 2.7.3, dynamo exporter
    opset 18, IR 10 → onnxruntime-android 1.18 uyumlu; export sonrası IR >10 ise 10'a çekilir).
-2. **`test` job** (`tests.yml`, tekrar kullanılabilir) — APK öncesi test kapısı (`tests/gate.py`, bkz. "Test kapısı"); kırmızıysa
+2. **`test` job** (`tests.yml`, tekrar kullanılabilir, `secrets: inherit` — gerçek WAV'lar özel repodan) — APK öncesi test kapısı (`tests/gate.py`, bkz. "Test kapısı"); kırmızıysa
    `apk` çalışmaz.
 3. **`apk` job** — Kuran verisini api.alquran.cloud'dan indirir (`~/.cache/quran-align`, actions/cache),
    `quran.bin` + `meal.bin` + 3 fixture'ı üretir, modeli release'ten indirir,
@@ -1322,12 +1333,14 @@ Her push'ta (tüm branch'ler), PR'da ve elle (`workflow_dispatch`) çalışır:
 4. Push build'lerinde APK **`apk-ci<N>-<deneme>`** release'ine yüklenir ("Latest" işaretli; eski `apk-*` release'leri yenisi
    oluştuktan **sonra** silinir — build #38'de "sil + aynı adla yeniden oluştur" 403 aldı ve link APK'sız kaldı; hedef commit'te
    tag açılamazsa tag varsayılan dala açılır). Link her zaman aynı. Telefondan direkt link:
-   `https://github.com/mrcan321/quran-takip/releases/latest/download/tilavet-takip.apk`
+   `https://github.com/mrcan321/quran-takip-public/releases/latest/download/tilavet-takip.apk` (20.10'a kadar `quran-takip`)
    Kurulum kablosuz: telefonda linki aç → indir → dokun → kur (güncellemeler de üstüne kurulur).
 
 Notlar:
-- APK ~500 MB → workflow artifact olarak **yüklenmiyor** (private repo artifact kotası); release asset'leri kotaya sayılmıyor.
-- `versionCode` = GitHub run numarası, `versionName` = `0.2.0-ci<N>`.
+- APK ~500 MB → workflow artifact olarak **yüklenmiyor**; release asset'i olarak.
+- Build numarası `N` = GitHub run numarası + 100 (`BUILD_OFFSET`, `TILAVET_BUILD`): repo taşınınca run numarası 1'den başladı
+  (eski repoda son build #53) — versionCode geri giderse Android üstüne kurmaz. `versionCode` = N, `versionName` = `0.2.0-ci<N>`,
+  durum satırında `#N`, release `apk-ci<N>-<deneme>`; public repodaki ilk build #101.
 - Aynı release'te **G2 eklentisi** `tilavet-takip-g2.ehpk` (`evenhub-cli` 0.1.14 `pack`, sürüm `0.<N>.0` — #48'e kadar `0.1.<N>`;
   kullanıcı: Even yeni build'i algılamadı, son hane yetmiyor olabilir; aynı dosya `tilavet-takip-g2-0.<N>.0.ehpk` adıyla da) ve geliştirici modu
   QR'ı `tilavet-takip-g2-qr.png` (`http://127.0.0.1:18765/`); bu adım başarısız olursa APK yine yüklenir.
@@ -1413,9 +1426,9 @@ Mikrofon butonu (alttaki yuvarlak) → gerçek pipeline başlat. Solundaki dosya
 `.github/workflows/eval.yml` → `scripts/eval_pipeline.py`: repodaki kayıtları (`data/*.wav`,
 `server/recordings/*.wav`, ~24 dk) telefondaki zincirle işler: 5sn+1sn chunk → APK'daki CTC ONNX →
 `align_transcription` (preferred yok, windowSlack=2) → `score_transcription`. Eski/yeni chunk ×
-Uthmani/imla'i tablosu + dosya bazında eşleşen sureler run özetinde. `scripts/**`, `data/**`,
-`server/recordings/**` değişince veya elle çalışır (~10 dk). Yeni kayıt eklemek = `data/`'ya wav
-koyup `EXPECTED`'e beklenen sureyi yazmak.
+Uthmani/imla'i tablosu + dosya bazında eşleşen sureler run özetinde. `scripts/**` değişince veya elle çalışır (~10 dk;
+kayıtlar özel repodan `tools/kayitlari_cek.sh`). Yeni kayıt eklemek = WAV'ı özel reponun `data/`'sına koyup (public repoda
+`EXPECTED`'e beklenen sureyi yazıp) eval'i elle (`audio` girdisiyle) çalıştırmak.
 
 **Namaz simülasyonu:** her kayıt referans state machine'den (`build_state_machine_fixture.process_chunk_simulated`,
 ilk kilit eşiği 70) chunk chunk geçer → "ilk kilit" tablosu (kaçıncı sn, doğru sure mi). Log'da
@@ -1465,10 +1478,10 @@ Ya da uygulama içinden 📤 (Log Export) ile logcat dosyaya yazılıp Drive/mai
 ## Sonraki adımlar (roadmap)
 
 1. **Canlı test (Mushaf APK)** — ilk kilit süresi, `align bitti Xms`, `asr=`/`sm=` süreleri;
-   📤 ile log + WAV → `data/`'ya eklenip eval'e girsin (kullanıcı + babası okumaları).
+   📤 ile log + WAV → özel reponun `data/`'sına eklenip eval'e girsin (farklı okuyucular).
 2. **Daha çok gerçek namaz kaydı** (iki akşam + bir cuma eklendi: açık sorun 7, 9, 10) — farklı imam/cami akustiği,
    4 rekâtlı (yatsı: 3-4. rekât sessiz), cuma/bayram (uzun zamm), teravih (ardışık sureler). WAV'ı
-   `data/`'ya koy, `EXPECTED`'e `"coklu"`, TIMELINE'ı ilk eval transkriptinden (`audio` girdisiyle hızlı).
+   özel reponun `data/`'sına koy, `EXPECTED`'e `"coklu"`, TIMELINE'ı ilk eval transkriptinden (`audio` girdisiyle hızlı).
 3. **Daha da hızlı** (opsiyonel, eval ile): duraklama eşiklerini gerçek cami kaydıyla ayarla (yankı
    duraklamayı maskeleyebilir; BEKLEME'de duraklama kesimi yanlış kilit üretti — bkz. açık sorun 6); kilitliyken 2.5 sn'de bir kısa "takip yoklaması" (sadece mevcut ayet
    penceresinde hizalama) → uzun ayetlerde de vurgu akıcı. Kayan pencere (üst üste binen parçalar)
@@ -1480,9 +1493,9 @@ Ya da uygulama içinden 📤 (Log Export) ile logcat dosyaya yazılıp Drive/mai
 
 ---
 
-## Kaynak dosya konumları (mch'nin makinesinde, WSL)
+## Yerel kopya konumları (WSL)
 
-- `~/projects/quran-asr/` — proje kökü
+- `~/projects/quran-asr/` — proje kökü (ses kayıtları: `bash tools/kayitlari_cek.sh`)
 - `~/projects/quran-asr/venv/` — Python venv (ignore)
 - `~/projects/quran-asr/onnx/` — ONNX export çıktıları (ignore, ~400MB)
 - `<repo>/android-assets-staged/asr/` — Gradle'ın okuduğu asset staging (ignore, `TILAVET_ASSETS_DIR` ile değişir)

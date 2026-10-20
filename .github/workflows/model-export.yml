@@ -55,21 +55,37 @@ jobs:
       FORCE_EXPORT: ${{ inputs.force }}
       MODEL_NAME: ${{ inputs.model_name || 'nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0' }}
       QUANTIZE: ${{ inputs.quantize || 'none' }}
+      # Kod mrcan321/quran-takip'ten (ozel) bu repoya tasindi; model release'leri orada. Bu repoda tag yoksa once oradan
+      # AYNEN kopyalanir (ayni dosyalar → ayni meta.json → telefon modeli yeniden kopyalamaz; ayni ASR ciktisi). Token:
+      # KAYIT_TOKEN (ses kayitlariyla ayni, Contents read-only — release indirmeye yeter; cagiran is secrets: inherit).
+      KAYIT_REPO: mrcan321/quran-takip
+      KAYIT_TOKEN: ${{ secrets.KAYIT_TOKEN }}
     steps:
       - name: Release'te model var mi?
         id: check
         run: |
+          has_model() { gh release view "$MODEL_TAG" -R "$1" --json assets -q '.assets[].name' 2>/dev/null \
+                          | grep -qx 'fastconformer_full.onnx.data'; }
           if [ "$FORCE_EXPORT" = "true" ]; then
             echo "Yeniden export istendi"
             echo "export=true" >> "$GITHUB_OUTPUT"
-          elif gh release view "$MODEL_TAG" -R "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' 2>/dev/null \
-               | grep -qx 'fastconformer_full.onnx.data'; then
+          elif has_model "$GITHUB_REPOSITORY"; then
             echo "Model release'te mevcut ($MODEL_TAG), export atlaniyor"
             echo "export=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "$KAYIT_TOKEN" ] && GH_TOKEN="$KAYIT_TOKEN" has_model "$KAYIT_REPO"; then
+            echo "Model bu repoda yok, $KAYIT_REPO release'inden kopyalanacak ($MODEL_TAG)"
+            echo "export=false" >> "$GITHUB_OUTPUT"
+            echo "copy=true" >> "$GITHUB_OUTPUT"
           else
             echo "Model release'te yok ($MODEL_TAG) — NeMo'dan export edilecek (~5-10 dk)"
             echo "export=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Ozel repodaki modeli indir
+        if: steps.check.outputs.copy == 'true'
+        run: |
+          GH_TOKEN="$KAYIT_TOKEN" gh release download "$MODEL_TAG" -R "$KAYIT_REPO" -D model-out
+          ls -la model-out
 
       - if: steps.check.outputs.export == 'true'
         uses: actions/checkout@v5
@@ -98,14 +114,23 @@ jobs:
         run: python scripts/onnx_full_export.py --out-dir model-out --model-name "$MODEL_NAME" --quantize "$QUANTIZE"
 
       - name: Modeli release'e yukle
-        if: steps.check.outputs.export == 'true'
+        if: steps.check.outputs.export == 'true' || steps.check.outputs.copy == 'true'
+        env:
+          COPIED: ${{ steps.check.outputs.copy }}
         run: |
+          if [ "$COPIED" = "true" ]; then
+            NOTES="$KAYIT_REPO release'i $MODEL_TAG aynen kopyalandi (NeMo → ONNX, scripts/onnx_full_export.py). Rapor: export_report.txt"
+          else
+            NOTES="NeMo $MODEL_NAME → ONNX (quantize: $QUANTIZE). scripts/onnx_full_export.py ile CI'da uretildi. Rapor: export_report.txt"
+          fi
           if ! gh release view "$MODEL_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # ayni anda baska bir is olusturduysa hata degil (asagida dosyalar yine yuklenir)
             gh release create "$MODEL_TAG" -R "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "ASR modeli ($MODEL_TAG)" \
-              --notes "NeMo $MODEL_NAME → ONNX (quantize: $QUANTIZE). scripts/onnx_full_export.py ile CI'da uretildi. Rapor: export_report.txt" \
-              --latest=false
+              --notes "$NOTES" \
+              --latest=false \
+              || gh release view "$MODEL_TAG" -R "$GITHUB_REPOSITORY" >/dev/null
           fi
           FILES="model-out/fastconformer_full.onnx model-out/fastconformer_full.onnx.data model-out/tokenizer.model model-out/meta.json model-out/export_report.txt"
           for f in model-out/rnnt_decoder.onnx model-out/rnnt_joint.onnx; do

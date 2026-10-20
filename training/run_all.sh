@@ -63,6 +63,16 @@ EOF
 fi
 export PATH="$WORK/gradle-8.7/bin:$PATH"
 
+# Ses kayitlari ozel repoda (kod herkese acik): gercek namazlar egitimin train bolumu + degerlendirmenin data kumesi
+if ! ls data/*.wav >/dev/null 2>&1; then
+  if [ -n "${KAYIT_TOKEN:-}" ]; then
+    log "ses kayitlari ozel repodan cekiliyor"
+    bash tools/kayitlari_cek.sh
+  else
+    log "UYARI: data/*.wav yok ve KAYIT_TOKEN verilmedi — gercek kayitlar olmadan (degerlendirmenin data kumesi bos)"
+  fi
+fi
+
 # GPU bellegine gore dinamik paket (toplam ses saniyesi / paket)
 MEM=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -dc 0-9 || true)
 MEM=${MEM:-0}
