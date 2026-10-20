@@ -106,6 +106,7 @@ private fun AppRoot(viewModel: MainViewModel) {
                 onGlassesBigHeader = { viewModel.setGlassesBigHeader(it) },
                 onGlassesFixedSize = { viewModel.setGlassesFixedSize(it) },
                 onGlassesOnePage = { viewModel.setGlassesOnePage(it) },
+                onGlassesOnePageMinPx = { viewModel.setGlassesOnePageMinPx(it) },
                 onGlassesHideBlankHeader = { viewModel.setGlassesHideBlankHeader(it) },
                 onGlassesHideStatus = { viewModel.setGlassesHideStatus(it) },
                 onMinConfidence = { viewModel.setMinConfidence(it) },

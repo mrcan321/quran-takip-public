@@ -288,15 +288,15 @@ telefona geçmiyordu.
   `http://127.0.0.1:18765`). Sıra: eklentiyi aç → Tilavet Takip'e dön → mikrofon; telefon cebe girebilir.
 - **Test** (fiziksel gözlük yok): JVM `glasses` (gerçek soket: JSON kaçışları, uzun yoklama, dosyalar, 404 / yol dışı, CORS,
   OPTIONS, port çakışması, kapatınca bekleyen yoklama, `textPx`, eklentinin ekran / sürüm / kod kaynağı / paket sürümü bildirimi,
-  host ve geçiş logu, `bigHeader`, `fixedSize`, `blank`, `onePage`, `blankHeader`, `hideStatus`, aktarım logu — 63 kontrol);
+  host ve geçiş logu, `bigHeader`, `fixedSize`, `blank`, `onePage`, `onePageMinPx`, `blankHeader`, `hideStatus`, aktarım logu — 64 kontrol);
   `tests/g2/layout.test.mjs` (node: satır/sayfa/kutu, büyük yazı puntosu / sayfaları, yazı boyutu ayarı 30-80 (sınırlar,
   dengeli sayfa, tireli bölme), tek ekrana sığdır, zikirde sadece anlam, boş ekran / durum gizli, tüm mealler — CI'da
   `big_px_median` / `big_pages_median` / `onepage_*`); `tests/g2/sim_check.py` —
   **Even Hub simülatörü** (`@evenrealities/evenhub-simulator` 0.9.5, Xvfb + WebKitGTK) uygulamanın kendi köprüsüyle
   36 adım (büyük yazı: boşta, dinleniyor, kısa meal, aday, aday → kilit (gözlüğe 0 karo gitmeli), Âyetü'l-Kürsî baş /
   kaydırma / son, uzun meal, tekbir, yazı boyutu 30 / 64 / 80, hızlı ardışık 3 ekran, başlıksız Kürsî / aday / tekbir,
-  sabit yazı boyutu Kürsî / kısa meal / tekbir (2 satırlık metinde 2 karo), tek ekrana sığdır Bakara 2:282 / başlıksız
-  Kürsî, ses kesildi (boş ekran + rekât; üst bilgisiz bombos — `EXPECT_EMPTY`: çizili piksel olmamalı) → okuma, durum
+  sabit yazı boyutu Kürsî / kısa meal / tekbir (2 satırlık metinde 2 karo), tek ekrana sığdır Bakara 2:282 (alt sınır 12:
+  tek sayfa, 20: 2 sayfa) / başlıksız Kürsî, ses kesildi (boş ekran + rekât; üst bilgisiz bombos — `EXPECT_EMPTY`: çizili piksel olmamalı) → okuma, durum
   yazısı gizli (boşta / dinleniyor bombos, ayet gelince meal);
   normal: boşta, dinleniyor, kamet,
   Fatiha, aday, uzun meal + kaydırma + ilerleme, tekbir; Arapça Kevser / Âyetü'l-Kürsî baş-son, Arapça'da tekbir, Arapça
@@ -392,11 +392,15 @@ telefona geçmiyordu.
   fontu küçültsün"; "ekran boş kaldığında üst bilgi durmasın, ayara bağla"; "rükün seslerinde Allahu ekber Allah en büyüktür
   olmasın, direkt Allah en büyüktür yazsın"; "hide status: Dinleme kapalı yazısı çıkmasın, ekran bomboş olsun"; "ayetler akarken
   de üst bilgiyi kapatan ayar olsun".
-  - **G2 AYETİ TEK EKRANA SIĞDIR** (varsayılan KAPALI, `GlassesState.onePage`, büyük yazıda): `bigOptions(px, h, fixed, true)` →
-    `minPx = ONE_PAGE_MIN_PX` (12), `pageMinPx` = ayardaki punto: sığan en büyük punto aranır (sabit boyut açıksa en büyüğü ayardaki
-    punto — kısa metin büyütülmez), 12 px'te de sığmazsa ayardaki puntoyla sayfalar. Tüm Bulaç meallerinde (APK'daki meal.bin,
-    yaklaşık ölçü) başlıklı düzende hiçbiri sayfalanmıyor: ortanca 36 px, en küçük 12 px (Bakara 2:282, 1129 karakter; 2:102 / 4:12
-    ~14 px), 99 meal 20 px'in altında. Köprüye `ekran=buyuk 36px tek` → ayarlarda "… TEK SAYFA".
+  - **G2 AYETİ TEK EKRANA SIĞDIR** (varsayılan KAPALI, `GlassesState.onePage`, büyük yazıda): `bigOptions(px, h, fixed, true,
+    onePageMinPx)` → `minPx` = alt sınır, `fewestPages`: sığan en büyük punto aranır (sabit boyut açıksa en büyüğü ayardaki punto —
+    kısa metin büyütülmez). **Alt sınır** Ayarlar → **G2 TEK EKRAN EN KÜÇÜK YAZI** (12-40 px, 2 px adım, varsayılan 20, ayardaki
+    G2 YAZI BOYUTU'ndan büyük olamaz; `onePageMinPx`, `layout.ONE_PAGE_PX`; APK #104+ — kullanıcı: "alt sınır punto ayarını
+    kullanıcıya bırak, altında kalacaksa yine sayfalama yaptır"; APK #103'te sabit 12): alt sınırda da sığmazsa sayfalar — alt
+    sınırdaki sayfa sayısı (en az sayfa) ve o sayfa sayısına sığan en büyük punto. Tüm Bulaç meallerinde (APK'daki meal.bin,
+    yaklaşık ölçü, başlıklı düzen): alt sınır 12'de hiçbiri sayfalanmıyor (ortanca 36 px, en küçük 12 px: Bakara 2:282, 1129
+    karakter; 2:102 / 4:12 ~14 px); 20'de 99 meal sayfalı, en çok 3 sayfa (Bakara 2:282 iki sayfa ~20 px). Köprüye
+    `ekran=buyuk 36px tek` → ayarlarda "… TEK SAYFA".
   - **G2 BOŞ EKRANDA ÜST BİLGİYİ GİZLE** (varsayılan AÇIK = gizli, `AppSettings.glassesHideBlankHeader`, `GlassesState.blankHeader`
     = tersi): ses kesilince (TextHold) gözlük bombos; kapalıyken eski davranış (üstte `1. REKÂT · RÜKÛ / SECDE`, APK #52-102).
   - **G2 DURUM YAZISINI GİZLE** (varsayılan KAPALI, `hideStatus`): dinleme kapalıyken ve ayet bulunana kadar ("Dinleme kapalı",

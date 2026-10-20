@@ -192,23 +192,32 @@ export const BIG_PX = { min: 30, max: 80, def: 48 };
 export const BIG_TILES = LAYOUTS.big.tiles;
 /**
  * Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR (/state onePage; kullanici: "ayet 2-3 sayfada gosterilince tum ayeti okumak zor"):
- * punto bu sinira kadar kuculur. Tum meallerde (Ali Bulac) olculdu: en uzunu Bakara 2:282 (1129 karakter) baslikli
- * duzende ~12 px, 2:102 / 4:12 ~14 px; baslikli duzende 431 meal 24 px'in, 99'u 20 px'in altina iniyor.
+ * punto alt sinira kadar kuculur — alt sinir Ayarlar → G2 TEK EKRAN EN KÜÇÜK YAZI (/state onePageMinPx; kullanici: "alt
+ * sinir punto ayarini kullaniciya birak, altinda kalacaksa yine sayfalama yaptir"; GlassesState.MIN/MAX/DEFAULT_ONE_PAGE_PX
+ * ile ayni). Tum meallerde (Ali Bulac) olculdu: en uzunu Bakara 2:282 (1129 karakter) baslikli duzende ~12 px, 2:102 / 4:12
+ * ~14 px; baslikli duzende 431 meal 24 px'in, 99'u 20 px'in, 11'i 16 px'in altina iniyor (12 px'te hepsi tek sayfa).
  */
-export const ONE_PAGE_MIN_PX = 12;
+export const ONE_PAGE_PX = { min: 12, max: 40, def: 20 };
 
 /**
  * /state textPx → fitBigText secenekleri (gecersizse varsayilan); h: yazi alani yuksekligi (baslikli duzende 256);
  * fixed: Ayarlar → G2 SABİT YAZI BOYUTU — her metin tam bu puntoda (kisa metin buyutulmez, uzun meal kucultulmez,
  * sayfalara bolunur; kullanici: "hepsinde font boyutu ayni olsun").
- * onePage: Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR — sigmayan metin sayfalanmaz, punto ONE_PAGE_MIN_PX'e kadar kuculur
- * (sabit boyut da aciksa kisa metin ayardaki puntoda kalir, sadece sigmayan kuculur); ONE_PAGE_MIN_PX'te de sigmazsa
- * ayardaki puntoyla sayfalar (pageMinPx).
+ * onePage: Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR — sigmayan metin sayfalanmaz, punto alt sinira (onePageMinPx, en fazla
+ * ayardaki punto) kadar kuculur (sabit boyut da aciksa kisa metin ayardaki puntoda kalir, sadece sigmayan kuculur); alt
+ * sinirda da sigmazsa sayfalar: en az sayfa (alt sinirdaki sayfa sayisi) ve o sayfa sayisina sigan en buyuk punto
+ * (fewestPages).
  */
-export function bigOptions(textPx, h = SCREEN_H, fixed = false, onePage = false) {
-  const n = Math.round(Number(textPx));
-  const px = !Number.isFinite(n) || n <= 0 ? BIG.minPx : Math.min(BIG_PX.max, Math.max(BIG_PX.min, n - (n % 2)));
-  if (onePage) return { ...BIG, minPx: ONE_PAGE_MIN_PX, maxPx: fixed ? px : BIG.maxPx, pageMinPx: px, h };
+export function bigOptions(textPx, h = SCREEN_H, fixed = false, onePage = false, onePageMinPx = ONE_PAGE_PX.def) {
+  const even = (v, lo, hi, def) => {
+    const k = Math.round(Number(v));
+    return !Number.isFinite(k) || k <= 0 ? def : Math.min(hi, Math.max(lo, k - (k % 2)));
+  };
+  const px = even(textPx, BIG_PX.min, BIG_PX.max, BIG.minPx);
+  if (onePage) {
+    const floor = Math.min(px, even(onePageMinPx, ONE_PAGE_PX.min, ONE_PAGE_PX.max, ONE_PAGE_PX.def));
+    return { ...BIG, minPx: floor, maxPx: fixed ? px : BIG.maxPx, fewestPages: true, h };
+  }
   if (fixed) return { ...BIG, minPx: px, maxPx: px, h };
   return px === BIG.minPx && h === BIG.h ? BIG : { ...BIG, minPx: px, h };
 }
@@ -222,7 +231,8 @@ export function bigAreaHeight(layoutName) {
 /**
  * Buyuk yazi yerlesimi: {px, lineH, perPage, pages: [[satir...]...]}. measure(metin, px) → piksel genislik
  * (eklentide canvas measureText; testte yaklasik). "\n" paragraf sonu. Satira sigmayan tek kelime tireyle bolunur.
- * Tek sayfaya sigan punto yoksa opt.pageMinPx (yoksa minPx) puntosunda sayfalar.
+ * Tek sayfaya sigan punto yoksa minPx'te sayfalar; opt.fewestPages ise minPx'teki sayfa sayisina sigan en buyuk puntoda
+ * (tek ekran modu: alt sinirda 3 sayfa tutuyorsa 3 sayfanin yettigi en buyuk punto).
  */
 export function fitBigText(text, measure, opt = BIG) {
   const paras = String(text ?? '').trim().split('\n');
@@ -262,7 +272,14 @@ export function fitBigText(text, measure, opt = BIG) {
       return { px, lineH: Math.round(px * opt.lineH), perPage: per, pages: [[...lines]] };
     }
   }
-  const px = opt.pageMinPx || opt.minPx;
+  let px = opt.minPx;
+  if (opt.fewestPages) {
+    const pagesAt = (q) => Math.ceil(wrapAt(q).length / perPageAt(q));
+    const n = pagesAt(px);
+    for (let q = opt.maxPx; q > px; q -= opt.step) {
+      if (pagesAt(q) <= n) { px = q; break; }
+    }
+  }
   const lines = wrapAt(px);
   const per = perPageAt(px);
   // satirlar sayfalara esit dagilir, farki en fazla 1 (4 satir / 3'luk sayfa → 2 + 2; son sayfada tek satir kalmasin)
@@ -359,7 +376,7 @@ export function buildScreen(st, ui = {}) {
   if (layoutName === 'big' || layoutName === 'bigh') {
     const withHeader = layoutName === 'bigh';
     const fit = (t) => ui.fitBig(sanitizeBig(t), st.textPx, bigAreaHeight(layoutName), st.fixedSize === true,
-      st.onePage === true);
+      st.onePage === true, st.onePageMinPx);
     out.bigFixed = st.fixedSize === true;
     const rakat = st.rakat || '';
     out.header = ' ';

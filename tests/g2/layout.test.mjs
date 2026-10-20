@@ -119,7 +119,8 @@ test('Arapca duzen: 5 satir meal, Arapca sayfalari ile senkron', () => {
 
 // yaklasik Manrope 700 olcusu (eklentide canvas measureText): karakter basina ~0.6 em
 const approxMeasure = (s, px) => [...s].length * px * 0.6;
-const fitBig = (t, px, h, fixed, onePage) => L.fitBigText(t, approxMeasure, L.bigOptions(px, h, fixed, onePage));
+const fitBig = (t, px, h, fixed, onePage, onePageMinPx) =>
+  L.fitBigText(t, approxMeasure, L.bigOptions(px, h, fixed, onePage, onePageMinPx));
 // satira sigmali; tireyle bolunen kelime parcasi da ("kavuş-")
 const fitsLine = (line, px, opt) => approxMeasure(line, px) <= opt.w - 2 * opt.marginX || [...line].length <= 2;
 
@@ -315,44 +316,84 @@ test('ses kesildi (blank): bos ekran, ustte rekat; not karti onde; baglanti / di
   assert.match(L.buildScreen({ ...ST, blank: true }, { connected: false }).body, /bağlanılamıyor/);
 });
 
-test('tek ekrana sigdir: uzun meal tek sayfa (punto kuculur), kisa metin ayni, ONE_PAGE_MIN_PX\'te de sigmazsa ayarla sayfalar', () => {
+test('tek ekrana sigdir: uzun meal tek sayfa (punto alt sinira kadar kuculur), kisa metin ayni', () => {
   const MID = LONG.slice(0, 900);
   for (const h of [288, 256]) {
     for (const px of [L.BIG_PX.min, 48, L.BIG_PX.max]) {
-      // serbest: kisa metin eskisi gibi (en buyuk), uzun metin tek sayfa
-      const opt = L.bigOptions(px, h, false, true);
-      assert.equal(opt.minPx, L.ONE_PAGE_MIN_PX);
-      assert.equal(opt.pageMinPx, px);
+      // serbest: kisa metin eskisi gibi (en buyuk), uzun metin tek sayfa (alt sinir 12)
+      const opt = L.bigOptions(px, h, false, true, 12);
+      assert.equal(opt.minPx, 12);
+      assert.equal(opt.fewestPages, true);
       assert.equal(L.fitBigText('Allah en büyüktür', approxMeasure, opt).px,
         L.fitBigText('Allah en büyüktür', approxMeasure, L.bigOptions(px, h)).px);
       const f = L.fitBigText(MID, approxMeasure, opt);
       assert.equal(f.pages.length, 1, `${px}/${h}`);
-      assert.ok(f.px >= L.ONE_PAGE_MIN_PX && f.px < px, `${px}/${h}: ${f.px}`);
+      assert.ok(f.px >= 12 && f.px < px, `${px}/${h}: ${f.px}`);
       assert.ok(f.pages[0].length * f.lineH <= h - 2 * opt.marginY + 1, 'sayfa alana sigmali');
       for (const line of f.pages[0]) assert.ok(fitsLine(line, f.px, opt), line);
       assert.equal(f.pages.flat().map((l) => l.endsWith('-') ? l.slice(0, -1) : l + ' ').join('').trim(), MID);
       // sabit + tek ekran: kisa metin ayardaki puntoda (buyutulmez), uzun metin kuculur
-      const fo = L.bigOptions(px, h, true, true);
+      const fo = L.bigOptions(px, h, true, true, 12);
       assert.equal(L.fitBigText('Allah en büyüktür', approxMeasure, fo).px, px);
       const ff = L.fitBigText(MID, approxMeasure, fo);
       assert.equal(ff.pages.length, 1);
       assert.ok(ff.px < px);
     }
   }
-  // en kucuk puntoda da sigmayan metin: ayardaki puntoyla sayfalanir (12 px'te sayfa sayfa okutma)
-  const HUGE = LONG.repeat(3);
-  const fh = L.fitBigText(HUGE, approxMeasure, L.bigOptions(48, 256, false, true));
-  assert.equal(fh.px, 48);
-  assert.ok(fh.pages.length > 1);
   // duzen: onePage /state alanindan; kapaliyken eski sayfalar
   const st = { ...ST, bigText: true, surah: 2, ayah: 282, surahName: 'Bakara', meal: MID, progress: 0.5 };
-  const tek = L.buildScreen({ ...st, onePage: true }, { connected: true, fitBig });
+  const tek = L.buildScreen({ ...st, onePage: true, onePageMinPx: 12 }, { connected: true, fitBig });
   assert.equal(tek.pages, 1);
   assert.equal(tek.page, 0);
   assert.doesNotMatch(tek.header, /1\/1/);
   const eski = L.buildScreen(st, { connected: true, fitBig });
   assert.ok(eski.pages > 1);
   assert.ok(tek.big.px < eski.big.px);
+});
+
+test('tek ekran alt siniri (onePageMinPx): altinda kalacaksa sayfalar — en az sayfa, o sayfaya sigan en buyuk punto', () => {
+  // sinirlar: 12-40, cift, ayardaki puntodan buyuk olamaz; gecersiz → varsayilan
+  assert.equal(L.bigOptions(48, 256, false, true).minPx, L.ONE_PAGE_PX.def);
+  assert.equal(L.bigOptions(48, 256, false, true, 'x').minPx, L.ONE_PAGE_PX.def);
+  assert.equal(L.bigOptions(48, 256, false, true, 4).minPx, L.ONE_PAGE_PX.min);
+  assert.equal(L.bigOptions(80, 256, false, true, 99).minPx, L.ONE_PAGE_PX.max);
+  assert.equal(L.bigOptions(48, 256, false, true, 23).minPx, 22);
+  assert.equal(L.bigOptions(30, 256, false, true, 40).minPx, 30);
+  const MID = LONG.slice(0, 900);
+  const at = (t, px, h) => L.fitBigText(t, approxMeasure, { ...L.BIG, minPx: px, maxPx: px, h });
+  for (const h of [288, 256]) {
+    for (const floor of [12, 20, 28, 40]) {
+      for (const t of [MID, LONG, LONG.slice(0, 400)]) {
+        const opt = L.bigOptions(48, h, false, true, floor);
+        const f = L.fitBigText(t, approxMeasure, opt);
+        assert.ok(f.px >= floor, `${floor}/${h}: ${f.px}`);
+        const n = at(t, floor, h).pages.length;
+        // alt sinirda tek sayfaya sigiyorsa tek sayfa; sigmiyorsa alt sinirdaki kadar sayfa (daha cok degil)
+        assert.equal(f.pages.length, n, `${floor}/${h}`);
+        if (n > 1) {
+          // ayni sayfa sayisina sigan en buyuk punto: 2 px buyugu daha cok sayfa ister
+          assert.ok(f.px === opt.maxPx || at(t, f.px + 2, h).pages.length > n, `${floor}/${h}: ${f.px}`);
+          for (const pg of f.pages) {
+            assert.ok(pg.length * f.lineH <= h - 2 * opt.marginY + 1);
+            for (const line of pg) assert.ok(fitsLine(line, f.px, opt), line);
+          }
+          const sizes = f.pages.map((p) => p.length);
+          assert.ok(Math.max(...sizes) - Math.min(...sizes) <= 1, `${floor}/${h}: ${sizes}`);
+        }
+        assert.equal(f.pages.flat().map((l) => l.endsWith('-') ? l.slice(0, -1) : l + ' ').join('').trim(), t);
+      }
+    }
+  }
+  // duzen: alt sinir 40'ta MID sayfali (ilerlemeyle sayfa + baslikta "1/2"), 12'de tek sayfa; sinir buyudukce sayfa artmaz azalmaz
+  const st = { ...ST, bigText: true, surah: 2, ayah: 282, surahName: 'Bakara', meal: MID, progress: 0, onePage: true };
+  const kucuk = L.buildScreen({ ...st, onePageMinPx: 12 }, { connected: true, fitBig });
+  const buyuk = L.buildScreen({ ...st, onePageMinPx: 40 }, { connected: true, fitBig });
+  assert.equal(kucuk.pages, 1);
+  assert.ok(buyuk.pages > 1);
+  assert.ok(buyuk.big.px >= 40);
+  assert.match(buyuk.header, new RegExp(`1/${buyuk.pages}$`));
+  assert.ok(buyuk.pages < L.buildScreen({ ...st, onePage: false }, { connected: true, fitBig }).pages);
+  assert.equal(L.buildScreen({ ...st, onePageMinPx: 40, progress: 1 }, { connected: true, fitBig }).page, buyuk.pages - 1);
 });
 
 test('zikir / ezan karti: sadece Turkce anlami (okunus yok), yoksa okunus', () => {
@@ -457,12 +498,17 @@ test('tum mealler: font, satir, bayt', { skip: !MEAL_BIN || !fs.existsSync(MEAL_
   const bigFixedPages = [];
   const onePx = [];
   let onePaged = 0;
+  let oneDefPaged = 0;
+  let oneDefMax = 1;
   for (const [s, a, meal] of meals) {
-    // tek ekrana sigdir (baslikli, 48 px): kac meal yine sayfali, en kucuk punto
-    const op = L.buildScreen({ ...ST, bigText: true, onePage: true, surah: s, ayah: a, surahName: names[s - 1] || 'X', meal },
-      { connected: true, fitBig });
+    // tek ekrana sigdir (baslikli, 48 px): alt sinir 12'de hepsi tek sayfa olmali (en kucuk punto); varsayilan alt sinirda
+    // (20) kac meal sayfali, en cok kac sayfa
+    const opst = { ...ST, bigText: true, onePage: true, surah: s, ayah: a, surahName: names[s - 1] || 'X', meal };
+    const op = L.buildScreen({ ...opst, onePageMinPx: 12 }, { connected: true, fitBig });
     if (op.pages > 1) onePaged++;
     else onePx.push(op.big.px);
+    const od = L.buildScreen(opst, { connected: true, fitBig });
+    if (od.pages > 1) { oneDefPaged++; oneDefMax = Math.max(oneDefMax, od.pages); }
     // buyuk yazi (yaklasik olcu, varsayilan en kucuk punto): kac meal tek sayfaya sigmiyor, punto / sayfa dagilimi
     const bf = L.fitBigText(L.sanitizeBig(meal), approxMeasure);
     const bp = bf.pages.length;
@@ -506,6 +552,7 @@ test('tum mealler: font, satir, bayt', { skip: !MEAL_BIN || !fs.existsSync(MEAL_
     big_header_pages_median: median(bigHPages), big_header_max_pages: Math.max(...bigHPages),
     big_fixed_pages_median: median(bigFixedPages), big_fixed_max_pages: Math.max(...bigFixedPages),
     onepage_paged: onePaged, onepage_px_min: Math.min(...onePx), onepage_px_median: median(onePx),
-    onepage_below_20: onePx.filter((x) => x < 20).length,
+    onepage_below_20: onePx.filter((x) => x < 20).length, onepage_default_paged: oneDefPaged,
+    onepage_default_max_pages: oneDefMax,
     dropped: Object.fromEntries(dropped) })}`);
 });

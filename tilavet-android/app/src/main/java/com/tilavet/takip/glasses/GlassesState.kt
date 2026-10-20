@@ -38,9 +38,14 @@ data class GlassesState(
     val fixedSize: Boolean = false,
     /**
      * Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR: buyuk yazida uzun meal sayfalara bolunmez, punto gerektigi kadar kuculur
-     * (eklentide layout.js ONE_PAGE_MIN_PX'e kadar). Kullanici: "bir ayet 2 veya 3 sayfada gosterilince tum ayeti okumak zor".
+     * (onePageMinPx'e kadar). Kullanici: "bir ayet 2 veya 3 sayfada gosterilince tum ayeti okumak zor".
      */
     val onePage: Boolean = false,
+    /**
+     * Ayarlar → G2 TEK EKRAN EN KÜÇÜK YAZI (px, MIN..MAX_ONE_PAGE_PX): tek ekranda punto en fazla buna iner; bu puntoda da
+     * sigmayan meal sayfalanir (en az sayfa). Kullanici: "alt siniri kullaniciya birak, altinda kalacaksa sayfalama yaptir".
+     */
+    val onePageMinPx: Int = DEFAULT_ONE_PAGE_PX,
     /**
      * Ses kesildi (TextHold): okunan ayet metni kalkti — gozlukte alti bos, ustte rekat / durus (blankHeader) ya da ekran
      * bombos. Kullanici: "zammdan sonra rukuya gidilince ayet asili kalmasin, ekran bos kalsin".
@@ -88,6 +93,7 @@ data class GlassesState(
         sb.append(",\"bigHeader\":").append(bigHeader)
         sb.append(",\"fixedSize\":").append(fixedSize)
         sb.append(",\"onePage\":").append(onePage)
+        sb.append(",\"onePageMinPx\":").append(onePageMinPx)
         sb.append(",\"blank\":").append(blank)
         sb.append(",\"blankHeader\":").append(blankHeader)
         sb.append(",\"hideStatus\":").append(hideStatus)
@@ -104,6 +110,11 @@ data class GlassesState(
         const val DEFAULT_TEXT_PX = 48
         const val MIN_TEXT_PX = 30
         const val MAX_TEXT_PX = 80
+
+        /** Tek ekran modunda en kucuk punto: varsayilan ve ayar araligi (layout.js ONE_PAGE_PX ile ayni). */
+        const val DEFAULT_ONE_PAGE_PX = 20
+        const val MIN_ONE_PAGE_PX = 12
+        const val MAX_ONE_PAGE_PX = 40
 
         /** JSON string: ", \, kontrol karakterleri ve satir ayiricilari (U+2028/2029) kacirilir; digerleri UTF-8 aynen. */
         fun quote(s: String): String {

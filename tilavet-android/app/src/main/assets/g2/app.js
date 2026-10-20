@@ -257,11 +257,11 @@ function measureBig(s, px) {
   return measureCtx.measureText(s).width;
 }
 
-/** Metin → buyuk yazi yerlesimi (onbellekli; punto ayardan, /state textPx + fixedSize + onePage); font yoksa null →
- * normal duzen. */
-function fitBig(text, textPx, areaH, fixed, onePage) {
-  const opt = L.bigOptions(textPx, areaH, fixed, onePage);
-  const key = opt.minPx + '-' + opt.maxPx + '/' + opt.h + '/' + (opt.pageMinPx || 0) + '\n' + text;
+/** Metin → buyuk yazi yerlesimi (onbellekli; punto ayardan, /state textPx + fixedSize + onePage + onePageMinPx); font
+ * yoksa null → normal duzen. */
+function fitBig(text, textPx, areaH, fixed, onePage, onePageMinPx) {
+  const opt = L.bigOptions(textPx, areaH, fixed, onePage, onePageMinPx);
+  const key = opt.minPx + '-' + opt.maxPx + '/' + opt.h + '/' + (opt.fewestPages ? 1 : 0) + '\n' + text;
   let f = S.fitCache.get(key);
   if (!f) {
     f = L.fitBigText(text, measureBig, opt);

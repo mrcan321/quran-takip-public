@@ -55,6 +55,7 @@ fun SettingsSheet(
     onGlassesBigHeader: (Boolean) -> Unit = {},
     onGlassesFixedSize: (Boolean) -> Unit = {},
     onGlassesOnePage: (Boolean) -> Unit = {},
+    onGlassesOnePageMinPx: (Int) -> Unit = {},
     onGlassesHideBlankHeader: (Boolean) -> Unit = {},
     onGlassesHideStatus: (Boolean) -> Unit = {},
     onMinConfidence: (Int) -> Unit = {},
@@ -232,7 +233,7 @@ fun SettingsSheet(
                         hint = if (settings.glassesOnePage) {
                             "Gözlükte yazı bu boyutta" + (if (settings.glassesFixedSize) "" else " ya da kısa metinde daha büyük") +
                                 " (gözlüğün kendi yazısının satırı 27 px); sığmayan ayet tek ekrana sığana kadar küçülür " +
-                                "(G2 AYETİ TEK EKRANA SIĞDIR). Değişiklik gözlükte hemen görünür."
+                                "(en çok G2 TEK EKRAN EN KÜÇÜK YAZI'ya kadar). Değişiklik gözlükte hemen görünür."
                         } else if (settings.glassesFixedSize) {
                             "Gözlükte yazı her zaman bu boyutta (gözlüğün kendi yazısının satırı 27 px); sığmayan meal " +
                                 "sayfalara bölünür, sayfalar imam okudukça ilerler. Değişiklik gözlükte hemen görünür."
@@ -258,11 +259,28 @@ fun SettingsSheet(
                     }
                     SettingGroup(
                         label = "G2 AYETİ TEK EKRANA SIĞDIR",
-                        hint = "Açıkken uzun ayet sayfalara bölünmez, tamamı tek ekranda: yazı gerektiği kadar küçülür (en uzun " +
-                            "ayette, Bakara 282, ~12 px; gözlüğün kendi yazısının satırı 27 px). Sığan metin eskisi gibi çizilir " +
-                            "(SABİT YAZI BOYUTU açıksa ayardaki boyutta). Kapalıyken sığmayan meal sayfalara bölünür.",
+                        hint = "Açıkken uzun ayet sayfalara bölünmez, tamamı tek ekranda: yazı gerektiği kadar küçülür (en çok " +
+                            "G2 TEK EKRAN EN KÜÇÜK YAZI'ya kadar). Sığan metin eskisi gibi çizilir (SABİT YAZI BOYUTU açıksa " +
+                            "ayardaki boyutta). Kapalıyken sığmayan meal G2 YAZI BOYUTU'nda sayfalara bölünür.",
                     ) {
                         OnOffRow(current = settings.glassesOnePage, onSelect = onGlassesOnePage)
+                    }
+                    if (settings.glassesOnePage) {
+                        SettingGroup(
+                            label = "G2 TEK EKRAN EN KÜÇÜK YAZI",
+                            trailing = "${minOf(settings.glassesOnePageMinPx, settings.glassesTextPx)} px",
+                            hint = "Tek ekrana sığdırırken yazı en çok bu boyuta küçülür (gözlüğün kendi yazısının satırı 27 px). " +
+                                "Bu boyutta da sığmayan ayet sayfalara bölünür: olabildiğince az sayfa, o sayfa sayısına sığan en " +
+                                "büyük yazı. 12 px'te bütün ayetler tek ekrana sığar (en uzunu Bakara 282); 20 px'te ~100 uzun " +
+                                "ayet 2-3 sayfa olur. G2 YAZI BOYUTU'ndan büyük olamaz.",
+                        ) {
+                            AppSlider(
+                                value = settings.glassesOnePageMinPx.toFloat(),
+                                onValueChange = { onGlassesOnePageMinPx((it.roundToInt() / 2) * 2) },
+                                valueRange = GlassesState.MIN_ONE_PAGE_PX.toFloat()..GlassesState.MAX_ONE_PAGE_PX.toFloat(),
+                                steps = (GlassesState.MAX_ONE_PAGE_PX - GlassesState.MIN_ONE_PAGE_PX) / 2 - 1,   // 2 px adimlar
+                            )
+                        }
                     }
                     SettingGroup(
                         label = "G2 ÜST BİLGİ (AYET OKUNURKEN)",

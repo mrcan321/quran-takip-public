@@ -118,8 +118,11 @@ def scenario(arabic):
                               fixedSize=True), [], 2.5),
         # Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR: Bakara 2:282 (en uzun meal) tek sayfada, kucuk puntoda
         ("tek_sayfa_uzun", dict(BIG, surah=2, ayah=282, surahName="Bakara", surahAyahCount=286, progress=0.5,
-                                meal=LONG_TR, onePage=True), [], 3.0),
+                                meal=LONG_TR, onePage=True, onePageMinPx=12), [], 3.0),
         ("tek_sayfa_kursi_basliksiz", dict(BIGN, **KURSI, progress=0.5, onePage=True), [], 3.0),
+        # Ayarlar → G2 TEK EKRAN EN KÜÇÜK YAZI 20 (varsayilan): Bakara 2:282 bu sinirda sigmaz → en az sayfa, 2. sayfa
+        ("tek_sayfa_sinir_20", dict(BIG, surah=2, ayah=282, surahName="Bakara", surahAyahCount=286, progress=0.9,
+                                    meal=LONG_TR, onePage=True, onePageMinPx=20), [], 3.0),
         # ses kesildi (zamm bitti, rukû): ayet metni kalkar, ustte rekat / durus (goruntu karolari yeniden kurulumla silinir)
         ("bos_rukû", dict(BIG, **KURSI, blank=True, blankHeader=True, rakat="1. REKÂT · RÜKÛ / SECDE"), [], 2.5),
         # Ayarlar → G2 BOŞ EKRANDA ÜST BİLGİYİ GİZLE (varsayilan): ekran bombos

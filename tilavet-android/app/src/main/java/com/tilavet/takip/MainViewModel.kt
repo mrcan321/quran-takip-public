@@ -860,6 +860,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setGlassesBigHeader(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesBigHeader(value) } }
     fun setGlassesFixedSize(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesFixedSize(value) } }
     fun setGlassesOnePage(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesOnePage(value) } }
+    fun setGlassesOnePageMinPx(value: Int) { viewModelScope.launch { settingsRepo.setGlassesOnePageMinPx(value) } }
     fun setGlassesHideBlankHeader(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHideBlankHeader(value) } }
     fun setGlassesHideStatus(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHideStatus(value) } }
     fun setTextHoldTenths(value: Int) { viewModelScope.launch { settingsRepo.setTextHoldTenths(value) } }
@@ -995,6 +996,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             bigHeader = s.settings.glassesBigHeader,
             fixedSize = s.settings.glassesFixedSize,
             onePage = s.settings.glassesOnePage,
+            onePageMinPx = s.settings.glassesOnePageMinPx,
             blankHeader = !s.settings.glassesHideBlankHeader,
             hideStatus = s.settings.glassesHideStatus,
             rakat = s.rakatLabel ?: "",

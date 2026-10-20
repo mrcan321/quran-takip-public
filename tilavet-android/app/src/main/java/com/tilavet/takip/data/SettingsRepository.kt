@@ -33,6 +33,8 @@ data class AppSettings(
     val glassesFixedSize: Boolean = false,
     // Buyuk yazida uzun meal sayfalanmaz, punto gerektigi kadar kuculur (GlassesState.onePage)
     val glassesOnePage: Boolean = false,
+    // Tek ekranda en kucuk punto (px, 12-40): bunda da sigmayan meal sayfalanir
+    val glassesOnePageMinPx: Int = GlassesState.DEFAULT_ONE_PAGE_PX,
     // Ses kesilince (bos gozluk ekrani) ustteki rekat / durus satirini da gizle (GlassesState.blankHeader = !bu);
     // varsayilan gizli (kullanici: "ekran bos kaldiginda ust bilgi durmasin")
     val glassesHideBlankHeader: Boolean = true,
@@ -65,6 +67,7 @@ class SettingsRepository(private val context: Context) {
         val GLASSES_BIG_HEADER = booleanPreferencesKey("glasses_big_header")
         val GLASSES_FIXED_SIZE = booleanPreferencesKey("glasses_fixed_size")
         val GLASSES_ONE_PAGE = booleanPreferencesKey("glasses_one_page")
+        val GLASSES_ONE_PAGE_MIN_PX = intPreferencesKey("glasses_one_page_min_px")
         val GLASSES_HIDE_BLANK_HEADER = booleanPreferencesKey("glasses_hide_blank_header")
         val GLASSES_HIDE_STATUS = booleanPreferencesKey("glasses_hide_status")
         val TEXT_HOLD_TENTHS = intPreferencesKey("text_hold_tenths")
@@ -89,6 +92,7 @@ class SettingsRepository(private val context: Context) {
             glassesBigHeader = prefs[Keys.GLASSES_BIG_HEADER] ?: true,
             glassesFixedSize = prefs[Keys.GLASSES_FIXED_SIZE] ?: false,
             glassesOnePage = prefs[Keys.GLASSES_ONE_PAGE] ?: false,
+            glassesOnePageMinPx = prefs[Keys.GLASSES_ONE_PAGE_MIN_PX] ?: GlassesState.DEFAULT_ONE_PAGE_PX,
             glassesHideBlankHeader = prefs[Keys.GLASSES_HIDE_BLANK_HEADER] ?: true,
             glassesHideStatus = prefs[Keys.GLASSES_HIDE_STATUS] ?: false,
             textHoldTenths = prefs[Keys.TEXT_HOLD_TENTHS] ?: TextHold.DEFAULT_TENTHS,
@@ -151,6 +155,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGlassesOnePage(value: Boolean) {
         context.dataStore.edit { it[Keys.GLASSES_ONE_PAGE] = value }
+    }
+
+    suspend fun setGlassesOnePageMinPx(value: Int) {
+        context.dataStore.edit {
+            it[Keys.GLASSES_ONE_PAGE_MIN_PX] = value.coerceIn(GlassesState.MIN_ONE_PAGE_PX, GlassesState.MAX_ONE_PAGE_PX)
+        }
     }
 
     suspend fun setGlassesHideBlankHeader(value: Boolean) {
