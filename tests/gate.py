@@ -46,6 +46,8 @@ LOWER_BETTER = ("first_wrong", "first_none", "wrong_chunks", "shown_wrong", "sig
                 "namaz_errors", "delay_median", "delay_mean", "first_median", "first_mean", "ayah_latency_median",
                 "ayah_wrong_shown", "ezan_false_opened", "zikir_false_alarms", "dropped_chars", "hide_false",
                 "hide_latency_median", "hide_latency_max", "hide_missing")
+# Ses surse de bu kadar yeni eslesme yoksa metin kalkar (VoiceActivity.kt TextHold.NO_MATCH_SEC)
+HIDE_NO_MATCH_SEC = 20.0
 HARD_ZERO = ("app_diffs", "kotlin_trace_diffs", "chunk_diffs", "wav_diffs", "golden_diffs", "fixture_failures",
              "glasses_failures", "g2_failures", "meals_failures")
 
@@ -323,6 +325,12 @@ def main():
             hlat = []
             for (cfg, fn), lines in sorted(hd.items()):
                 tl = env.ev.TIMELINE[fn]
+                try:
+                    import soundfile as sf
+                    rec_end = sf.info(str(env.REPO / "data" / fn)).duration
+                except Exception:
+                    hch = T.get(cfg, {}).get(fn) or []
+                    rec_end = env.chunk_time(hch[-1], len(hch) - 1) if hch else 1e9
                 hides = [float(x.split()[1]) for x in lines if x.startswith("HIDE")]
                 shows = [(float(x.split()[1]), int(x.split()[2])) for x in lines if x.startswith("SHOW")]
 
@@ -340,6 +348,10 @@ def main():
                         after = [h for h in hides if t0 - 1 <= h < t1]
                         if after:
                             hlat.append(round(after[0] - t0, 1))
+                        elif i + 1 == len(tl) and rec_end - t0 < HIDE_NO_MATCH_SEC:
+                            # kayit okumadan hemen sonra bitiyor (ortam sesi surerken metin en gec 20 sn'de kalkar):
+                            # olculemez (asr 21.10: son ayetten 5 sn sonra kayit bitti)
+                            notes.append(f"metin silme olculemedi (kayit {rec_end - t0:.0f} sn sonra bitti): {fn} @ {t0}")
                         else:
                             hmiss += 1
                             notes.append(f"metin okuma bitince kalkmadi: {fn} @ {t0}")

@@ -154,6 +154,10 @@ BESMELE_TOKENS = {"بسم", "الله", "الرحمن", "الرحيم"}
 # Kuran'da hizalanir, sadece tek parcada kilit kuralini gecerse kilit (yavas okuma: "خلق الإنسان" | "علمه البيان")
 SEARCH_CONCAT_CHUNKS = 2
 SEARCH_CONCAT_MAX_OVERLAP = 4
+# BEKLEME'de aday dogrulamasi: pencere eslesmesi tum Kuran'daki en iyi yerden bu kadar zayifsa dogrulama sayilmaz
+VERIFY_GLOBAL_MARGIN = 15
+# ARA'da / kilidi kaybolmus zamm'da Fatiha yoklamasi pencere disindaki en iyi yerden bu kadar dusuk olsa da kazanir
+FATIHA_ARA_MARGIN = 8
 
 
 def _runner_up_match(text, match):
@@ -716,6 +720,50 @@ def is_asr_hallucination(text: str) -> bool:
     return any(bare_token(w) in ASR_HALLUCINATION_TOKENS for w in text.split())
 
 
+# Uydurma ifade gercek okumayla ayni parcada (sabah 21.10: "والحمد لله رب العالمين شركة الهدى للخدمات التقنية"):
+# "شركة" / "موسوعة" + marka kelimesi + devam kelimeleri cikarilir; kalan (istiaze / namaz zikirleri haric) en az
+# MIN_WORD_COUNT_FIRST_LOCK kelimeyse o metin, yoksa bos (referans: build_state_machine_fixture.strip_asr_hallucination)
+HALLUCINATION_HEADS = {"شركه", "موسوعه"}
+HALLUCINATION_CONT = {"للخدمات", "الخدمات", "التقنيه", "التاريخ", "التاريخيه", "للعلوم", "الاسلاميه", "للبناء",
+                      "للنوم", "للاعجاب", "شريك"}
+# Tilavet sonu "صدق الله العظيم" (Kuran'da yok): ifade cikarilir, kilit / adaylar biter (asr 21.10)
+TILAVET_END = ("صدق", "الله", "العظيم")
+
+
+def strip_tilavet_end(text: str) -> Tuple[str, bool]:
+    words = text.split()
+    toks = [bare_token(w) for w in words]
+    n = len(TILAVET_END)
+    for i in range(len(toks) - n + 1):
+        if tuple(toks[i:i + n]) == TILAVET_END:
+            return " ".join(words[:i] + words[i + n:]), True
+    return text, False
+
+
+def strip_asr_hallucination(text: str) -> str:
+    if not text or not is_asr_hallucination(text):
+        return text
+    words = text.split()
+    out = []
+    i = 0
+    while i < len(words):
+        if bare_token(words[i]) in HALLUCINATION_HEADS:
+            i += 2
+            while i < len(words) and bare_token(words[i]) in HALLUCINATION_CONT:
+                i += 1
+            continue
+        out.append(words[i])
+        i += 1
+    rest = " ".join(out)
+    if not rest or is_asr_hallucination(rest):
+        return ""
+    t, _ = strip_istiaze(rest)
+    t, _ = strip_namaz_phrases(t)
+    if len([w for w in (normalize_arabic(x) for x in t.split()) if w]) < MIN_WORD_COUNT_FIRST_LOCK:
+        return ""
+    return rest
+
+
 # Kuran'da gecen ama namazda / ezan-kamette / sohbette tek basina soylenen ifadeler: zamm kilitli degilken parca
 # sadece bunlardan biriyse (+ en fazla DHIKR_EXTRA_MAX kelime) bos sayilir; kelime-i sehadet BEKLEME'de kamet sayilir,
 # bekleme surerken gelen zikir beklemeyi uzatir (referans: build_state_machine_fixture.DHIKR_PHRASES)
@@ -924,9 +972,11 @@ def _verify_pending(pending: PendingMatch, new_surah: int, new_ayah: int) -> boo
 
 def clean_chunk_text(text: str) -> str:
     """Hizalanacak temiz metin: ASR uydurmasi bos, istiaze ve namaz zikirleri cikarilmis."""
-    if not text or is_asr_hallucination(text):
+    text = strip_asr_hallucination(text)
+    if not text:
         return ""
-    t, _ = strip_istiaze(text)
+    t, _ = strip_tilavet_end(text)
+    t, _ = strip_istiaze(t)
     t, _ = strip_namaz_phrases(t)
     return t.strip()
 
@@ -1075,10 +1125,18 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     timings.update(asr_timings)
     result["text"] = text
 
-    # ASR uydurmasi (Kuran'da olmayan video girisi kelimeleri) → bos sayilir
+    # ASR uydurmasi (Kuran'da olmayan video girisi kelimeleri) → ifade cikarilir, okuma kalmazsa bos sayilir
     if text and is_asr_hallucination(text):
         result["asr_hallucination"] = True
-        text = ""
+        text = strip_asr_hallucination(text)
+    # Tilavet sonu ("صدق الله العظيم") → kilit / adaylar biter
+    if text:
+        text, tilavet_end = strip_tilavet_end(text)
+        if tilavet_end:
+            result["tilavet_end"] = True
+            reset_for_new_namaz(state, chunk_index, 0)
+            state.hold_until = None
+            state.search_texts = []
 
     if not text:
         result["status"] = "empty"
@@ -1175,6 +1233,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
         result["near_surah_end"] = is_near_surah_end(state.last_surah, state.last_ayah)
 
     t0 = time.time()
+    resumed = False   # kilit kaybinda kalinan yerin penceresi secildi (Fatiha yoklamasinda pencere ici sayilir)
     if hold:
         # Kamet / rukû / selam sonrasi: sadece Fatiha ya da kalinan yerden devam. Tum Kuran aranmaz.
         match = align_transcription(text, CORPUS, preferred_range=FATIHA_RANGE, preferred_bonus=PREFERRED_BONUS)
@@ -1191,21 +1250,38 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                                     preferred_range=preferred_range,
                                     preferred_bonus=PREFERRED_BONUS)
         score, score_details = score_transcription(text, match)
+        # Kilit kaybolmus: kalinan yerin penceresi tum Kuran'la neredeyse esitse (CONTINUE_MARGIN) devam (asr 21.10: Hasr
+        # 59:24 "الا وهو العزيز" → 3:6 / 3:18 93.9, 59:24 93.3)
+        if (lock_abandoned and state.last_surah and state.last_ayah and word_count >= MIN_WORD_COUNT_FIRST_LOCK
+                and match is not None):
+            rw = _ayah_window(state.last_surah, state.last_ayah, RESUME_BACK, PREFERRED_AYAH_WINDOW_ARA)
+            if rw and not rw[0] <= match.start_word_idx <= rw[1]:
+                rm = align_transcription(text, CORPUS, preferred_range=rw, preferred_bonus=PREFERRED_BONUS)
+                rs, r_details = score_transcription(text, rm)
+                if (rm and rw[0] <= rm.start_word_idx <= rw[1] and rs >= HOLD_RESUME_MIN_SCORE
+                        and rs >= score - CONTINUE_MARGIN):
+                    match, score, score_details = rm, rs, r_details
+                    resumed = True
+                    result["resumed"] = True
 
     # Kilitliyken (ZAMM/ARA) pencere emin degilse Fatiha'yi ayrica dene: yeni rekat Fatiha ile baslar
     # (tum Kuran aramasi "الحمد لله رب العالمين"i baska yere de oturtabiliyor)
     # ZAMM'da en az FATIHA_FAST_LOCK_MIN_WORDS kelime ("وإلى رب العالمين" 94:8 → Fatiha 92.6)
     fatiha_jump = False
-    probe_words = MIN_WORD_COUNT_FIRST_LOCK if state.state == NamazState.ARA else FATIHA_FAST_LOCK_MIN_WORDS
+    # Kilidi kaybolmus zamm ARA gibi (yeni rekat beklenir; sabah 21.10 2. rekat "والحمد لله رب العالمين" → 6:45)
+    ara_like = state.state == NamazState.ARA or (state.state == NamazState.ZAMM and lock_abandoned)
+    probe_words = MIN_WORD_COUNT_FIRST_LOCK if ara_like else FATIHA_FAST_LOCK_MIN_WORDS
     if (not hold and state.state in (NamazState.ZAMM, NamazState.ARA) and word_count >= probe_words
-            and (not match or score < JUMP_SEARCH_BELOW or state.state == NamazState.ARA)):
+            and (not match or score < JUMP_SEARCH_BELOW or ara_like)):
         fm = align_transcription(text, CORPUS, preferred_range=FATIHA_RANGE, preferred_bonus=PREFERRED_BONUS)
         fs, f_details = score_transcription(text, fm)
         base = score if match else 0.0
         # ARA'da esitlikte Fatiha kazanir; kalinan yerin penceresindeki eslesme haric (37:182 = 1:2 metni)
-        in_window = bool(match) and bool(preferred_range) and preferred_range[0] <= match.start_word_idx <= preferred_range[1]
-        if state.state == NamazState.ARA:
-            better = fs > base if in_window else fs >= base
+        in_window = resumed or (bool(match) and bool(preferred_range)
+                                and preferred_range[0] <= match.start_word_idx <= preferred_range[1])
+        if ara_like:
+            # pencere disi: Fatiha'ya FATIHA_ARA_MARGIN pay (ASR basa "و" ekliyor: "والحمد" 6:45 100, Fatiha 92.4)
+            better = fs > base if in_window else fs >= base - FATIHA_ARA_MARGIN
         else:
             better = fs >= base + JUMP_MARGIN
         if fm and fs >= FATIHA_FAST_LOCK_MIN_SCORE and better:
@@ -1229,8 +1305,13 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             and word_count >= MIN_WORD_COUNT_FIRST_LOCK and match and score < 100):
         g = align_transcription(text, CORPUS, preferred_range=None, preferred_bonus=PREFERRED_BONUS)
         gs, g_details = score_transcription(text, g)
-        if (g and not preferred_range[0] <= g.start_word_idx <= preferred_range[1] and gs > score
-                and is_unique_match(text, g, gs, word_count)):
+        outside = bool(g) and not preferred_range[0] <= g.start_word_idx <= preferred_range[1]
+        if outside and gs > score and is_unique_match(text, g, gs, word_count):
+            match, score, score_details = g, gs, g_details
+            result["pending_window_overridden"] = True
+        # Aday penceresindeki eslesme tum Kuran'daki en iyi yerden cok zayifsa dogrulama sayilmaz (asr 21.10: belirsiz
+        # 6:73 adayini "هو الرحمن الرحيم" pencerede 71.3 ile dogruluyordu, tum Kuran'da 100)
+        elif outside and gs >= score + VERIFY_GLOBAL_MARGIN:
             match, score, score_details = g, gs, g_details
             result["pending_window_overridden"] = True
 
@@ -1306,6 +1387,12 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             if tie:
                 natural = opening = False
                 result["opening_tie"] = True
+            # Zamm sonundan Fatiha'ya dogal gecis en az FATIHA_FAST_LOCK_MIN_WORDS kelimeyle (sabah 21.10: Adiyat sonu
+            # "إن ربهم بهم" → ASR "إن رب العالمين" → Fatiha 1:2)
+            if (natural and gfs == 1 and state.state == NamazState.ZAMM and not lock_abandoned
+                    and word_count < FATIHA_FAST_LOCK_MIN_WORDS):
+                natural = opening = False
+                result["fatiha_short_jump"] = True
             if natural:
                 jump = "natural"
             elif in_candidate:

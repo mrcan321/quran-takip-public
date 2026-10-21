@@ -199,11 +199,12 @@ private fun hide(assets: File, trjson: File, wavDir: File, out: File): Int {
         val wav = File(wavDir, fn)
         if (!wav.exists()) continue
         val st = SessionState()
-        // (gorunme zamani, parca RMS'i | kamet → null, gosterilen sure)
+        // (gorunme zamani, parca RMS'i | kamet → null | tilavet sonu → -1 (MainViewModel vurguyu siler), gosterilen sure)
         val shows = ArrayList<Triple<Double, Double?, Int>>()
         for ((k, c) in chunks.withIndex()) {
             val r = sm.processChunk(c.rms, c.text, k, st)
             if (r.kamet) shows.add(Triple(c.endSec + 1.0, null, 0))
+            else if (r.tilavetEnd) shows.add(Triple(c.endSec + 1.0, -1.0, 0))
             else if (r.status == ChunkStatus.MATCHED) {
                 shows.add(Triple(c.endSec + 1.0, c.rms, r.verses!!.last().surah))
             } else if (r.status == ChunkStatus.PENDING && !r.jumpCandidate && !r.ambiguous) {
@@ -230,6 +231,9 @@ private fun hide(assets: File, trjson: File, wavDir: File, out: File): Int {
                 while (si < shows.size && shows[si].first <= t) {
                     val lvl = shows[si].second
                     if (lvl == null) {
+                        shown = false
+                    } else if (lvl < 0) {
+                        if (shown && !hidden) lines.add(String.format(Locale.ROOT, "HIDE %.1f", t))
                         shown = false
                     } else {
                         voice.addRecitationLevel(lvl)

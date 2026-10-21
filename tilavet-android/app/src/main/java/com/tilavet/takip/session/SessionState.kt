@@ -86,6 +86,8 @@ data class ChunkResult(
     val ambiguous: Boolean = false,
     /** Kamet/ezan algilandi (EMPTY): onceki kilit silindi, Fatiha bekleniyor — UI vurguyu temizler. */
     val kamet: Boolean = false,
+    /** Tilavet sonu "صدق الله العظيم" (EMPTY): kilit / adaylar bitti — UI vurguyu temizler (kamet gibi, ezan / rekat yok). */
+    val tilavetEnd: Boolean = false,
     // Diagnostics
     val preferredRange: IntRange? = null,
     val inPreferred: Boolean = false,

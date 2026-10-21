@@ -597,7 +597,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ChunkStatus.PENDING -> "[${result.state.name}] $candidateKind: ${result.pendingSurah}:${result.pendingAyah}"
             ChunkStatus.LOW_CONFIDENCE -> "[${result.state.name}] dusuk guven"
             ChunkStatus.SILENT -> "[${result.state.name}] sessiz"
-            ChunkStatus.EMPTY -> "[${result.state.name}] " + if (result.kamet) "kamet: Fatiha bekleniyor" else "bos"
+            ChunkStatus.EMPTY -> "[${result.state.name}] " + when {
+                result.kamet -> "kamet: Fatiha bekleniyor"
+                result.tilavetEnd -> "tilavet sonu"
+                else -> "bos"
+            }
             ChunkStatus.TOO_SHORT -> "[${result.state.name}] kisa"
         }
 
@@ -608,8 +612,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 (result.status == ChunkStatus.MATCHED ||
                     (result.status == ChunkStatus.PENDING && !result.jumpCandidate && !result.ambiguous))
 
-        if (result.kamet) {
-            // Kamet: onceki (kametten once olusmus, muhtemelen yanlis) kilidin vurgusu silinir; liste yerinde kalir
+        if (result.kamet || result.tilavetEnd) {
+            // Kamet: onceki (kametten once olusmus, muhtemelen yanlis) kilidin vurgusu silinir; liste yerinde kalir.
+            // Tilavet sonu ("صدق الله العظيم"): okuma bitti, son ayet ekranda asili kalmasin (asr 21.10: 59:24)
             ayahStepper.cancel()
             _state.update { cur ->
                 cur.copy(

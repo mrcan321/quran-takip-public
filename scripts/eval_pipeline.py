@@ -109,6 +109,13 @@ EXPECTED = {
     # Fatiha → A'raf 7:54-55 → 3-4. rekat sessiz (semiallah 1075, 1135) → selam 1217/1224 → dua 1237
     "namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav": "coklu",
     "namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav": "coklu",
+    # Sabah (21.10, camide telefon, 9.5 dk): kamet 0-50 → iftitah 52 → Fatiha 63.7 → Isra 17:8-15 (101-263) →
+    # rukû / secde (semiallah ASR'de yok) → Fatiha 320 → Adiyat 100 (355-412) → semiallah 426 → secde / oturus → selam
+    # 516-530 → istigfar ("...الذي لا إله إلا هو الحي القيوم"), "اللهم أنت السلام", salavat, tesbih
+    "namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav": "coklu",
+    # Ayni sabah namazdan sonra (21.10): istiaze x2 + besmele → Hasr 59:22-24 (31-106) → "صدق الله العظيم" → Saffat
+    # 37:180-182 (114-130)
+    "tilavet_hasr_22_24_namaz_sonu.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -162,6 +169,12 @@ TIMELINE = {
     "namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav": [(0, None), (20, 112), (62, None), (67, 112), (95, 37),
                                                        (121, None), (274, 1), (321, 20), (437, None), (487, 1),
                                                        (527, 20), (587, None)],
+    # sabah 21.10 (kelime zamanli transkript): Fatiha "الحمد" 63.7, "عسى" 101.0 (17:8), "رسول الله" 262.6 (17:15 sonu),
+    # 2. Fatiha "الحمد" 320.1, "والعاديات" 355.2, "لخبير" 411.6
+    "namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav": [(0, None), (63.5, 1), (100.5, 17), (265, None), (319.8, 1),
+                                                        (354.8, 100), (414, None)],
+    # Hasr 59:22 "هو الله" ~31 ("الذي" 33.1), 59:24 sonu "الحكيم" 105.7, "صدق الله العظيم" 110-112, "سبحان ربك" 114.2
+    "tilavet_hasr_22_24_namaz_sonu.wav": [(0, None), (31, 59), (108, None), (113.8, 37), (131, None)],
 }
 
 

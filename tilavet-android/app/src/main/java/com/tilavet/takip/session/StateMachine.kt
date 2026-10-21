@@ -289,6 +289,13 @@ class StateMachine(
         // bindirme: sinirda tekrar eden kelimeler (en fazla SEARCH_CONCAT_MAX_OVERLAP) bir kez.
         const val SEARCH_CONCAT_CHUNKS = 2
         const val SEARCH_CONCAT_MAX_OVERLAP = 4
+        // BEKLEME'de aday dogrulamasi: aday penceresindeki eslesme tum Kuran'daki en iyi yerden bu kadar zayifsa dogrulama
+        // sayilmaz. Asr 21.10: belirsiz 6:73 adayini ("عالم الغيب والشهادة", 9:94 ile esit) "هو الرحمن الرحيم" pencerede 71.3
+        // ile dogruladi (tum Kuran'da 100: 2:163 / 59:22) → okunan Hasr 59:22 iken 6:73'e kilit, 20 sn ekranda.
+        const val VERIFY_GLOBAL_MARGIN = 15.0
+        // ARA'da / kilidi kaybolmus zamm'da (yeni rekat beklenir) Fatiha yoklamasi pencere disindaki en iyi yerden bu kadar
+        // dusuk olsa da kazanir: ASR basa "و" ekliyor, "والحمد لله رب العالمين" 6:45'te birebir 100, Fatiha 1:2 92.4 (sabah 21.10)
+        const val FATIHA_ARA_MARGIN = 8.0
 
         // Istiaze ayet degil ama "من الشيطان الرجيم" 16:98'e aday uretiyordu. Chunk sinirinda
         // bolunebilir: "الشيطان" iceren >=3 kelimelik ardisik parcalari cikar.
@@ -385,6 +392,59 @@ class StateMachine(
 
         fun isAsrHallucination(text: String): Boolean =
             text.trim().split(Regex("\\s+")).any { it.isNotEmpty() && bareToken(it) in ASR_HALLUCINATION_TOKENS }
+
+        // Uydurma ifade gercek okumayla ayni parcada (sabah namazi 21.10, 2. rekat Fatiha'si: "والحمد لله رب العالمين شركة
+        // الهدى للخدمات التقنية" — parcanin tamami bos sayildi, Fatiha kilidi 10 sn gecikti). "شركة" / "موسوعة" ile baslayan
+        // ifade (bas + marka kelimesi: الهدى / النابلسي / النحل ... + devam kelimeleri) cikarilir; kalan (istiaze / namaz
+        // zikirleri haric) en az MIN_WORD_COUNT_FIRST_LOCK kelimeyse parca o metinle islenir, degilse eskisi gibi bos. Baska
+        // uydurma kelimesi kalirsa ("لفضيلة الدكتور محمد راتب النابلسي", "لا تنسوا مشاركة العمل") yine bos. Tum transkriptlerde
+        // (gercek + dis + sentetik): "شركة الهدى للخدمات التقنية/التاريخية/للإنسان/للبناء/للنوم", "شركة اليابان",
+        // "شركة التابعين", "موسوعة النابلسي للعلوم الإسلامية", "موسوعة النحل/النعم مالك يوم الدين".
+        val HALLUCINATION_HEADS = setOf("شركه", "موسوعه")
+        val HALLUCINATION_CONT = setOf(
+            "للخدمات", "الخدمات", "التقنيه", "التاريخ", "التاريخيه", "للعلوم", "الاسلاميه", "للبناء", "للنوم", "للاعجاب", "شريك",
+        )
+        // Tilavet sonu: asr / mukabele bitince okunan "صدق الله العظيم" (Kuran'da yok; "صدق الله" 3:95 / 33:22'de baska
+        // kelimeyle). Asr 21.10: Hasr 59:24'ten sonra bu ifade + Saffat 37:180-182 — kilit 59:24'te kaldi, 37:180 okunurken
+        // ekranda 59:24. Ifade cikarilir, kilit ve adaylar biter (BEKLEME, beklemesiz). Dis kaynak kayitlarinda (Collak, Harem)
+        // da kayit sonunda.
+        val TILAVET_END = listOf("صدق", "الله", "العظيم")
+
+        /** "صدق الله العظيم" → (ifade cikarilmis metin, bulundu mu). */
+        fun stripTilavetEnd(text: String): Pair<String, Boolean> {
+            val words = text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            val toks = words.map { bareToken(it) }
+            val n = TILAVET_END.size
+            for (i in 0..toks.size - n) {
+                if (toks.subList(i, i + n) == TILAVET_END) {
+                    return Pair((words.subList(0, i) + words.subList(i + n, words.size)).joinToString(" "), true)
+                }
+            }
+            return Pair(text, false)
+        }
+
+        /** ASR uydurmasi iceren parca → uydurma ifadesi cikarilmis metin ya da "" (bos sayilir; bkz. HALLUCINATION_HEADS). */
+        fun stripAsrHallucination(text: String): String {
+            if (text.isBlank() || !isAsrHallucination(text)) return text
+            val words = text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            val out = ArrayList<String>(words.size)
+            var i = 0
+            while (i < words.size) {
+                if (bareToken(words[i]) in HALLUCINATION_HEADS) {
+                    i += 2                                  // bas + marka kelimesi
+                    while (i < words.size && bareToken(words[i]) in HALLUCINATION_CONT) i += 1
+                    continue
+                }
+                out += words[i]
+                i += 1
+            }
+            val rest = out.joinToString(" ")
+            if (rest.isEmpty() || isAsrHallucination(rest)) return ""
+            val (noIstiaze, _) = stripIstiaze(rest)
+            val (clean, _) = stripNamazPhrases(noIstiaze)
+            val n = clean.split(Regex("\\s+")).map { Normalizer.normalize(it) }.count { it.isNotEmpty() }
+            return if (n < MIN_WORD_COUNT_FIRST_LOCK) "" else rest
+        }
 
         /** Metinde "اله الا الله" (kelime-i tevhid) gecer mi — bkz. TEKBIR_TEVHID_CHUNKS. */
         fun isTevhid(text: String): Boolean {
@@ -539,8 +599,10 @@ class StateMachine(
 
         /** Hizalanacak temiz metin: ASR uydurmasi bos, istiaze ve namaz zikirleri cikarilmis. */
         fun cleanChunkText(text: String): String {
-            if (text.isBlank() || isAsrHallucination(text)) return ""
-            val (noIstiaze, _) = stripIstiaze(text)
+            val t = stripAsrHallucination(text)
+            if (t.isBlank()) return ""
+            val (noEnd, _) = stripTilavetEnd(t)
+            val (noIstiaze, _) = stripIstiaze(noEnd)
             val (clean, _) = stripNamazPhrases(noIstiaze)
             return clean.trim()
         }
@@ -649,9 +711,27 @@ class StateMachine(
             )
         }
 
-        // 2. ASR cikti bos mu (ASR uydurmasi — Kuran'da olmayan video girisi kelimeleri — da bos sayilir)
+        // Gerekceli log: kararin baglami (sinyal, cikarilan kelimeler, aramanin nerede yapildigi) — bkz. ChunkResult.reason
+        val notes = ArrayList<String>(4)
+        // 2. ASR uydurmasi (Kuran'da olmayan video girisi kelimeleri) → ifade cikarilir, okuma kalmazsa bos sayilir —
+        //    bkz. HALLUCINATION_HEADS. Tilavet sonu ("صدق الله العظيم") → kilit / adaylar biter — bkz. TILAVET_END.
+        //    ChunkResult.text ASR'nin ham metni kalir (zikir karti / log); karar asrText ile.
         val hallucination = transcribedText.isNotBlank() && isAsrHallucination(transcribedText)
-        if (transcribedText.isBlank() || hallucination) {
+        var asrText = if (hallucination) stripAsrHallucination(transcribedText) else transcribedText
+        if (hallucination && asrText.isNotBlank()) notes += "ASR uydurmasi cikarildi"
+        var tilavetEnd = false
+        if (asrText.isNotBlank()) {
+            val (t, found) = stripTilavetEnd(asrText)
+            if (found) {
+                asrText = t
+                tilavetEnd = true
+                resetForNewNamaz(state, chunkIndex, 0)
+                state.holdUntil = null
+                state.searchTexts = emptyList()
+                notes += "tilavet sonu (صدق الله العظيم): kilit / adaylar bitti"
+            }
+        }
+        if (asrText.isBlank()) {
             state.lostChunks += 1
             cleanupPendingIfStale(state, chunkIndex)
             applyTransition(state, matched = false, firstSurah = null, firstAyah = null)
@@ -662,17 +742,22 @@ class StateMachine(
                 status = ChunkStatus.EMPTY,
                 rms = rms,
                 text = transcribedText,
-                reason = if (hallucination) "ASR uydurmasi (Kuran disi)" else "ASR bos",
+                reason = when {
+                    tilavetEnd -> "tilavet sonu (صدق الله العظيم) — kilit / adaylar bitti"
+                    hallucination -> "ASR uydurmasi (Kuran disi)"
+                    else -> "ASR bos"
+                },
+                tilavetEnd = tilavetEnd,
             )
         }
 
         // 3a. Namaz yapisi sinyali (kamet / selam / rukû) — bkz. KAMET_HOLD_CHUNKS
-        var signal = namazSignal(transcribedText)
+        var signal = namazSignal(asrText)
         // Zamm kilitli degilken (ya da kilit kaybolmusken) tek basina zikir ifadesi — bkz. DHIKR_PHRASES, PAUSE_LOST_CHUNKS
         val abandoned = state.lostChunks >= ABANDON_LOCK_AFTER_LOST &&
             (state.state == NamazState.FATIHA || state.state == NamazState.ZAMM)
         val (dhikr, sehadet) = if (signal == null && (state.state != NamazState.ZAMM || abandoned)) {
-            dhikrOnly(transcribedText)
+            dhikrOnly(asrText)
         } else {
             Pair(false, false)
         }
@@ -680,8 +765,8 @@ class StateMachine(
         val lastTekbir = state.lastTekbirChunk
         val tekbirTevhid = dhikr && !inHold &&
             (state.state == NamazState.BEKLEME || state.state == NamazState.ARA || abandoned) &&
-            lastTekbir != null && chunkIndex - lastTekbir <= TEKBIR_TEVHID_CHUNKS && isTevhid(transcribedText)
-        if (isTekbirOnly(transcribedText.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() })) {
+            lastTekbir != null && chunkIndex - lastTekbir <= TEKBIR_TEVHID_CHUNKS && isTevhid(asrText)
+        if (isTekbirOnly(asrText.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() })) {
             state.lastTekbirChunk = chunkIndex
         }
         if ((dhikr && sehadet && state.state == NamazState.BEKLEME) || tekbirTevhid) signal = "kamet"
@@ -722,8 +807,6 @@ class StateMachine(
                 reason = "zikir ifadesi (zamm kilidi yok)" + if (extended) "; bekleme parca ${state.holdUntil}'e uzadi" else "",
             )
         }
-        // Gerekceli log: kararin baglami (sinyal, cikarilan kelimeler, aramanin nerede yapildigi) — bkz. ChunkResult.reason
-        val notes = ArrayList<String>(4)
         if (signal == "selam" && (state.state == NamazState.BEKLEME || state.state == NamazState.ARA)) {
             resetForNewNamaz(state, chunkIndex, RUKU_HOLD_CHUNKS)
             notes += "selam: namaz bitti, $RUKU_HOLD_CHUNKS parca sadece Fatiha"
@@ -740,7 +823,7 @@ class StateMachine(
         val hold = state.holdUntil.let { it != null && chunkIndex <= it }
 
         // 3b. Istiaze + namaz zikirlerini cikar (hepsi cikarsa kelime sayisi 0 → too_short), kelime sayisi kontrolu
-        val (noIstiaze, istiazeCut) = stripIstiaze(transcribedText)
+        val (noIstiaze, istiazeCut) = stripIstiaze(asrText)
         val (cleanText, namazCut) = stripNamazPhrases(noIstiaze)
         if (istiazeCut > 0) notes += "istiaze cikarildi ($istiazeCut kelime)"
         if (namazCut > 0) notes += "namaz zikri cikarildi ($namazCut kelime)"
@@ -773,6 +856,7 @@ class StateMachine(
 
         var match: AlignmentMatch?
         var score: Double
+        var resumed = false   // kilit kaybinda kalinan yerin penceresi secildi (Fatiha yoklamasinda pencere ici sayilir)
         if (hold) notes += "bekleme (parca ${state.holdUntil}'e kadar): sadece Fatiha / kalinan yer"
         else notes += if (preferredRange != null) "pencere ${rangeLabel(preferredRange)}" else "tum Kuran"
         if (hold) {
@@ -796,6 +880,26 @@ class StateMachine(
         } else {
             match = aligner.align(cleanText, preferredRange = preferredRange)
             score = scoreTranscription(tokens, match)
+            // Kilit kaybolmus (okuma ara verdi): kalinan yerin penceresi (ayni sure, son ayetin -RESUME_BACK..+ARA) tum
+            // Kuran'daki en iyi yerle neredeyse esitse (CONTINUE_MARGIN) kalinan yerden devam. Asr 21.10: Hasr 59:23'ten sonra
+            // 4 parca ASR bos, 59:24 sonu "وهو العزيز الحكيم" ("الا وهو العزيز") tum Kuran'da 3:6 / 3:18 93.9, 59:24 93.3
+            // → belirsiz aday.
+            val ls = state.lastSurah
+            val la = state.lastAyah
+            val m0 = match
+            if (lockAbandoned && ls != null && la != null && wordCount >= MIN_WORD_COUNT_FIRST_LOCK && m0 != null) {
+                val rw = ayahWindow(ls, la, back = RESUME_BACK, forward = PREFERRED_AYAH_WINDOW_ARA)
+                if (rw != null && m0.startWordIdx !in rw) {
+                    val rm = aligner.align(cleanText, preferredRange = rw)
+                    val rs = scoreTranscription(tokens, rm)
+                    if (rm != null && rm.startWordIdx in rw && rs >= HOLD_RESUME_MIN_SCORE && rs >= score - CONTINUE_MARGIN) {
+                        notes += "kalinan yerden devam ${"%.1f".format(rs)} (tum Kuran ${"%.1f".format(score)})"
+                        match = rm
+                        score = rs
+                        resumed = true
+                    }
+                }
+            }
         }
 
         // Kilitliyken (ZAMM/ARA) pencere emin degilse Fatiha'yi ayrica dene: yeni rekat Fatiha ile baslar. Tum Kuran
@@ -803,19 +907,24 @@ class StateMachine(
         // cuma: 2. rekat Fatiha'si 21:107'ye (62) pencere eslesmesi aldi, kamet kilidinde Fatiha 4:102'ye eslesti.
         // ZAMM'da en az FATIHA_FAST_LOCK_MIN_WORDS kelime: "وإلى رب العالمين" (94:8, ASR bozuk) Fatiha'ya 92.6 aliyor.
         var fatihaJump = false
-        val probeWords = if (state.state == NamazState.ARA) MIN_WORD_COUNT_FIRST_LOCK else FATIHA_FAST_LOCK_MIN_WORDS
+        // Kilit kaybolmus zamm (ABANDON_LOCK_AFTER_LOST kayip parca, ~30 sn okuma yok) ARA gibi: yeni rekat beklenir. Sabah
+        // 21.10: semiallah duyulmadi, 2. rekat Fatiha'si "والحمد لله رب العالمين" ZAMM'da (ARA'ya 12 kayip parca) tum Kuran'da
+        // 6:45'e esit skor aldi (belirsiz aday) → Fatiha kilidi 10 sn gecikti.
+        val araLike = state.state == NamazState.ARA || (state.state == NamazState.ZAMM && lockAbandoned)
+        val probeWords = if (araLike) MIN_WORD_COUNT_FIRST_LOCK else FATIHA_FAST_LOCK_MIN_WORDS
         if (!hold && (state.state == NamazState.ZAMM || state.state == NamazState.ARA) &&
             wordCount >= probeWords &&
-            (match == null || score < JUMP_SEARCH_BELOW || state.state == NamazState.ARA)
+            (match == null || score < JUMP_SEARCH_BELOW || araLike)
         ) {
             val fm = aligner.align(cleanText, preferredRange = fatihaRange)
             val fs = scoreTranscription(tokens, fm)
             val base = if (match != null) score else 0.0
             // ARA'da (rekat basi beklenir) esitlikte Fatiha kazanir; kalinan yerin penceresindeki eslesme haric
             // (zamm'da Fatiha ile ayni ifade: 37:182 "والحمد لله رب العالمين")
-            val inWindow = match != null && preferredRange != null && match.startWordIdx in preferredRange
-            val better = if (state.state == NamazState.ARA) {
-                if (inWindow) fs > base else fs >= base
+            val inWindow = resumed || (match != null && preferredRange != null && match.startWordIdx in preferredRange)
+            val better = if (araLike) {
+                // pencere disi: Fatiha'ya FATIHA_ARA_MARGIN pay (ASR basa "و" ekliyor)
+                if (inWindow) fs > base else fs >= base - FATIHA_ARA_MARGIN
             } else {
                 fs >= base + JUMP_MARGIN
             }
@@ -849,13 +958,17 @@ class StateMachine(
             // dogruluyordu (kilit Felak'ta kaliyordu); tum Kuran'da 114:1 100 ve "الناس" ayirt edici.
             val g = aligner.align(cleanText, preferredRange = null)
             val gs = scoreTranscription(tokens, g)
-            if (g != null && g.startWordIdx !in preferredRange && gs > score) {
-                val uc = uniqueCheck(cleanText, tokens, g, gs, wordCount)
-                if (uc.unique) {
-                    match = g
-                    score = gs
-                    notes += "aday penceresi yerine tum Kuran (${uc.note})"
-                }
+            val outside = g != null && g.startWordIdx !in preferredRange
+            val uc = if (g != null && outside && gs > score) uniqueCheck(cleanText, tokens, g, gs, wordCount) else null
+            if (g != null && uc != null && uc.unique) {
+                match = g
+                score = gs
+                notes += "aday penceresi yerine tum Kuran (${uc.note})"
+            } else if (g != null && outside && gs >= score + VERIFY_GLOBAL_MARGIN) {
+                // Aday penceresindeki eslesme tum Kuran'daki en iyi yerden cok zayifsa adayi dogrulamaz (yeni aday olur)
+                notes += "aday penceresi ${"%.1f".format(score)} << tum Kuran ${"%.1f".format(gs)}: dogrulama sayilmadi"
+                match = g
+                score = gs
             }
         }
 
@@ -971,6 +1084,15 @@ class StateMachine(
                     natural = false
                     opening = false
                     notes += "iki surenin acilisi ayni (ikinci yer $tieWith): gecis adayi"
+                }
+                // Zamm sonundan Fatiha'ya dogal gecis en az FATIHA_FAST_LOCK_MIN_WORDS kelimeyle (Fatiha yoklamasindaki gibi):
+                // sabah 21.10 sabit parca, Adiyat sonu "إن ربهم بهم" → ASR "إن رب العالمين" Fatiha 1:2'ye dogal gecis oldu
+                // (yeni rekat rukû / secdeden sonra gelir — kilit kaybolmus zamm / ARA'da Fatiha yoklamasi 3 kelimeyle)
+                if (natural && gfs == 1 && state.state == NamazState.ZAMM && !lockAbandoned &&
+                    wordCount < FATIHA_FAST_LOCK_MIN_WORDS) {
+                    natural = false
+                    opening = false
+                    notes += "zamm sonundan Fatiha'ya $wordCount kelime (min $FATIHA_FAST_LOCK_MIN_WORDS): dogal gecis degil"
                 }
                 jump = when {
                     natural -> "natural"

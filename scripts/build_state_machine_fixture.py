@@ -147,6 +147,11 @@ BESMELE_TOKENS = {"بسم", "الله", "الرحمن", "الرحيم"}
 # Sabit 5 sn parcadaki 1 sn bindirme: sinirda tekrar eden kelimeler (en fazla SEARCH_CONCAT_MAX_OVERLAP) bir kez.
 SEARCH_CONCAT_CHUNKS = 2
 SEARCH_CONCAT_MAX_OVERLAP = 4
+# BEKLEME'de aday dogrulamasi: aday penceresindeki eslesme tum Kuran'daki en iyi yerden bu kadar zayifsa dogrulama sayilmaz
+VERIFY_GLOBAL_MARGIN = 15
+# ARA'da / kilidi kaybolmus zamm'da (yeni rekat beklenir) Fatiha yoklamasi pencere disindaki en iyi yerden bu kadar
+# dusuk olsa da kazanir
+FATIHA_ARA_MARGIN = 8
 
 
 def runner_up_match(text, match, corpus):
@@ -419,6 +424,60 @@ def bare_token(word):
 
 def is_asr_hallucination(text):
     return any(bare_token(w) in ASR_HALLUCINATION_TOKENS for w in text.split())
+
+
+# Uydurma ifade gercek okumayla ayni parcada (sabah namazi 21.10, 2. rekat Fatiha'si: "والحمد لله رب العالمين شركة
+# الهدى للخدمات التقنية" — parcanin tamami bos sayildi, Fatiha kilidi 10 sn gecikti). "شركة" / "موسوعة" ile baslayan
+# ifade (bas + marka kelimesi: الهدى / النابلسي / النحل ... + devam kelimeleri) cikarilir; kalan (istiaze / namaz
+# zikirleri haric) en az MIN_WORD_COUNT_FIRST_LOCK kelimeyse parca o metinle islenir, degilse eskisi gibi bos. Baska
+# uydurma kelimesi kalirsa ("لفضيلة الدكتور محمد راتب النابلسي", "لا تنسوا مشاركة العمل") yine bos. Tum transkriptlerde
+# (gercek + dis + sentetik) bu kaliplar: "شركة الهدى للخدمات التقنية/التاريخية/للإنسان/للبناء/للنوم", "شركة اليابان",
+# "شركة التابعين", "موسوعة النابلسي للعلوم الإسلامية", "موسوعة النحل/النعم مالك يوم الدين".
+HALLUCINATION_HEADS = {"شركه", "موسوعه"}
+HALLUCINATION_CONT = {"للخدمات", "الخدمات", "التقنيه", "التاريخ", "التاريخيه", "للعلوم", "الاسلاميه", "للبناء",
+                      "للنوم", "للاعجاب", "شريك"}
+
+
+# Tilavet sonu: asr / mukabele bitince okunan "صدق الله العظيم" (Kuran'da yok; "صدق الله" 3:95 / 33:22'de baska kelimeyle).
+# Asr 21.10: Hasr 59:24'ten sonra bu ifade + Saffat 37:180-182 — kilit 59:24'te kaldi, 37:180 okunurken ekranda 59:24.
+# Ifade cikarilir, kilit ve adaylar biter (BEKLEME, beklemesiz). Dis kaynak kayitlarinda (Collak, Harem) da kayit sonunda.
+TILAVET_END = ("صدق", "الله", "العظيم")
+
+
+def strip_tilavet_end(text):
+    """→ (ifade cikarilmis metin, bulundu mu)."""
+    words = text.split()
+    toks = [bare_token(w) for w in words]
+    n = len(TILAVET_END)
+    for i in range(len(toks) - n + 1):
+        if tuple(toks[i:i + n]) == TILAVET_END:
+            return " ".join(words[:i] + words[i + n:]), True
+    return text, False
+
+
+def strip_asr_hallucination(text):
+    """ASR uydurmasi iceren parca → uydurma ifadesi cikarilmis metin ya da "" (bos sayilir; bkz. HALLUCINATION_HEADS)."""
+    if not text or not is_asr_hallucination(text):
+        return text
+    words = text.split()
+    out = []
+    i = 0
+    while i < len(words):
+        if bare_token(words[i]) in HALLUCINATION_HEADS:
+            i += 2                                  # bas + marka kelimesi
+            while i < len(words) and bare_token(words[i]) in HALLUCINATION_CONT:
+                i += 1
+            continue
+        out.append(words[i])
+        i += 1
+    rest = " ".join(out)
+    if not rest or is_asr_hallucination(rest):
+        return ""
+    t, _ = strip_istiaze(rest)
+    t, _ = strip_namaz_phrases(t)
+    if len([w for w in (normalize_arabic(x) for x in t.split()) if w]) < MIN_WORD_COUNT_FIRST_LOCK:
+        return ""
+    return rest
 
 
 # Kuran'da gecen ama namazda / ezan-kamette / sohbette tek basina soylenen ifadeler. Zamm suresi kilitli degilken
@@ -748,9 +807,11 @@ def collect_verses(corpus, start_idx, end_idx):
 
 def clean_chunk_text(text):
     """Hizalanacak temiz metin: ASR uydurmasi bos, istiaze ve namaz zikirleri cikarilmis."""
-    if not text or is_asr_hallucination(text):
+    text = strip_asr_hallucination(text)
+    if not text:
         return ""
-    t, _ = strip_istiaze(text)
+    t, _ = strip_tilavet_end(text)
+    t, _ = strip_istiaze(t)
     t, _ = strip_namaz_phrases(t)
     return t.strip()
 
@@ -874,9 +935,17 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             state.state = new_state
         return {"chunk_index": chunk_index, "state_before": state_before, "state": state.state.value, "status": "silent"}
 
-    # ASR uydurmasi (Kuran'da olmayan video girisi kelimeleri) → bos sayilir
-    if transcribed_text and is_asr_hallucination(transcribed_text):
-        transcribed_text = ""
+    # ASR uydurmasi (Kuran'da olmayan video girisi kelimeleri) → ifade cikarilir, okuma kalmazsa bos sayilir
+    if transcribed_text:
+        transcribed_text = strip_asr_hallucination(transcribed_text)
+    # Tilavet sonu ("صدق الله العظيم") → kilit / adaylar biter — bkz. TILAVET_END
+    tilavet_end = False
+    if transcribed_text:
+        transcribed_text, tilavet_end = strip_tilavet_end(transcribed_text)
+        if tilavet_end:
+            reset_for_new_namaz(state, chunk_index, 0)
+            state.hold_until = None
+            state.search_texts = []
 
     # Bos
     if not transcribed_text:
@@ -942,6 +1011,7 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     preferred_range = compute_preferred_range(state, ayah_to_range, surah_counts)
     lock_abandoned = (state.lost_chunks >= ABANDON_LOCK_AFTER_LOST and state.state in (NamazState.FATIHA, NamazState.ZAMM))
 
+    resumed = False   # kilit kaybinda kalinan yerin penceresi secildi (asagidaki Fatiha yoklamasinda pencere ici sayilir)
     if hold:
         # Kamet / rukû / selam sonrasi: sadece Fatiha (yeni rekat) ya da kalinan yerden devam (ARA, ayni sure
         # son ayetin -RESUME_BACK..+PREFERRED_AYAH_WINDOW_ARA, skor >= HOLD_RESUME_MIN_SCORE). Tum Kuran aranmaz.
@@ -957,23 +1027,42 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     else:
         match = align_transcription(transcribed_text, corpus, preferred_range=preferred_range, preferred_bonus=PREFERRED_BONUS)
         score = score_transcription(transcribed_text, match, vocab)
+        # Kilit kaybolmus (okuma ara verdi): kalinan yerin penceresi (ayni sure, son ayetin -RESUME_BACK..+ARA) tum Kuran'daki
+        # en iyi yerle neredeyse esitse (CONTINUE_MARGIN) kalinan yerden devam. Asr 21.10: Hasr 59:23'ten sonra 4 parca ASR
+        # bos, 59:24 sonu "وهو العزيز الحكيم" ("الا وهو العزيز") tum Kuran'da 3:6 / 3:18 93.9, 59:24 93.3 → belirsiz aday.
+        if (lock_abandoned and state.last_surah and state.last_ayah and word_count >= MIN_WORD_COUNT_FIRST_LOCK
+                and match is not None):
+            rw = ayah_window(state.last_surah, state.last_ayah, RESUME_BACK, PREFERRED_AYAH_WINDOW_ARA, ayah_to_range, surah_counts)
+            if rw and not rw[0] <= match.start_word_idx <= rw[1]:
+                rm = align_transcription(transcribed_text, corpus, preferred_range=rw, preferred_bonus=PREFERRED_BONUS)
+                rs = score_transcription(transcribed_text, rm, vocab)
+                if rm and rw[0] <= rm.start_word_idx <= rw[1] and rs >= HOLD_RESUME_MIN_SCORE and rs >= score - CONTINUE_MARGIN:
+                    match, score = rm, rs
+                    resumed = True
 
     # Kilitliyken (ZAMM/ARA) pencere emin degilse Fatiha'yi ayrica dene: yeni rekat Fatiha ile baslar. Tum Kuran
     # aramasi Fatiha ifadelerini baska yere de oturtabiliyor ("الحمد لله رب العالمين" 6:45, 10:10, 37:182...);
     # cuma: 2. rekat Fatiha'si 21:107'ye (62) pencere eslesmesi aldi, kamet kilidinde Fatiha 4:102'ye eslesti.
     # ZAMM'da en az FATIHA_FAST_LOCK_MIN_WORDS kelime: "وإلى رب العالمين" (94:8, ASR bozuk) Fatiha'ya 92.6 aliyor.
     fatiha_jump = False
-    probe_words = MIN_WORD_COUNT_FIRST_LOCK if state.state == NamazState.ARA else FATIHA_FAST_LOCK_MIN_WORDS
+    # Kilit kaybolmus zamm (ABANDON_LOCK_AFTER_LOST kayip parca, ~30 sn okuma yok) ARA gibi: yeni rekat beklenir. Sabah
+    # 21.10: semiallah duyulmadi, 2. rekat Fatiha'si "والحمد لله رب العالمين" ZAMM'da (ARA'ya 12 kayip parca) tum Kuran'da
+    # 6:45'e esit skor aldi (belirsiz aday) → Fatiha kilidi 10 sn gecikti.
+    ara_like = state.state == NamazState.ARA or (state.state == NamazState.ZAMM and lock_abandoned)
+    probe_words = MIN_WORD_COUNT_FIRST_LOCK if ara_like else FATIHA_FAST_LOCK_MIN_WORDS
     if (not hold and state.state in (NamazState.ZAMM, NamazState.ARA) and word_count >= probe_words
-            and (not match or score < JUMP_SEARCH_BELOW or state.state == NamazState.ARA)):
+            and (not match or score < JUMP_SEARCH_BELOW or ara_like)):
         fm = align_transcription(transcribed_text, corpus, preferred_range=fatiha_range(ayah_to_range), preferred_bonus=PREFERRED_BONUS)
         fs = score_transcription(transcribed_text, fm, vocab)
         base = score if match else 0.0
         # ARA'da (rekat basi beklenir) esitlikte Fatiha kazanir; kalinan yerin penceresindeki eslesme haric
         # (zamm'da Fatiha ile ayni ifade: 37:182 "والحمد لله رب العالمين")
-        in_window = bool(match) and bool(preferred_range) and preferred_range[0] <= match.start_word_idx <= preferred_range[1]
-        if state.state == NamazState.ARA:
-            better = fs > base if in_window else fs >= base
+        in_window = resumed or (bool(match) and bool(preferred_range)
+                                and preferred_range[0] <= match.start_word_idx <= preferred_range[1])
+        if ara_like:
+            # pencere disi: Fatiha'ya FATIHA_ARA_MARGIN pay (ASR basa "و" ekliyor: "والحمد لله رب العالمين" 6:45'te birebir
+            # 100, Fatiha 1:2 92.4 — sabah 21.10)
+            better = fs > base if in_window else fs >= base - FATIHA_ARA_MARGIN
         else:
             better = fs >= base + JUMP_MARGIN
         if fm and fs >= FATIHA_FAST_LOCK_MIN_SCORE and better:
@@ -996,8 +1085,14 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             and word_count >= MIN_WORD_COUNT_FIRST_LOCK and match and score < 100):
         g = align_transcription(transcribed_text, corpus, preferred_range=None, preferred_bonus=PREFERRED_BONUS)
         gs = score_transcription(transcribed_text, g, vocab)
-        if (g and not preferred_range[0] <= g.start_word_idx <= preferred_range[1] and gs > score
+        outside = bool(g) and not preferred_range[0] <= g.start_word_idx <= preferred_range[1]
+        if (outside and gs > score
                 and is_unique_match(transcribed_text, g, gs, word_count, corpus, vocab, ayah_to_range)):
+            match, score = g, gs
+        # Aday penceresindeki eslesme tum Kuran'daki en iyi yerden cok zayifsa adayi dogrulamaz (yeni aday olur): asr
+        # 21.10'da belirsiz 6:73 adayini ("عالم الغيب والشهادة", 9:94 ile esit) "هو الرحمن الرحيم" pencerede 71.3 ile
+        # dogruladi (tum Kuran'da 100: 2:163 / 59:22) → okunan Hasr 59:22 iken 6:73'e kilit, 20 sn ekranda.
+        elif outside and gs >= score + VERIFY_GLOBAL_MARGIN:
             match, score = g, gs
 
     # Kilitliyken (FATIHA/ZAMM/ARA) pencere emin degilse tum Kuran'da da ara: sure gecisi. Eskiden
@@ -1071,6 +1166,12 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             tie = (natural and not cont and is_opening_match(g, corpus, ayah_to_range)
                    and opening_tie(transcribed_text, g, corpus, ayah_to_range))
             if tie:
+                natural = opening = False
+            # Zamm sonundan Fatiha'ya dogal gecis en az FATIHA_FAST_LOCK_MIN_WORDS kelimeyle (Fatiha yoklamasindaki gibi):
+            # sabah 21.10 sabit parca, Adiyat sonu "إن ربهم بهم" → ASR "إن رب العالمين" Fatiha 1:2'ye dogal gecis oldu (yeni
+            # rekat rukû / secdeden sonra gelir — kilit kaybolmus zamm / ARA'da Fatiha yoklamasi 3 kelimeyle)
+            if (natural and gfs == 1 and state.state == NamazState.ZAMM and not lock_abandoned
+                    and word_count < FATIHA_FAST_LOCK_MIN_WORDS):
                 natural = opening = False
             if natural:
                 jump = "natural"
@@ -1548,6 +1649,116 @@ SCENARIOS = [
             (0.1, ""), (0.1, ""), (0.1, ""),                    # 18-20: rukû (ASR bos)
             (0.1, "لم يعد"),                                     # 21: semiallah bozuk → devam sayilmaz
             (0.1, "ومن يعمل من الصالحات وهو مؤمن"),             # 22: gercek devam 20:112 (3+ kelime)
+        ],
+    },
+    # ============ Senaryo 21: sabah 21.10 — Isra kilidi kayip, 2. rekat Fatiha'si uydurmayla ayni parcada ============
+    {
+        "description": "Isra 17:13-15 → 13 parca okuma yok (semiallah duyulmadi, ZAMM kilidi kayip) → 'والحمد لله رب العالمين شركة "
+                       "الهدى للخدمات التقنية': uydurma ifadesi cikarilir, kilidi kaybolmus zamm ARA gibi → Fatiha 1:2 (eskiden "
+                       "parca bos, sonraki parca 6:45 belirsiz adayi)",
+        "chunks": [
+            (0.016, "وَالسِنينَ وَالْحِسَابِ"),
+            (0.015, "وكل شيء فصيل"),
+            (0.023, "وكل انسان"),
+            (0.025, "ألزمناه طائره"),
+            (0.017, "في عمره ونخرج له يوم"),                            # 4: kilit Isra 17:13
+            (0.018, "يوم القيامة كتابًا يَلْقَاهُ مَعَهُ"),
+            (0.017, "منشورا اقرأ"),
+            (0.017, "كفى بنفسي"),
+            (0.018, "اليوم عليك حسي"),
+            (0.019, "من اهتدى فإنما"),
+            (0.013, "إنما يهتدي لنفسي"),
+            (0.016, "ومن ضل فإنما يضل"),
+            (0.018, "ولا تزر وازرة"),
+            (0.018, ""),
+            (0.02, "وَمَا كُنَّا مُعَذِّبِينَ حَتَّى"),
+            (0.021, "حتى نبعث رسول الله"),                              # 15: 17:15 son okuma
+            (0.04, ""),
+            (0.027, ""),
+            (0.009, ""),
+            (0.024, ""),
+            (0.032, ""),
+            (0.038, "شركة التابعين"),                                   # 21: uydurma (kalan yok) → bos
+            (0.026, ""),
+            (0.003, ""),
+            (0.035, "شكرا"),
+            (0.027, "المصدر كتاب"),
+            (0.003, ""),
+            (0.013, ""),
+            (0.032, "الله أكبر"),                                       # 28: tekbir
+            (0.019, "الحمد لله"),                                       # 29: ZAMM'da kilit kayip (13 parca)
+            (0.024, "والحمد لله رب العالمين شركة الهدى للخدمات التقنية"),  # 30: uydurma cikarilir → ZAMM kilidi kayip = ARA gibi: Fatiha 1:2 (eskiden bos, 6:45 belirsiz aday)
+            (0.019, "مالك يوم الدين إياك نعين"),                        # 31: Fatiha 1:4
+            (0.018, "نعبد وإياك نستعين اهدنا الصراط"),
+            (0.016, "صراطا مستقيما"),
+            (0.018, "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيهِم"),
+            (0.02, "غير الموظوب"),
+        ],
+    },
+    # ============ Senaryo 22: asr 21.10 — Hasr 59:22-24 + "صدق الله العظيم" + Saffat 37:180-181 ============
+    {
+        "description": "Istiaze + besmele → Hasr 59:22 belirsiz adaylar (2:163 / 6:73) dogrulanmaz, 59:23 kilit; kilit kayip "
+                       "→ 59:24 kalinan yerden devam; 'صدق الله العظيم' kilidi bitirir → Saffat 37:180 birikmis metinle",
+        "chunks": [
+            (0.014, ""),
+            (0.023, "أعوذ بالله السميع العليم"),
+            (0.019, "أعوذ من الشيطان الرجيم"),
+            (0.046, ""),
+            (0.019, "من الشيطان الرجيم بسم الله الرحمن الرحيم"),
+            (0.022, "بسم الله الرحمن الرحيم"),
+            (0.026, "الله"),
+            (0.033, "لا اله الا هو"),                                   # 7: aday 2:163 (belirsiz)
+            (0.023, "عالم الغيب والشاهد"),                              # 8: 6:73 belirsiz aday
+            (0.021, "هو الرحمن الرحيم"),                                # 9: tum Kuran 100 (2:163 / 59:22) — 6:73 penceresi 71.3 dogrulamaz
+            (0.03, "والله الذي"),
+            (0.043, "شركة"),
+            (0.024, "لا إله هو الملك القدس"),                           # 12: aday 59:23
+            (0.02, "السلام"),                                           # 13: kilit 59:23 (birikmis metin)
+            (0.02, "أين العزيز الجفار"),
+            (0.03, "جبار المتكبر سبحان الله"),
+            (0.031, ""),
+            (0.018, ""),
+            (0.041, ""),
+            (0.025, ""),
+            (0.026, "شركة الهدى للخدمات التقنية"),                      # 20: uydurma (kalan yok)
+            (0.029, ""),
+            (0.033, "السماوات والأرض"),
+            (0.024, "الا وهو العزيز"),                                  # 23: kilit kayip: kalinan yerden devam 59:24 (eskiden 3:6 belirsiz aday)
+            (0.016, ""),
+            (0.024, "صدق الله العظيم"),                                 # 25: tilavet sonu: kilit / adaylar biter (eskiden ekranda 59:24 / 69:33 adayi)
+            (0.028, "سبحان ربي"),
+            (0.019, "رب العزة عنك"),                                    # 27: Saffat 37:180 (birikmis metin)
+            (0.024, "وسلام على الناس"),                                 # 28: 37:181
+            (0.022, ""),
+            (0.032, ""),
+            (0.025, ""),
+        ],
+    },
+    # ============ Senaryo 23: sabah 21.10 sabit parca — zamm sonunda kisa "Fatiha" ifadesi ============
+    {
+        "description": "2. rekat Fatiha → Adiyat; sure sonu 'إن ربهم بهم' ASR'de 'إن رب العالمين' (3 kelime): zamm sonundan "
+                       "Fatiha'ya dogal gecis en az 4 kelime ister (eskiden 1:2 kilidi, rekat sayaci 3. rekat saydi)",
+        "chunks": [
+            (0.023, "الحمد لله رب العالمين الرحمن الرحيم"),             # 0: 2. rekat Fatiha (hizli kilit)
+            (0.02, "بسم الله الرحمن الرحيم مالك يوم الدين إياك نعبد"),
+            (0.018, "نعبد وإيَّاك نستعين اهدنا الصراط"),
+            (0.017, "الصراط المستقيم صراط الذين أنعمه"),
+            (0.019, "لما أَنْعَمْتَ عَلَيْهِمْ غير المَوْضُولِ عَنْهُمْ"),
+            (0.026, "ولا الضال"),
+            (0.019, "شركة التابعين"),                                   # 6: uydurma (kalan yok) → bos
+            (0.027, "وَالْعاداتِ ضَوعًا فالمورِيَات"),                  # 7: Fatiha sonu → Adiyat 100:1 dogal gecis
+            (0.022, "فالموريات قدحاً فالمغيرات سبعة"),
+            (0.021, "سبحا فأثرنه نَقْعًا"),
+            (0.024, "فَوَسَطْنَ بِهِ جَمْعًا"),
+            (0.019, "إِنَّ الْإِنْسَانَ لِرَبِّهِ لَكَنُودٌ"),
+            (0.018, "وإنه على الأرض"),
+            (0.02, "وعلى ذلك لشهيد"),
+            (0.018, "وإنه لحب الخير لشديد"),
+            (0.022, "أفلا يعلم إذا بعثر ما"),
+            (0.022, "وحصل ما في الصدور"),                               # 16: 100:10 (sure sonuna 1 ayet)
+            (0.015, "إن رب العالمين"),                                  # 17: Adiyat sonu ASR'de bozuk: 3 kelimeyle Fatiha'ya dogal gecis yok (eskiden 1:2)
+            (0.013, "إنهم يومئذ لخبير"),                                # 18: 100:11
+            (0.014, "الله أكبر"),                                       # 19: tekbir
         ],
     },
 ]
