@@ -215,6 +215,39 @@ export const BIG_TILES = LAYOUTS.big.tiles;
 export const ONE_PAGE_PX = { min: 12, max: 40, def: 20 };
 
 /**
+ * Buyuk yazinin yazi tipi + kalinligi (Ayarlar → G2 YAZI TİPİ / G2 YAZI KALINLIĞI; /state bigFont, bigWeight; sadece
+ * gozluk). Kullanici: "bilimsel olarak rahat okunabilirligi arastirilmis 3 font daha, kalin ince secenekleri olsun".
+ * Hepsi degisken (wght eksenli) OFL fontlar, degistirilmeden (assets/g2fonts, kopruden /g2font-<id>.ttf); hepsinde 7
+ * mealin tum karakterleri ve Turkce harfler var (fontTools ile olculdu). B612 (Airbus kokpit ekrani) ğ ı İ ş icermiyor,
+ * Andika'nin ince kalinligi yok → alinmadi.
+ *   manrope   Manrope (APK #44'ten beri, varsayilan; 200-800)
+ *   atkinson  Atkinson Hyperlegible Next (Braille Institute, az gorenlerle test edilerek; benzer harfler ayrik: I l 1,
+ *             O 0; 200-800)
+ *   lexend    Lexend (Shaver-Troup'un okuma akiciligi arastirmasi: genis harf araligi; 100-900)
+ *   inter     Inter (ekran icin; buyuk x-yuksekligi — kucuk puntoda okunurluk; 100-900)
+ * Satir yuksekligi hepsinde 1.16 em yetiyor (sapkali buyuk harf + kuyruk: Manrope 1.24 em, digerleri 1.04-1.19).
+ */
+export const BIG_FONTS = {
+  manrope: { name: 'Manrope', file: 'g2font-manrope.ttf', family: 'TTBigManrope', weights: '200 800' },
+  atkinson: { name: 'Atkinson', file: 'g2font-atkinson.ttf', family: 'TTBigAtkinson', weights: '200 800' },
+  lexend: { name: 'Lexend', file: 'g2font-lexend.ttf', family: 'TTBigLexend', weights: '100 900' },
+  inter: { name: 'Inter', file: 'g2font-inter.ttf', family: 'TTBigInter', weights: '100 900' },
+};
+/** İNCE / NORMAL / KALIN / ÇOK KALIN (GlassesState.WEIGHTS ile ayni); varsayilan KALIN = eski Manrope 700. */
+export const BIG_WEIGHTS = [300, 500, 700, 800];
+export const BIG_FONT_DEFAULT = { id: 'manrope', weight: 700 };
+
+/** /state → {id, weight} (bilinmeyen font → Manrope, listede olmayan kalinlik → en yakini). */
+export function bigFontOf(st) {
+  const id = st && Object.prototype.hasOwnProperty.call(BIG_FONTS, st.bigFont) ? st.bigFont : BIG_FONT_DEFAULT.id;
+  const w = Number(st && st.bigWeight);
+  const weight = Number.isFinite(w) && w > 0
+    ? BIG_WEIGHTS.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a))
+    : BIG_FONT_DEFAULT.weight;
+  return { id, weight };
+}
+
+/**
  * /state textPx → fitBigText secenekleri (gecersizse varsayilan); h: yazi alani yuksekligi (baslikli duzende 256);
  * fixed: Ayarlar → G2 SABİT YAZI BOYUTU — her metin tam bu puntoda (kisa metin buyutulmez, uzun meal kucultulmez,
  * sayfalara bolunur; kullanici: "hepsinde font boyutu ayni olsun").

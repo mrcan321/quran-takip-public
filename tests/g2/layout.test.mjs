@@ -671,3 +671,98 @@ test('secilebilir mealler: font, satir, bayt', { skip: !MEALS_DIR || !fs.existsS
   console.log(`G2_EDITIONS ${JSON.stringify({ editions: index.length, max_pages: maxPages, big_max_pages: bigMax,
     dropped_chars: [...dropped.values()].reduce((x, y) => x + y, 0), dropped: Object.fromEntries(dropped), per })}`);
 });
+
+// ------------------------------------------------------------------ buyuk yazi fontlari (Ayarlar → G2 YAZI TİPİ)
+
+test('buyuk yazi fontu: secim, kalinlik, bilinmeyen deger', () => {
+  assert.deepEqual(L.bigFontOf(null), L.BIG_FONT_DEFAULT);
+  assert.deepEqual(L.bigFontOf({}), { id: 'manrope', weight: 700 });
+  assert.deepEqual(L.bigFontOf({ bigFont: 'lexend', bigWeight: 300 }), { id: 'lexend', weight: 300 });
+  assert.deepEqual(L.bigFontOf({ bigFont: 'yok', bigWeight: 800 }), { id: 'manrope', weight: 800 });
+  assert.deepEqual(L.bigFontOf({ bigFont: 'toString', bigWeight: 0 }), { id: 'manrope', weight: 700 });
+  assert.equal(L.bigFontOf({ bigFont: 'inter', bigWeight: 650 }).weight, 700);   // en yakin kalinlik
+  assert.equal(L.bigFontOf({ bigFont: 'inter', bigWeight: 100 }).weight, 300);
+  for (const [id, f] of Object.entries(L.BIG_FONTS)) {
+    assert.match(f.file, /^g2font-[a-z]+\.ttf$/, id);
+    assert.ok(fs.existsSync(path.join(FONT_DIR, f.file.replace('g2font-', ''))), `${id}: assets/g2fonts dosyasi`);
+    const [lo, hi] = f.weights.split(' ').map(Number);
+    for (const w of L.BIG_WEIGHTS) assert.ok(w >= lo && w <= hi, `${id}: ${w} kalinlik araligi ${f.weights}`);
+  }
+  // her fontun lisansi APK'da
+  for (const id of Object.keys(L.BIG_FONTS)) assert.ok(fs.existsSync(path.join(FONT_DIR, `OFL-${id}.txt`)), `${id} OFL`);
+});
+
+const FONT_DIR = path.join(here, '../../tilavet-android/app/src/main/assets/g2fonts');
+
+/** TTF cmap (biçim 4 ve 12) → kod noktasi kumesi. */
+function ttfCodepoints(file) {
+  const b = fs.readFileSync(file);
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const nTables = dv.getUint16(4);
+  let cmap = -1;
+  for (let i = 0; i < nTables; i++) {
+    const o = 12 + i * 16;
+    if (b.toString('latin1', o, o + 4) === 'cmap') cmap = dv.getUint32(o + 8);
+  }
+  assert.ok(cmap >= 0, file + ': cmap yok');
+  const cps = new Set();
+  const n = dv.getUint16(cmap + 2);
+  for (let i = 0; i < n; i++) {
+    const off = cmap + dv.getUint32(cmap + 4 + i * 8 + 4);
+    const fmt = dv.getUint16(off);
+    if (fmt === 4) {
+      const segX2 = dv.getUint16(off + 6);
+      const ends = off + 14; const starts = ends + segX2 + 2; const deltas = starts + segX2; const ranges = deltas + segX2;
+      for (let s = 0; s < segX2 / 2; s++) {
+        const end = dv.getUint16(ends + 2 * s); const start = dv.getUint16(starts + 2 * s);
+        const delta = dv.getInt16(deltas + 2 * s); const ro = dv.getUint16(ranges + 2 * s);
+        for (let c = start; c <= end && c !== 0xffff; c++) {
+          let g;
+          if (ro === 0) g = (c + delta) & 0xffff;
+          else {
+            g = dv.getUint16(ranges + 2 * s + ro + 2 * (c - start));
+            if (g) g = (g + delta) & 0xffff;
+          }
+          if (g) cps.add(c);
+        }
+      }
+    } else if (fmt === 12) {
+      const groups = dv.getUint32(off + 12);
+      for (let gi = 0; gi < groups; gi++) {
+        const go = off + 16 + gi * 12;
+        const start = dv.getUint32(go); const end = dv.getUint32(go + 4); const g0 = dv.getUint32(go + 8);
+        for (let c = start; c <= end; c++) if (g0 + (c - start)) cps.add(c);
+      }
+    }
+  }
+  return cps;
+}
+
+// Buyuk yazida bir karakter fontta yoksa tarayici baska fonttan cizer (satir icinde farkli harf) → her fontta, varsayilan
+// mealin ve (varsa) secilebilir meallerin tum karakterleri + Turkce harfler + zikir / ezan kartlarinin metinleri olmali.
+test('buyuk yazi fontlari: tum meal karakterleri fontta', () => {
+  const chars = new Set('ÂÎÛâîûİıŞşĞğÇçÖöÜü·—–…');
+  for (const t of ['Allah en büyüktür', 'Rabbimiz! Hamd sana mahsustur', 'Allah, kendisine hamd edeni işitti']) {
+    for (const ch of t) chars.add(ch);
+  }
+  const bins = [];
+  if (MEAL_BIN && fs.existsSync(MEAL_BIN)) bins.push(MEAL_BIN);
+  if (MEALS_DIR && fs.existsSync(MEALS_DIR)) {
+    for (const f of fs.readdirSync(MEALS_DIR)) if (f.endsWith('.bin')) bins.push(path.join(MEALS_DIR, f));
+  }
+  for (const p of bins) for (const [, , meal] of readMealBin(p).meals) for (const ch of meal) chars.add(ch);
+  chars.delete(' ');
+  chars.delete('\n');
+  const missing = {};
+  let total = 0;
+  for (const [id, f] of Object.entries(L.BIG_FONTS)) {
+    const cps = ttfCodepoints(path.join(FONT_DIR, f.file.replace('g2font-', '')));
+    // gozlukte zaten cizilmeyen (sanitizeBig'in attigi) karakterler sayilmaz
+    const miss = [...chars].filter((ch) => !cps.has(ch.codePointAt(0)) && L.sanitizeBig(ch) !== '');
+    if (miss.length) missing[id] = miss.join('');
+    total += miss.length;
+  }
+  console.log(`G2_FONTS ${JSON.stringify({ fonts: Object.keys(L.BIG_FONTS).length, chars: chars.size,
+    meal_files: bins.length, dropped_chars: total, missing })}`);
+  assert.equal(total, 0, 'fontta olmayan karakter: ' + JSON.stringify(missing));
+});

@@ -71,6 +71,17 @@ fun glassesTests(): Int {
         !JSONObject(GlassesState(bigHeader = false).toJson(0)).getBoolean("bigHeader"))
     ck.ok("json rekat bilgisi gizli", !JSONObject(GlassesState().toJson(0)).getBoolean("hideRakat") &&
         JSONObject(GlassesState(hideRakat = true).toJson(0)).getBoolean("hideRakat"))
+    ck.ok("json yazi tipi / kalinlik", JSONObject(GlassesState().toJson(0)).let {
+        it.getString("bigFont") == "manrope" && it.getInt("bigWeight") == 700
+    } && JSONObject(GlassesState(bigFont = "lexend", bigWeight = 300).toJson(0)).let {
+        it.getString("bigFont") == "lexend" && it.getInt("bigWeight") == 300
+    })
+    // ayarlardaki secenekler eklentiyle ayni (layout.js BIG_FONTS / BIG_WEIGHTS)
+    val layoutJs = generateSequence(File("").absoluteFile) { it.parentFile }
+        .map { File(it, "tilavet-android/app/src/main/assets/g2/layout.js") }.firstOrNull { it.isFile }?.readText()
+    ck.ok("yazi tipleri = layout.js", layoutJs != null && GlassesState.FONTS.keys.all { Regex("\\n  $it: \\{").containsMatchIn(layoutJs) } &&
+        Regex("BIG_WEIGHTS = \\[([0-9, ]+)]").find(layoutJs)?.groupValues?.get(1)?.split(", ")?.map { it.toInt() } ==
+        GlassesState.WEIGHTS.keys.toList()) { "layout.js BIG_FONTS / BIG_WEIGHTS" }
     ck.ok("json sabit yazi boyutu", !JSONObject(GlassesState().toJson(0)).getBoolean("fixedSize") &&
         JSONObject(GlassesState(fixedSize = true).toJson(0)).getBoolean("fixedSize"))
     ck.ok("json bos ekran (ses kesildi)", !JSONObject(GlassesState().toJson(0)).getBoolean("blank") &&
@@ -229,9 +240,13 @@ fun glassesTests(): Int {
 fun glassesServe(dir: File, fontDir: File, port: Int): Int {
     // uygulamadaki gibi: eklenti fontlari res/font'tan (MainViewModel.glassesFile)
     val fonts = mapOf("kfgqpc.ttf" to "kfgqpc_hafs.ttf", "manrope.ttf" to "manrope_700.ttf")
+    // buyuk yazi fontlari (Ayarlar → G2 YAZI TİPİ): assets/g2fonts/<id>.ttf, kopruden /g2font-<id>.ttf
+    val bigFonts = File(dir.parentFile, "g2fonts")
     val b = GlassesBridge(
         files = { name ->
-            fonts[name]?.let { File(fontDir, it).readBytes() } ?: File(dir, name).takeIf { it.isFile }?.readBytes()
+            fonts[name]?.let { File(fontDir, it).readBytes() }
+                ?: (if (name.startsWith("g2font-")) File(bigFonts, name.removePrefix("g2font-")) else File(dir, name))
+                    .takeIf { it.isFile }?.readBytes()
         },
         port = port,
         log = { println("[kopru] $it") },
@@ -254,6 +269,8 @@ fun glassesServe(dir: File, fontDir: File, port: Int): Int {
             textPx = s.optInt("textPx", GlassesState.DEFAULT_TEXT_PX), bigHeader = s.optBoolean("bigHeader", true),
             hideRakat = s.optBoolean("hideRakat"),
             fixedSize = s.optBoolean("fixedSize"), onePage = s.optBoolean("onePage"),
+            bigFont = s.optString("bigFont", GlassesState.DEFAULT_FONT),
+            bigWeight = s.optInt("bigWeight", GlassesState.DEFAULT_WEIGHT),
             onePageMinPx = s.optInt("onePageMinPx", GlassesState.DEFAULT_ONE_PAGE_PX), blank = s.optBoolean("blank"),
             blankHeader = s.optBoolean("blankHeader"), hideStatus = s.optBoolean("hideStatus"),
             rakat = s.optString("rakat"),

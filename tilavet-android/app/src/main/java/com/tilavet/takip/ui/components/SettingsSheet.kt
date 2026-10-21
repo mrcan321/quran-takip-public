@@ -58,6 +58,8 @@ fun SettingsSheet(
     onGlassesBigHeader: (Boolean) -> Unit = {},
     onGlassesFixedSize: (Boolean) -> Unit = {},
     onGlassesHideRakat: (Boolean) -> Unit = {},
+    onGlassesFont: (String) -> Unit = {},
+    onGlassesFontWeight: (Int) -> Unit = {},
     onGlassesOnePage: (Boolean) -> Unit = {},
     onGlassesOnePageMinPx: (Int) -> Unit = {},
     onGlassesHideBlankHeader: (Boolean) -> Unit = {},
@@ -241,6 +243,31 @@ fun SettingsSheet(
                     OnOffRow(current = settings.glassesBigText, onSelect = onGlassesBigText, labels = "NORMAL" to "BÜYÜK")
                 }
                 if (settings.glassesBigText && !settings.glassesArabic) {
+                    SettingGroup(
+                        label = "G2 YAZI TİPİ",
+                        hint = "Sadece gözlükteki büyük yazı (telefon değişmez); seçince gözlükte hemen değişir. " +
+                            "Atkinson Hyperlegible: Braille Enstitüsü, az görenlerle test edilerek; benzer harfler (I l 1, " +
+                            "O 0) kolay ayrılır. Lexend: okuma akıcılığı araştırmasına dayanır, harf aralığı geniş. Inter: " +
+                            "ekran için, küçük harfleri iri (yüksek x-yüksekliği). Manrope: şimdiye kadarki yazı.",
+                    ) {
+                        ChoiceGrid(
+                            options = GlassesState.FONTS.map { (id, name) -> name.uppercase(java.util.Locale.ROOT) to id },
+                            current = settings.glassesFont,
+                            onSelect = onGlassesFont,
+                            columns = 2,
+                        )
+                    }
+                    SettingGroup(
+                        label = "G2 YAZI KALINLIĞI",
+                        hint = "Gözlüğün yeşil ekranında ince yazı daha soluk görünür; uzun okumada KALIN önerilir.",
+                    ) {
+                        ChoiceGrid(
+                            options = GlassesState.WEIGHTS.map { (w, name) -> name to w },
+                            current = settings.glassesFontWeight,
+                            onSelect = onGlassesFontWeight,
+                            columns = 4,
+                        )
+                    }
                     SettingGroup(
                         label = "G2 YAZI BOYUTU",
                         trailing = "${settings.glassesTextPx} px",
@@ -686,6 +713,60 @@ private fun MealPicker(
                         letterSpacing = style.tracking(0.8f).sp,
                     )
                 }
+            }
+        }
+    }
+}
+
+/** Secenek kutulari (G2 yazi tipi / kalinligi): [options] = (etiket, deger), [columns] sutunlu satirlar. */
+@Composable
+private fun <T> ChoiceGrid(
+    options: List<Pair<String, T>>,
+    current: T,
+    onSelect: (T) -> Unit,
+    columns: Int,
+) {
+    val palette = LocalAppPalette.current
+    val style = LocalAppStyle.current
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.chunked(columns).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { (label, value) ->
+                    val isActive = current == value
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(
+                                width = 1.dp,
+                                color = if (isActive) palette.accent else palette.borderStrong,
+                                shape = RoundedCornerShape(10.dp),
+                            )
+                            .background(
+                                color = if (isActive) palette.accentDim else Color.Transparent,
+                                shape = RoundedCornerShape(10.dp),
+                            )
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { onSelect(value) }
+                            .padding(vertical = 12.dp, horizontal = 4.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = label,
+                            fontFamily = style.label,
+                            fontWeight = if (style.ornate) FontWeight.Bold else null,
+                            fontSize = 11.sp,
+                            color = if (isActive) palette.accent else palette.fgDim,
+                            letterSpacing = style.tracking(0.8f).sp,
+                            maxLines = 1,
+                        )
+                    }
+                }
+                repeat(columns - row.size) { Box(modifier = Modifier.weight(1f)) }
             }
         }
     }

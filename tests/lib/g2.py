@@ -44,6 +44,12 @@ def layout_tests(meal_bin):
             notes.append(f"g2: gozluk fontunda olmayan meal karakterleri (atiliyor): {d['dropped']}")
     elif "TILAVET_MEAL_BIN" not in e:
         notes.append("g2: meal.bin yok/eksik — tum mealler denenmedi")
+    m = re.search(r"G2_FONTS (\{.*\})", out)
+    if m:
+        d = json.loads(m.group(1))
+        r.update({"g2_big_fonts": d["fonts"], "g2_fonts_dropped_chars": d["dropped_chars"]})
+        if d["missing"]:
+            notes.append(f"g2: buyuk yazi fontlarinda olmayan karakterler: {d['missing']}")
     m = re.search(r"G2_EDITIONS (\{.*\})", out)
     if m:
         d = json.loads(m.group(1))

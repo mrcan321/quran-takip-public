@@ -35,6 +35,9 @@ data class AppSettings(
     val glassesHideRakat: Boolean = false,
     // Buyuk yazida sabit punto (glassesTextPx): kisa metin buyutulmez, uzun meal kucultulmez — sayfalara bolunur
     val glassesFixedSize: Boolean = false,
+    // Buyuk yazinin fontu + kalinligi (sadece gozluk; GlassesState.FONTS / WEIGHTS)
+    val glassesFont: String = GlassesState.DEFAULT_FONT,
+    val glassesFontWeight: Int = GlassesState.DEFAULT_WEIGHT,
     // Buyuk yazida uzun meal sayfalanmaz, punto gerektigi kadar kuculur (GlassesState.onePage)
     val glassesOnePage: Boolean = false,
     // Tek ekranda en kucuk punto (px, 12-40): bunda da sigmayan meal sayfalanir
@@ -71,6 +74,8 @@ class SettingsRepository(private val context: Context) {
         val GLASSES_TEXT_PX = intPreferencesKey("glasses_text_px")
         val GLASSES_BIG_HEADER = booleanPreferencesKey("glasses_big_header")
         val GLASSES_FIXED_SIZE = booleanPreferencesKey("glasses_fixed_size")
+        val GLASSES_FONT = stringPreferencesKey("glasses_font")
+        val GLASSES_FONT_WEIGHT = intPreferencesKey("glasses_font_weight")
         val GLASSES_HIDE_RAKAT = booleanPreferencesKey("glasses_hide_rakat")
         val GLASSES_ONE_PAGE = booleanPreferencesKey("glasses_one_page")
         val GLASSES_ONE_PAGE_MIN_PX = intPreferencesKey("glasses_one_page_min_px")
@@ -98,6 +103,9 @@ class SettingsRepository(private val context: Context) {
             glassesTextPx = prefs[Keys.GLASSES_TEXT_PX] ?: GlassesState.DEFAULT_TEXT_PX,
             glassesBigHeader = prefs[Keys.GLASSES_BIG_HEADER] ?: true,
             glassesFixedSize = prefs[Keys.GLASSES_FIXED_SIZE] ?: false,
+            glassesFont = prefs[Keys.GLASSES_FONT]?.takeIf { it in GlassesState.FONTS } ?: GlassesState.DEFAULT_FONT,
+            glassesFontWeight = prefs[Keys.GLASSES_FONT_WEIGHT]?.takeIf { it in GlassesState.WEIGHTS }
+                ?: GlassesState.DEFAULT_WEIGHT,
             glassesHideRakat = prefs[Keys.GLASSES_HIDE_RAKAT] ?: false,
             glassesOnePage = prefs[Keys.GLASSES_ONE_PAGE] ?: false,
             glassesOnePageMinPx = prefs[Keys.GLASSES_ONE_PAGE_MIN_PX] ?: GlassesState.DEFAULT_ONE_PAGE_PX,
@@ -163,6 +171,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGlassesFixedSize(value: Boolean) {
         context.dataStore.edit { it[Keys.GLASSES_FIXED_SIZE] = value }
+    }
+
+    suspend fun setGlassesFont(id: String) {
+        context.dataStore.edit { it[Keys.GLASSES_FONT] = id }
+    }
+
+    suspend fun setGlassesFontWeight(weight: Int) {
+        context.dataStore.edit { it[Keys.GLASSES_FONT_WEIGHT] = weight }
     }
 
     suspend fun setGlassesHideRakat(value: Boolean) {

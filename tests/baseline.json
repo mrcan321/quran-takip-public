@@ -203,8 +203,8 @@
     "ext_rakat_errors": 0,
     "zikir_false_alarms": 0,
     "zikir_shown": 305,
-    "glasses_passed": 65,
-    "glasses_total": 65,
+    "glasses_passed": 67,
+    "glasses_total": 67,
     "glasses_failures": 0,
     "hide_false": 0,
     "hide_missing": 0,
@@ -275,7 +275,7 @@
     }
   },
   "g2": {
-    "g2_passed": 23,
+    "g2_passed": 25,
     "g2_failures": 0,
     "dropped_chars": 0,
     "g2_meals": 6236,
@@ -291,6 +291,8 @@
     "g2_meal_editions": 7,
     "g2_meals_dropped_chars": 0,
     "g2_meals_max_pages": 5,
-    "g2_meals_big_max_pages": 19
+    "g2_meals_big_max_pages": 19,
+    "g2_big_fonts": 4,
+    "g2_fonts_dropped_chars": 0
   }
 }

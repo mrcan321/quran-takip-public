@@ -123,6 +123,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val TAG = "MainViewModel"
         private const val QURAN_BIN = "quran.bin"
+        /** Eklentinin buyuk yazi fontlari kopruden /g2font-<id>.ttf (layout.js BIG_FONTS). */
+        private const val G2_FONT_PREFIX = "g2font-"
         /** Ezan/kamet son cumlesi ("لا إله إلا الله") taninca pencere bu kadar gorunup kapanir. */
         private const val EZAN_FINAL_SHOW_MS = 2500L
         /** Zikir karti (son zikir) bu kadar gorunur; ayni parcada birden fazla zikir varsa aradakiler ZIKIR_STEP_MS. */
@@ -909,6 +911,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setGlassesBigHeader(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesBigHeader(value) } }
     fun setGlassesFixedSize(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesFixedSize(value) } }
     fun setGlassesHideRakat(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHideRakat(value) } }
+    fun setGlassesFont(id: String) { viewModelScope.launch { settingsRepo.setGlassesFont(id) } }
+    fun setGlassesFontWeight(weight: Int) { viewModelScope.launch { settingsRepo.setGlassesFontWeight(weight) } }
     fun setGlassesOnePage(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesOnePage(value) } }
     fun setGlassesOnePageMinPx(value: Int) { viewModelScope.launch { settingsRepo.setGlassesOnePageMinPx(value) } }
     fun setGlassesHideBlankHeader(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHideBlankHeader(value) } }
@@ -994,7 +998,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val parts = desc.split(' ')
         return when (parts[0]) {
             "buyuk" -> " · büyük yazı" + (parts.getOrNull(1)?.removeSuffix("px")?.toIntOrNull()?.let { " $it px" } ?: "") +
-                (if ("sabit" in parts.drop(2)) " sabit" else "") + (if ("tek" in parts.drop(2)) " tek sayfa" else "")
+                (if ("sabit" in parts.drop(2)) " sabit" else "") + (if ("tek" in parts.drop(2)) " tek sayfa" else "") +
+                // eklentinin cizdigi font + kalinlik ("... lexend 300"; APK #105 sonrasi)
+                (parts.drop(2).firstNotNullOfOrNull { GlassesState.FONTS[it] }?.let { " · ${it.substringBefore(' ').uppercase(java.util.Locale.ROOT)}" } ?: "") +
+                (parts.drop(2).firstNotNullOfOrNull { it.toIntOrNull()?.let { w -> GlassesState.WEIGHTS[w] } }
+                    ?.let { " $it" } ?: "")
             "normal" -> " · normal yazı"
             "arapca" -> " · arapça + meal"
             else -> ""
@@ -1008,10 +1016,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val app = getApplication<Application>()
             val data = try {
                 when (name) {
-                    // eklenti fontlari: Arapca goruntu (KFGQPC) ve buyuk yazi (Manrope 700)
+                    // eklenti fontlari: Arapca goruntu (KFGQPC) ve eski eklenti kodunun buyuk yazisi (Manrope 700)
                     "kfgqpc.ttf" -> app.resources.openRawResource(R.font.kfgqpc_hafs).use { it.readBytes() }
                     "manrope.ttf" -> app.resources.openRawResource(R.font.manrope_700).use { it.readBytes() }
-                    else -> app.assets.open("g2/$name").use { it.readBytes() }
+                    // buyuk yazi fontlari (Ayarlar → G2 YAZI TİPİ): assets/g2fonts/<id>.ttf — .ehpk paketine girmez
+                    else -> if (name.startsWith(G2_FONT_PREFIX)) {
+                        app.assets.open("g2fonts/" + name.removePrefix(G2_FONT_PREFIX)).use { it.readBytes() }
+                    } else {
+                        app.assets.open("g2/$name").use { it.readBytes() }
+                    }
                 }
             } catch (e: Exception) {
                 null
@@ -1046,6 +1059,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             bigHeader = s.settings.glassesBigHeader,
             hideRakat = s.settings.glassesHideRakat,
             fixedSize = s.settings.glassesFixedSize,
+            bigFont = s.settings.glassesFont,
+            bigWeight = s.settings.glassesFontWeight,
             onePage = s.settings.glassesOnePage,
             onePageMinPx = s.settings.glassesOnePageMinPx,
             blankHeader = !s.settings.glassesHideBlankHeader,

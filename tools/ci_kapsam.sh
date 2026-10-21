@@ -21,7 +21,7 @@ HEAD_REF="${KAPSAM_HEAD:-HEAD}"   # denemek icin: KAPSAM_HEAD=<commit>
 
 ALL_SUITES="replay,stress,compose,external,synth,signals,app,kotlin,g2"
 G2_SUITES="g2,glasses"
-G2_RE='^(tilavet-android/app/src/main/assets/g2/|tilavet-android/app/src/main/java/com/tilavet/takip/glasses/|tilavet-android/g2-plugin/|tests/g2/|tests/jvm/src/main/kotlin/(Glasses|Meal)Tests\.kt$|tests/lib/g2\.py$|scripts/build_meals\.py$|tilavet-android/app/src/main/java/com/tilavet/takip/data/Meal(Loader|Catalog)\.kt$)'
+G2_RE='^(tilavet-android/app/src/main/assets/g2/|tilavet-android/app/src/main/assets/g2fonts/|tilavet-android/app/src/main/java/com/tilavet/takip/glasses/|tilavet-android/g2-plugin/|tests/g2/|tests/jvm/src/main/kotlin/(Glasses|Meal)Tests\.kt$|tests/lib/g2\.py$|scripts/build_meals\.py$|tilavet-android/app/src/main/java/com/tilavet/takip/data/Meal(Loader|Catalog)\.kt$)'
 RECOG_RE='^(scripts/|server/|tests/|tilavet-android/app/src/main/java/com/tilavet/takip/(session|aligner|audio|asr)/|tools/kayitlari_cek\.sh$|\.github/workflows/tests\.yml$)'
 
 out() {

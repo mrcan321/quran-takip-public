@@ -43,7 +43,7 @@ class GlassesBridge(
         private const val MAX_CONNECTIONS = 8
         private const val MAX_HEADER_BYTES = 8192
         private val FILE_NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
-        private val SCREEN_DESC = Regex("[a-z0-9 ./-]{1,32}")
+        private val SCREEN_DESC = Regex("[a-z0-9 ./-]{1,48}")
         private val TRANSFER = Regex("(\\d{1,2})x(\\d{1,6})")
         /** 1x1 seffaf PNG (/ping.png). */
         val PING_PNG: ByteArray = java.util.Base64.getDecoder()

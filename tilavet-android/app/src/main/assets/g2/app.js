@@ -36,13 +36,15 @@ const RETRY_MS = 2000;
 // Arapca bant: 576x112 (iki 288x112 karo), sayfada 2 satir. 32 px + ince kontur: harekeler 4 bit gri tonda da
 // seciliyor (Chromium'da denendi; Even simulatorunun WebKitGTK'si harekeleri cizmiyor, telefondaki WebView Chromium)
 const AR = { fontPx: 32, stroke: 0.8, gamma: 0.5, maxW: 556, right: 566, baselines: [42, 98], w: 576, h: 112 };
-// Buyuk yazi: Manrope 700 (uygulamaya gomulu, OFL — koprudan /manrope.ttf); aday ayet sonuk gri; sayfa etiketi kucuk
+// Buyuk yazi: Ayarlar → G2 YAZI TİPİ / KALINLIĞI (layout.BIG_FONTS: Manrope / Atkinson / Lexend / Inter, degisken font, kopruden
+// /g2font-<id>.ttf; varsayilan Manrope 700); aday ayet sonuk gri; sayfa etiketi kucuk
 // Karolar kenar yumusatmali (gama); soluk metin (aday, basliksiz duzen) 'dim' carpaniyla. APK #50'de iki ton denendi
 // (veri ~%20 az) ama topluluk olcumune gore gonderim suresinin cogu cagri basina sabit (~104 ms, + ~4 ms/KB gray4;
 // even-g2-notes performance.md) → hiz farki ihmal edilebilir, kenar kalitesi geri alindi (APK #51).
-const BIG = { weight: 700, gamma: 0.7, dim: 0.6, color: '#ffffff', barW: 3, barDim: '#3a3a3a' };
+const BIG = { gamma: 0.7, dim: 0.6, color: '#ffffff', barW: 3, barDim: '#3a3a3a' };
 const BIG_LAYOUTS = new Set(['big', 'bigh']);
 
+// sans: eski kopru (APK #105 ve oncesi, /g2font-* yok) icin Manrope 700 — secilen buyuk yazi fontu yuklenemezse
 const FONTS = { quran: { family: 'TTQuran', file: 'kfgqpc.ttf' }, sans: { family: 'TTSans', file: 'manrope.ttf' } };
 
 const EV = { CLICK: 0, SCROLL_TOP: 1, SCROLL_BOTTOM: 2, DOUBLE_CLICK: 3, FG_ENTER: 4, FG_EXIT: 5, ABNORMAL_EXIT: 6, SYS_EXIT: 7 };
@@ -61,7 +63,8 @@ const S = {
   fonts: {},            // aile → true / false (yuklenemedi); yoksa henuz denenmedi
   fontLoads: {},
   fontFailAt: {},       // font yuklenemedigi an (FONT_RETRY_MS sonra yeniden)
-  fitCache: new Map(),  // buyuk yazi yerlesimi: (en kucuk punto, metin) → fitBigText
+  fitCache: new Map(),  // buyuk yazi yerlesimi: (font, en kucuk punto, metin) → fitBigText
+  bigFace: null,        // buyuk yazida kullanilan font {id, family, weight}; secilen yuklenene kadar onceki (ekran bos kalmaz)
   created: false,       // createStartUpPageContainer yapildi mi
   shown: null,          // gozlukteki ekran: {layout, header, headerColor, body, bodyColor, imageKey}
   tileSent: {},         // goruntu kutusu → son gonderilen baytlarin ozeti (degismeyen karo tekrar gitmez)
@@ -207,8 +210,29 @@ function onState(st) {
   if (L.ayahKey(st) !== L.ayahKey(S.st)) S.manual = null;
   S.st = st;
   if (st.showArabic && st.arabic !== S.arabic.text) prepareArabic(st.arabic);
-  if (st.bigText && S.fonts[FONTS.sans.family] !== true) ensureFont(FONTS.sans).then(schedule);
+  if (st.bigText) wantBigFont(st);
   schedule();
+}
+
+/** Ayarlar → G2 YAZI TİPİ / KALINLIĞI: secilen font yukluyse hemen (kalinlik degisimi de aninda — degisken font), degilse
+ * yuklenince gecilir (o ana kadar onceki font). Yuklenemezse Manrope, o da yoksa eski koprunun Manrope 700'u. */
+function wantBigFont(st) {
+  const want = L.bigFontOf(st);
+  const f = L.BIG_FONTS[want.id];
+  if (S.fonts[f.family] === true) {
+    S.bigFace = { id: want.id, family: f.family, weight: want.weight };
+    return;
+  }
+  ensureFont(f).then(async (ok) => {
+    const cur = L.bigFontOf(S.st);
+    if (ok && cur.id === want.id) S.bigFace = { id: cur.id, family: f.family, weight: cur.weight };
+    else if (!ok && !S.bigFace) {
+      const m = L.BIG_FONTS.manrope;
+      if (want.id !== 'manrope' && await ensureFont(m)) S.bigFace = { id: 'manrope', family: m.family, weight: cur.weight };
+      else if (await ensureFont(FONTS.sans)) S.bigFace = { id: 'manrope', family: FONTS.sans.family, weight: 700 };
+    }
+    schedule();
+  });
 }
 
 // ------------------------------------------------------------------ fontlar (koprudan)
@@ -225,7 +249,8 @@ async function ensureFont(f) {
         // fetch ile (CSS url() Even WebView'inde koprunun adresine ulasamayabilir; fetch'in tuttugu bilinen yol)
         const r = await fetch(`${BASE}/${f.file}`, { cache: 'no-store' });
         if (!r.ok) throw new Error('HTTP ' + r.status);
-        const face = new FontFace(f.family, await r.arrayBuffer());
+        // degisken font: kalinlik araligi verilmezse tarayici 400 sanip kalini sahte (sentetik) kalinlastirir
+        const face = new FontFace(f.family, await r.arrayBuffer(), f.weights ? { weight: f.weights } : {});
         await face.load();
         document.fonts.add(face);
         S.fonts[f.family] = true;
@@ -252,8 +277,12 @@ function canvas2d(w, h) {
 
 const measureCtx = canvas2d(8, 8).ctx;
 
+function bigFont(face, px) {
+  return `${face.weight} ${px}px ${face.family}`;
+}
+
 function measureBig(s, px) {
-  measureCtx.font = `${BIG.weight} ${px}px ${FONTS.sans.family}`;
+  measureCtx.font = bigFont(S.bigFace, px);
   return measureCtx.measureText(s).width;
 }
 
@@ -261,7 +290,8 @@ function measureBig(s, px) {
  * yoksa null → normal duzen. */
 function fitBig(text, textPx, areaH, fixed, onePage, onePageMinPx) {
   const opt = L.bigOptions(textPx, areaH, fixed, onePage, onePageMinPx);
-  const key = opt.minPx + '-' + opt.maxPx + '/' + opt.h + '/' + (opt.fewestPages ? 1 : 0) + '\n' + text;
+  const key = bigFont(S.bigFace, '') + '/' + opt.minPx + '-' + opt.maxPx + '/' + opt.h + '/' + (opt.fewestPages ? 1 : 0) +
+    '\n' + text;
   let f = S.fitCache.get(key);
   if (!f) {
     f = L.fitBigText(text, measureBig, opt);
@@ -280,7 +310,7 @@ function bigCanvas(screen) {
   const { c, ctx } = canvas2d(L.SCREEN_W, H);
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, L.SCREEN_W, H);
-  ctx.font = `${BIG.weight} ${fit.px}px ${FONTS.sans.family}`;
+  ctx.font = bigFont(screen.bigFace, fit.px);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   const m = ctx.measureText('ÇĞİÜŞÂgjpy');
@@ -423,7 +453,8 @@ function imageKey(screen) {
   }
   if (BIG_LAYOUTS.has(screen.layout)) {
     const fit = screen.big;
-    return `${fit.px}|${screen.page}/${screen.pages}|${screen.bigDim}|${(fit.pages[screen.page] || []).join('\n')}`;
+    return `${bigFont(screen.bigFace, fit.px)}|${screen.page}/${screen.pages}|${screen.bigDim}|` +
+      (fit.pages[screen.page] || []).join('\n');
   }
   return '';
 }
@@ -454,7 +485,8 @@ function reportScreen() {
 function screenDesc(screen) {
   if (screen.blank) return S.screenDesc || 'bos';   // ses kesildi (bos ekran): ayardaki duzen degismedi
   if (BIG_LAYOUTS.has(screen.layout)) {
-    return `buyuk ${screen.big.px}px` + (screen.bigFixed ? ' sabit' : '') + (S.st && S.st.onePage ? ' tek' : '');
+    return `buyuk ${screen.big.px}px` + (screen.bigFixed ? ' sabit' : '') + (S.st && S.st.onePage ? ' tek' : '') +
+      (screen.bigFace ? ` ${screen.bigFace.id} ${screen.bigFace.weight}` : '');
   }
   return screen.layout.startsWith('arabic') ? 'arapca' : 'normal';
 }
@@ -473,9 +505,10 @@ async function flush() {
         connected: S.connected,
         arabicLineCount: S.arabic.text === (S.st && S.st.arabic) ? S.arabic.lines.length : 0,
         manual: S.manual,
-        fitBig: S.fonts[FONTS.sans.family] === true ? fitBig : null,
+        fitBig: S.bigFace ? fitBig : null,
         diag: S.connected ? '' : S.diag.lastError,
       });
+      screen.bigFace = S.bigFace;   // yerlesim bu fontla olculdu; cizim ve karo anahtari da bununla
       S.screen = screen;
       S.screenDesc = S.connected && S.st && S.bridge ? screenDesc(screen) : '';
       reportScreen();

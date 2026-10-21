@@ -77,6 +77,9 @@ MAX_TILES = {
     # sabit yazi boyutunda blok ustten: 2 satirlik kisa metin sadece ust karolarda, alt karolar (zaten bos) gitmez
     "sabit_tekbir": 2,
 }
+# yazi tipi / kalinlik degisince (ayni ayet) gozluge en az bu kadar karo gitmeli: ekran aninda yeni fontla cizilir
+MIN_TILES = {"font_atkinson_ince": 1, "font_atkinson_cok_kalin": 1, "font_lexend_kalin": 1, "font_inter_normal": 1,
+             "font_manrope_geri": 1}
 # bilerek bombos ekran (ust bilgi / durum yazisi gizli): gozluk goruntusunde cizili piksel OLMAMALI
 EXPECT_EMPTY = {"bos_ustsuz", "durum_gizli_bosta", "durum_gizli_dinleniyor"}
 
@@ -97,6 +100,15 @@ def scenario(arabic):
         ("buyuk_tekbir", dict(BIG, noteTitle="TEKBİR", noteReading="Allâhu ekber", noteTurkish="Allah en büyüktür"),
          [], 2.5),
         ("buyuk_rekat_gizli", dict(BIG, **KURSI, progress=0.1, hideRakat=True), [], 2.5),
+        # Ayarlar → G2 YAZI TİPİ / KALINLIĞI (sadece gozluk): her degisimde ekran yeni fontla yeniden cizilmeli (karo gider)
+        ("font_atkinson_ince", dict(BIG, **KURSI, progress=0.1, bigFont="atkinson", bigWeight=300), [], 3.0),
+        ("font_atkinson_cok_kalin", dict(BIG, **KURSI, progress=0.1, bigFont="atkinson", bigWeight=800), [], 2.5),
+        ("font_lexend_kalin", dict(BIG, **KURSI, progress=0.1, bigFont="lexend", bigWeight=700), [], 3.0),
+        ("font_inter_normal", dict(BIG, **KURSI, progress=0.1, bigFont="inter", bigWeight=500), [], 3.0),
+        ("font_inter_kisa", dict(BIG, surah=108, ayah=2, surahName="Kevser", surahAyahCount=3, progress=1.0,
+                                 meal="Şu halde Rabbin için namaz kıl ve kurban kes.", bigFont="inter", bigWeight=500),
+         [], 2.5),
+        ("font_manrope_geri", dict(BIG, **KURSI, progress=0.1), [], 2.5),
         # Ayarlar → G2 YAZI BOYUTU (en kucuk punto): kucuk / buyuk / en buyuk (kisa meal de 2 dengeli sayfa)
         ("buyuk_boyut_30", dict(BIG, **KURSI, progress=0.1, textPx=30), [], 2.5),
         ("buyuk_boyut_64", dict(BIG, **KURSI, progress=0.1, textPx=64), [], 2.5),
@@ -330,6 +342,8 @@ def main():
                 errors.append(f"{'bos olmali' if drawn else 'bos ekran'}: {name}")
             if name in MAX_TILES and sent > MAX_TILES[name]:
                 errors.append(f"{name}: gozluge {sent} karo gitti (en fazla {MAX_TILES[name]})")
+            if name in MIN_TILES and sent < MIN_TILES[name]:
+                errors.append(f"{name}: gozluge {sent} karo gitti (en az {MIN_TILES[name]}; font degisimi cizilmedi)")
         cons = json.loads(http_get("/api/console"))
         (out / "console.json").write_text(json.dumps(cons, indent=1, ensure_ascii=False), encoding="utf-8")
         for e in cons.get("entries", []):
@@ -339,7 +353,7 @@ def main():
             if args.mode in ("gec", "gec-fetch") and m.startswith("[fetch] Load failed") and ":18765/" in m:
                 continue   # kopru kapaliyken beklenen yoklama hatalari
             if e.get("level") == "error" or m.startswith(("[uncaught]", "[unhandledrejection]", "[fetch]")) or \
-                    "hatasi" in m or "gonderilemedi" in m:
+                    "hatasi" in m or "gonderilemedi" in m or "font yuklenemedi" in m:
                 errors.append(m[:300])
         msgs = [e.get("message", "") for e in cons.get("entries", [])]
         if args.mode in ("engel", "gec"):

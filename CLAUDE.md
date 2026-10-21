@@ -291,12 +291,12 @@ telefona geçmiyordu.
   `http://127.0.0.1:18765`). Sıra: eklentiyi aç → Tilavet Takip'e dön → mikrofon; telefon cebe girebilir.
 - **Test** (fiziksel gözlük yok): JVM `glasses` (gerçek soket: JSON kaçışları, uzun yoklama, dosyalar, 404 / yol dışı, CORS,
   OPTIONS, port çakışması, kapatınca bekleyen yoklama, `textPx`, eklentinin ekran / sürüm / kod kaynağı / paket sürümü bildirimi,
-  host ve geçiş logu, `bigHeader`, `fixedSize`, `blank`, `onePage`, `onePageMinPx`, `blankHeader`, `hideStatus`, `hideRakat`, aktarım logu — 65 kontrol);
+  host ve geçiş logu, `bigHeader`, `fixedSize`, `blank`, `onePage`, `onePageMinPx`, `blankHeader`, `hideStatus`, `hideRakat`, `bigFont` / `bigWeight` (+ seçenekler = layout.js), aktarım logu — 67 kontrol);
   `tests/g2/layout.test.mjs` (node: satır/sayfa/kutu, büyük yazı puntosu / sayfaları, yazı boyutu ayarı 30-80 (sınırlar,
   dengeli sayfa, tireli bölme), tek ekrana sığdır, zikirde sadece anlam, boş ekran / durum gizli, tüm mealler — CI'da
   `big_px_median` / `big_pages_median` / `onepage_*`); `tests/g2/sim_check.py` —
   **Even Hub simülatörü** (`@evenrealities/evenhub-simulator` 0.9.5, Xvfb + WebKitGTK) uygulamanın kendi köprüsüyle
-  46 adım (büyük yazı: boşta, dinleniyor, kısa meal, aday, aday → kilit (gözlüğe 0 karo gitmeli), Âyetü'l-Kürsî baş /
+  52 adım (büyük yazı: boşta, dinleniyor, kısa meal, aday, aday → kilit (gözlüğe 0 karo gitmeli), Âyetü'l-Kürsî baş /
   kaydırma / son, uzun meal, tekbir, yazı boyutu 30 / 64 / 80, hızlı ardışık 3 ekran, başlıksız Kürsî / aday / tekbir,
   sabit yazı boyutu Kürsî / kısa meal / tekbir (2 satırlık metinde 2 karo), tek ekrana sığdır Bakara 2:282 (alt sınır 12:
   tek sayfa, 20: 2 sayfa) / başlıksız Kürsî, ses kesildi (boş ekran + rekât; üst bilgisiz bombos — `EXPECT_EMPTY`: çizili piksel olmamalı) → okuma, durum
@@ -414,6 +414,28 @@ telefona geçmiyordu.
     (G2 ÜST BİLGİ kapalıysa yok). Telefondaki kart değişmedi (Arapça + okunuş + anlam).
   - Eski **G2'DE SURE / AYET ADI** ayarının adı **G2 ÜST BİLGİ (AYET OKUNURKEN)** oldu (davranış aynı: KAPALI → üst bilgi hiç
     çıkmaz, ekranın tamamı meal; `bigHeader`).
+- **Büyük yazı fontu + kalınlığı (APK #110+, sadece gözlük):** kullanıcı: "G2 fontunu seçmezsem senin resim üreterek
+  oluşturduğun fontun birkaç seçeneği olsun; bilimsel olarak rahat okunabilirliğini araştırdığın 3 font daha, kalın ince
+  seçenekleri mutlaka; ayarlardan seçilsin, seçtiği anda gözlükte değişsin; telefona değil". Ayarlar → **G2 YAZI TİPİ**
+  (Manrope varsayılan / Atkinson Hyperlegible / Lexend / Inter) ve **G2 YAZI KALINLIĞI** (İNCE 300 / NORMAL 500 / KALIN 700
+  varsayılan / ÇOK KALIN 800), büyük yazıda (Arapça kapalıyken) görünür; `GlassesState.bigFont` / `bigWeight`
+  (`FONTS` / `WEIGHTS` = layout.js `BIG_FONTS` / `BIG_WEIGHTS`, JVM testi karşılaştırır).
+  - Seçim (21.10): **Atkinson Hyperlegible Next** (Braille Institute, 2025; az görenlerle test edilerek tasarlandı, benzer harfler
+    ayrık — I l 1, O 0), **Lexend** (Shaver-Troup'un okuma akıcılığı araştırması: genişletilmiş harf aralığı; kanıt sınırlı —
+    çoğunlukla bir sınıf çalışması), **Inter** (ekran için, yüksek x-yüksekliği). Wallace ve ark. 2022 (ACM TOCHI, 16 font): herkes
+    için en iyi font yok, en hızlı font kişiye göre değişiyor (en hızlı / en yavaş arası %35) → seçenek sunmanın gerekçesi.
+    Elenenler: **B612** (Airbus + ENAC kokpit ekranı fontu — gözlüğe en uygun fikir ama ğ ı İ ş yok), **Andika** (SIL, okuma
+    öğrenenler; ince kalınlığı yok), Noto Sans (2 MB, araştırma gerekçesi zayıf).
+  - Fontlar `assets/g2fonts/<id>.ttf` (google/fonts reposundaki değişken OFL dosyaları **aynen**, lisanslar `OFL-<id>.txt`;
+    .ehpk paketine girmez), köprü `/g2font-<id>.ttf` (`MainViewModel.glassesFile`). Hepsinde 7 mealin tüm karakterleri +
+    Türkçe harfler var (node testi TTF cmap'ini okur: `g2_fonts_dropped_chars` 0). Satır 1.16 em hepsine yetiyor (şapkalı büyük
+    harf + kuyruk: Manrope 1.24 em, diğerleri 1.04-1.19).
+  - Eklenti (`app.js` `wantBigFont`): `FontFace(aile, veri, {weight: '100 900'})` (aralık verilmezse tarayıcı kalını sahte
+    kalınlaştırır); kalınlık değişimi anında, font değişiminde yeni font yüklenene kadar eskisi (ekran boş kalmaz / titremez);
+    yüklenemezse Manrope, o da yoksa eski köprünün `manrope.ttf`'i (700). Yerleşim önbelleği ve karo anahtarı fonta göre →
+    değişince karolar yeniden gider. Köprüye `ekran=buyuk 48px lexend 300` → ayarlarda "BÜYÜK YAZI 48 PX · LEXEND İNCE".
+  - Simülatör: Atkinson ince / çok kalın, Lexend kalın, Inter normal + kısa meal, Manrope'a dönüş — her değişimde gözlüğe karo
+    gitmeli (`MIN_TILES`), konsolda "font yuklenemedi" olmamalı.
 - **Rekât bilgisini gizle + her düzende üst bilgi gizleme (APK #105 sonrası):** kullanıcı (APK #104): "üst bilgi aktifse rekât
   belirtecini gizleme parametresi belirsin, hide yaparsa sadece sure adı: ayet no çıksın"; "G2'nin kendi fontunu seçince (büyük
   punto yerine) üst bilgiyi gizleme ayarı kayboluyor, o zaman da gizleyebilmek istiyorum".
@@ -1531,7 +1553,7 @@ Mikrofon butonu (alttaki yuvarlak) → gerçek pipeline başlat. Solundaki dosya
   - **g2** — G2 eklentisinin ekran düzeni (`tests/g2/layout.test.mjs`, node): satır kırma, sayfalar, kutu boyutları; CI'da
     gerçek `meal.bin` ile tüm mealler (her satır kutuya sığmalı, sayfa ≤ 999 bayt; fontta olmayan karakter sayısı
     `dropped_chars` ↓); `asr/meals/index.tsv` varsa seçilebilir mealler de (`g2_meal_editions` ↑). `g2_failures` 0 olmalı.
-  - Ayrı job **g2sim** (tests.yml): `tests/g2/sim_check.py` Even Hub simülatöründe (Xvfb) uygulamanın köprüsüyle 46 adım,
+  - Ayrı job **g2sim** (tests.yml): `tests/g2/sim_check.py` Even Hub simülatöründe (Xvfb) uygulamanın köprüsüyle 52 adım,
     geliştirici + `.ehpk` (CORS, kod köprüden `boot.js`) + engellenmiş fetch (doğrudan geçiş) + geç açılan köprü (`gec`, `gec-fetch`) modu; ekran görüntüleri artifact `g2-simulator`. Yerelde: simülatör ikilisi
     `npm pack @evenrealities/sim-linux-x64@0.9.5`, `apt install libwebkit2gtk-4.1-0 xvfb`, `tests/jvm` installDist.
 - Her metrik `tests/baseline.json` ile karşılaştırılır (yön: kilit ↑, gecikme / yanlış ↓; birebirlik / fixture / altın dosya

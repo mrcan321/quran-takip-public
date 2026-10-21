@@ -42,6 +42,10 @@ data class GlassesState(
     val hideRakat: Boolean = false,
     /** Ayarlar → G2 SABİT YAZI BOYUTU: buyuk yazi her metinde textPx (kisa metin buyutulmez, uzun meal kucultulmez). */
     val fixedSize: Boolean = false,
+    /** Ayarlar → G2 YAZI TİPİ: buyuk yazinin fontu (FONTS; layout.js BIG_FONTS — sadece gozluk, telefon degismez). */
+    val bigFont: String = DEFAULT_FONT,
+    /** Ayarlar → G2 YAZI KALINLIĞI: 300 İNCE / 500 NORMAL / 700 KALIN / 800 ÇOK KALIN (WEIGHTS; layout.js BIG_WEIGHTS). */
+    val bigWeight: Int = DEFAULT_WEIGHT,
     /**
      * Ayarlar → G2 AYETİ TEK EKRANA SIĞDIR: buyuk yazida uzun meal sayfalara bolunmez, punto gerektigi kadar kuculur
      * (onePageMinPx'e kadar). Kullanici: "bir ayet 2 veya 3 sayfada gosterilince tum ayeti okumak zor".
@@ -99,6 +103,8 @@ data class GlassesState(
         sb.append(",\"bigHeader\":").append(bigHeader)
         sb.append(",\"hideRakat\":").append(hideRakat)
         sb.append(",\"fixedSize\":").append(fixedSize)
+        sb.append(",\"bigFont\":").append(quote(bigFont))
+        sb.append(",\"bigWeight\":").append(bigWeight)
         sb.append(",\"onePage\":").append(onePage)
         sb.append(",\"onePageMinPx\":").append(onePageMinPx)
         sb.append(",\"blank\":").append(blank)
@@ -122,6 +128,21 @@ data class GlassesState(
         const val DEFAULT_ONE_PAGE_PX = 20
         const val MIN_ONE_PAGE_PX = 12
         const val MAX_ONE_PAGE_PX = 40
+
+        /**
+         * Buyuk yazi fontlari (id → ayarlardaki ad); eklentideki layout.js BIG_FONTS ve assets/g2fonts/<id>.ttf ile ayni.
+         * Kullanici: "bilimsel olarak rahat okunabilirligi arastirilmis 3 font daha, kalin ince secenekleri olsun".
+         */
+        val FONTS = linkedMapOf(
+            "manrope" to "Manrope",
+            "atkinson" to "Atkinson Hyperlegible",
+            "lexend" to "Lexend",
+            "inter" to "Inter",
+        )
+        const val DEFAULT_FONT = "manrope"
+        /** Kalinlik → ayarlardaki ad (layout.js BIG_WEIGHTS ile ayni); varsayilan 700 = APK #44'ten beri Manrope 700. */
+        val WEIGHTS = linkedMapOf(300 to "İNCE", 500 to "NORMAL", 700 to "KALIN", 800 to "ÇOK KALIN")
+        const val DEFAULT_WEIGHT = 700
 
         /** JSON string: ", \, kontrol karakterleri ve satir ayiricilari (U+2028/2029) kacirilir; digerleri UTF-8 aynen. */
         fun quote(s: String): String {
