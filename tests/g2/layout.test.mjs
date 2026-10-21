@@ -615,3 +615,59 @@ test('tum mealler: font, satir, bayt', { skip: !MEAL_BIN || !fs.existsSync(MEAL_
     onepage_default_max_pages: oneDefMax,
     dropped: Object.fromEntries(dropped) })}`);
 });
+
+// Secilebilir mealler (scripts/build_meals.py → <assets>/asr/meals/<id>.bin + index.tsv; Ayarlar → MEAL). Varsayilan meal
+// (meal.bin) yukarida agir testten gecer; digerleri hafif dongu: gozluk fontu, normal duzende satir / bayt / genislik
+// (baslikli ve basliksiz Arapcali), buyuk yazida sayfa sayisi.
+const MEALS_DIR = process.env.TILAVET_MEALS_DIR;
+test('secilebilir mealler: font, satir, bayt', { skip: !MEALS_DIR || !fs.existsSync(MEALS_DIR + '/index.tsv') }, () => {
+  const index = fs.readFileSync(MEALS_DIR + '/index.tsv', 'utf8').split('\n').filter((l) => l && !l.startsWith('#'))
+    .map((l) => { const [id, file, merged, name, desc] = l.split('\t'); return { id, file, merged: +merged, name, desc }; });
+  assert.ok(index.length >= 1 && index[0].file === 'meal.bin', 'index: ilk meal varsayilan (meal.bin)');
+  const ids = new Set();
+  const per = {};
+  const dropped = new Map();
+  let maxPages = 0;
+  let bigMax = 0;
+  for (const ed of index) {
+    assert.ok(ed.id && ed.name && !ids.has(ed.id), 'index girdisi ' + JSON.stringify(ed));
+    ids.add(ed.id);
+    if (ed.file === 'meal.bin') continue;
+    const { meals, names } = readMealBin(MEALS_DIR + '/' + ed.file.replace(/^meals\//, ''));
+    assert.equal(meals.length, 6236, `${ed.id} meal sayisi`);
+    let edDropped = 0;
+    let edMax = 0;
+    let edBig = 0;
+    for (const [s, a, meal] of meals) {
+      assert.ok(meal.length > 0, `${ed.id} ${s}:${a} bos`);
+      for (const ch of meal) {
+        const cp = ch.codePointAt(0);
+        if (ch !== ' ' && L.charWidth(cp) === 0 && L.sanitize(ch) === '') {
+          dropped.set(ch, (dropped.get(ch) || 0) + 1);
+          edDropped++;
+        }
+      }
+      for (const [arabic, bigHeader] of [[false, true], [true, false]]) {
+        const st = { ...ST, surah: s, ayah: a, surahName: names[s - 1] || 'X', meal, showArabic: arabic,
+          rakat: '2. REKÂT · KIYAM', bigHeader };
+        const s0 = L.buildScreen(st, { connected: true, arabicLineCount: arabic ? 4 : 0 });
+        edMax = Math.max(edMax, s0.pages);
+        for (let p = 0; p < s0.pages; p++) {
+          const sp = L.buildScreen(st, { connected: true, arabicLineCount: arabic ? 4 : 0,
+            manual: { key: `${s}:${a}`, base: s0.autoPage, page: p } });
+          const ls = lines(sp.body);
+          assert.ok(ls.length <= L.LAYOUTS[sp.layout].bodyLines, `${ed.id} ${s}:${a} satir`);
+          assert.ok(L.utf8Bytes(sp.body) <= L.TEXT_MAX_BYTES, `${ed.id} ${s}:${a} bayt`);
+          for (const l of ls) assert.ok(L.textWidth(l) <= L.WRAP_W, `${ed.id} ${s}:${a} genislik`);
+        }
+      }
+      edBig = Math.max(edBig, L.fitBigText(L.sanitizeBig(meal), approxMeasure).pages.length);
+    }
+    for (const n of names) assert.equal(L.sanitize(n), n, `${ed.id} sure adi fontta: ` + n);
+    per[ed.id] = { dropped: edDropped, max_pages: edMax, big_max_pages: edBig };
+    maxPages = Math.max(maxPages, edMax);
+    bigMax = Math.max(bigMax, edBig);
+  }
+  console.log(`G2_EDITIONS ${JSON.stringify({ editions: index.length, max_pages: maxPages, big_max_pages: bigMax,
+    dropped_chars: [...dropped.values()].reduce((x, y) => x + y, 0), dropped: Object.fromEntries(dropped), per })}`);
+});

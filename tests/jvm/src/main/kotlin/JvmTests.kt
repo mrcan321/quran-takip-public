@@ -38,13 +38,14 @@ import kotlin.system.exitProcess
  *   chunks   <f32dir> <out>           ChunkBuilder parca sinirlari (always / toggle modlari; Python vad_chunker ile karsilastirilir)
  *   wav      <dir> <out>              WavReader ile her *.wav → <ad>.wavreader.f32 (Python soundfile ile karsilastirir)
  *   glasses                           G2 gozluk koprusu (GlassesBridge) otomatik kontrolleri — bkz. GlassesTests.kt
+ *   meals <asr>                       secilebilir mealler (meals/index.tsv + dosyalar, MealCatalog / MealLoader) — MealTests.kt
  *
  * <assets>: android-assets-staged (icinde asr/quran.bin ve fixture'lar). StateMachine/Aligner telefon varsayilanlariyla
  * (ilk kilit 70, pencere ±2) — eval ve fixture ile ayni.
  */
 fun main(args: Array<String>) {
     if (args.isEmpty()) {
-        System.err.println("kullanim: fixtures|trace|rakat|ezan|zikir|chunks|wav|glasses ...")
+        System.err.println("kullanim: fixtures|trace|rakat|ezan|zikir|chunks|wav|glasses|meals ...")
         exitProcess(2)
     }
     val code = when (args[0]) {
@@ -57,6 +58,7 @@ fun main(args: Array<String>) {
         "chunks" -> chunks(File(args[1]), File(args[2]))
         "wav" -> wav(File(args[1]), File(args[2]))
         "glasses" -> glassesTests()
+        "meals" -> mealTests(File(args[1]))   // <asr dizini>: Ayarlar → MEAL (MealCatalog + MealLoader)
         "glasses-serve" -> glassesServe(File(args[1]), File(args[2]), args.getOrNull(3)?.toInt() ?: 18765)  // g2dir, fontdir
         else -> { System.err.println("bilinmeyen komut ${args[0]}"); 2 }
     }

@@ -26,6 +26,7 @@ import com.tilavet.takip.audio.AudioRecorder
 import com.tilavet.takip.audio.WavFileSource
 import com.tilavet.takip.audio.WavReader
 import com.tilavet.takip.data.AppSettings
+import com.tilavet.takip.data.MealCatalog
 import com.tilavet.takip.data.MealLoader
 import com.tilavet.takip.data.MushafData
 import com.tilavet.takip.data.SettingsRepository
@@ -91,6 +92,8 @@ data class UiState(
     /** Ses kesildi: okunan ayetin metni ekrandan kalkti (vurgu yok, G2 bos + rekat) — bkz. TextHold. */
     val textHidden: Boolean = false,
     val settings: AppSettings = AppSettings(),
+    /** Ayarlar → MEAL listesi (asr/meals/index.tsv; bos = henuz yuklenmedi). */
+    val meals: List<MealCatalog.MealEdition> = emptyList(),
     val showSettingsSheet: Boolean = false,
     val surahEnded: Boolean = false,
     val asrState: String = "",
@@ -120,7 +123,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val TAG = "MainViewModel"
         private const val QURAN_BIN = "quran.bin"
-        private const val MEAL_BIN = "meal.bin"
         /** Ezan/kamet son cumlesi ("لا إله إلا الله") taninca pencere bu kadar gorunup kapanir. */
         private const val EZAN_FINAL_SHOW_MS = 2500L
         /** Zikir karti (son zikir) bu kadar gorunur; ayni parcada birden fazla zikir varsa aradakiler ZIKIR_STEP_MS. */
@@ -179,6 +181,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     @Volatile
     private var mealLoader: MealLoader? = null
 
+    /** Acik mealin id'si (Ayarlar → MEAL; MealCatalog). */
+    @Volatile
+    private var mealLoaderId: String? = null
+
     // QuranIndex/MealLoader hem acilista (Mushaf) hem pipeline'da yuklenir — iki kere acilmasin
     private val loadMutex = Mutex()
 
@@ -198,6 +204,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     minConfidenceFirstLock = s.minConfidenceFirstLock.toDouble(),
                 )
                 applyGlasses(s.glassesEnabled)
+                applyMeal(s.mealId)
             }
         }
 
@@ -826,9 +833,50 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun ensureMealLoader() = withContext(Dispatchers.IO) {
         loadMutex.withLock {
-            if (mealLoader != null) return@withLock
-            val asrDir = AssetSync.sync(getApplication<Application>())
-            mealLoader = MealLoader.load(File(asrDir, MEAL_BIN).absolutePath)
+            if (mealLoader == null) openMealLocked(settingsRepo.settings.first().mealId)
+        }
+    }
+
+    /**
+     * Ayarlar → MEAL: secili mealin dosyasini ac (bilinmeyen id / dosyasi yok → varsayilan, Ali Bulac). loadMutex altinda,
+     * IO'da. Yeni loader acildiysa onu, ayni meal zaten aciksa null doner. Eski loader kapanir — meal metinleri HashMap'te,
+     * eski MushafData kopyasi okumaya devam etse de sorun yok.
+     */
+    private fun openMealLocked(id: String): MealLoader? {
+        val asrDir = AssetSync.sync(getApplication<Application>())
+        val catalog = MealCatalog.load(asrDir)
+        var edition = catalog.resolve(id, asrDir)
+        _state.update { it.copy(meals = catalog.editions) }
+        if (mealLoader != null && edition.id == mealLoaderId) return null
+        val loader = try {
+            MealLoader.load(File(asrDir, edition.file).absolutePath)
+        } catch (e: Exception) {
+            // bozuk / eksik meal dosyasi: Kuran listesi yine acilsin (varsayilan meal)
+            val fallback = catalog.editions.first()
+            if (edition.id == fallback.id) throw e
+            SessionLog.e(TAG, "Meal acilamadi: ${edition.id}, varsayilan meal", e)
+            edition = fallback
+            if (mealLoader != null && edition.id == mealLoaderId) return null
+            MealLoader.load(File(asrDir, edition.file).absolutePath)
+        }
+        val old = mealLoader
+        mealLoader = loader
+        mealLoaderId = edition.id
+        old?.close()
+        SessionLog.d(TAG, "[meal] ${edition.name} (${edition.id})")
+        return loader
+    }
+
+    /** Ayar degisti: yeni meal IO'da acilir, Mushaf listesi ayni dizilerle yeni meale gecer (kaydirma yeri korunur). */
+    private fun applyMeal(id: String) {
+        if (mealLoader == null || id == mealLoaderId) return   // ilk yukleme ensureMushaf'ta
+        viewModelScope.launch {
+            try {
+                val loader = withContext(Dispatchers.IO) { loadMutex.withLock { openMealLocked(id) } } ?: return@launch
+                _state.update { st -> st.copy(mushaf = st.mushaf?.withMeals(loader)) }
+            } catch (e: Throwable) {
+                SessionLog.e(TAG, "Meal yuklenemedi: $id", e)
+            }
         }
     }
 
@@ -850,6 +898,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setTheme(theme: AppTheme) { viewModelScope.launch { settingsRepo.setTheme(theme) } }
     fun setArabicSize(size: Int) { viewModelScope.launch { settingsRepo.setArabicSize(size) } }
     fun setMealSize(size: Int) { viewModelScope.launch { settingsRepo.setMealSize(size) } }
+    fun setMealId(id: String) { viewModelScope.launch { settingsRepo.setMealId(id) } }
     fun setMotion(motion: Float) { viewModelScope.launch { settingsRepo.setMotion(motion) } }
     fun setIdleOpacity(opacity: Int) { viewModelScope.launch { settingsRepo.setIdleOpacity(opacity) } }
     fun setSkippedAyahTenths(value: Int) { viewModelScope.launch { settingsRepo.setSkippedAyahTenths(value) } }

@@ -134,6 +134,21 @@ def chunk_parity(wav_paths):
             "wav_diffs": wdiff, "wav_cases": wn, "wav_examples": wex}
 
 
+def meals(asr_dir):
+    """Secilebilir mealler (JvmTests meals: MealCatalog + MealLoader, <asr>/meals/index.tsv) → ({meals_passed, meals_total,
+    meals_failures}, hatalar). index.tsv yoksa (scripts/build_meals.py calismadi) bos sonuc + not."""
+    if not (asr_dir / "meals" / "index.tsv").exists():
+        return {}, [f"meals: {asr_dir}/meals/index.tsv yok — scripts/build_meals.py calismamis, mealler denenmedi"]
+    p = subprocess.run([str(JVM_BIN), "meals", str(asr_dir)], capture_output=True, text=True, encoding="utf-8")
+    m = re.search(r"meals: (\d+)/(\d+)", p.stdout)
+    fails = [ln.strip() for ln in p.stdout.splitlines() if "HATA" in ln]
+    if not m:
+        return {"meals_passed": 0, "meals_total": 0, "meals_failures": 1}, \
+            fails + [f"cikti yok ({p.returncode}): {p.stderr[-500:]}"]
+    ok, total = int(m.group(1)), int(m.group(2))
+    return {"meals_passed": ok, "meals_total": total, "meals_failures": total - ok}, fails
+
+
 def glasses():
     """G2 gozluk koprusu kontrolleri (JvmTests glasses) → ({glasses_passed, glasses_total, glasses_failures}, hatalar)."""
     p = subprocess.run([str(JVM_BIN), "glasses"], capture_output=True, text=True, encoding="utf-8")

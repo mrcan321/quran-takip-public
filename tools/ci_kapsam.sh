@@ -4,7 +4,8 @@
 #
 #   recog=true  ses tanima, ayete kilitlenme, state machine, test verisi (scripts/, server/, tests/, uygulamanin
 #               session / aligner / audio / asr kodu — JVM testlerinin derledigi kisim) → tum test kapisi
-#   g2=true     G2 eklentisi / koprusu (assets/g2, glasses/, g2-plugin, tests/g2) → g2 + glasses kumeleri + simulator
+#   g2=true     G2 eklentisi / koprusu (assets/g2, glasses/, g2-plugin, tests/g2) ve secilebilir mealler (build_meals.py,
+#               MealLoader / MealCatalog — telefon ve gozluk ekrani) → g2 + glasses kumeleri + simulator
 #   ikisi de    false → test yok (arayuz degisikligi: APK derlemesi zaten Kotlin'i derler; APK sadece onayla — [apk])
 #
 # Kullanim: bash tools/ci_kapsam.sh <taban-commit> "<commit mesaji>" <varsayilan-dal> <olay>
@@ -20,7 +21,7 @@ HEAD_REF="${KAPSAM_HEAD:-HEAD}"   # denemek icin: KAPSAM_HEAD=<commit>
 
 ALL_SUITES="replay,stress,compose,external,synth,signals,app,kotlin,g2"
 G2_SUITES="g2,glasses"
-G2_RE='^(tilavet-android/app/src/main/assets/g2/|tilavet-android/app/src/main/java/com/tilavet/takip/glasses/|tilavet-android/g2-plugin/|tests/g2/|tests/jvm/src/main/kotlin/GlassesTests\.kt$|tests/lib/g2\.py$)'
+G2_RE='^(tilavet-android/app/src/main/assets/g2/|tilavet-android/app/src/main/java/com/tilavet/takip/glasses/|tilavet-android/g2-plugin/|tests/g2/|tests/jvm/src/main/kotlin/(Glasses|Meal)Tests\.kt$|tests/lib/g2\.py$|scripts/build_meals\.py$|tilavet-android/app/src/main/java/com/tilavet/takip/data/Meal(Loader|Catalog)\.kt$)'
 RECOG_RE='^(scripts/|server/|tests/|tilavet-android/app/src/main/java/com/tilavet/takip/(session|aligner|audio|asr)/|tools/kayitlari_cek\.sh$|\.github/workflows/tests\.yml$)'
 
 out() {

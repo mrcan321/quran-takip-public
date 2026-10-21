@@ -234,6 +234,12 @@ class MushafData private constructor(
 
     fun surahInfo(surah: Int): MealLoader.SurahInfo? = meals?.getSurahInfo(surah)
 
+    /** Ayni liste, baska meal (Ayarlar → MEAL): diziler paylasilir, liste yeniden kurulmaz. */
+    fun withMeals(meals: MealLoader?): MushafData = MushafData(
+        index, meals, ayahCount, ayahSurah, ayahNo, ayahFirstWord, ayahSkip,
+        surahFirstAyah, itemCount, items, ayahItem, besmele,
+    )
+
     fun surahNameTr(surah: Int): String = surahInfo(surah)?.nameTr ?: "Sure $surah"
 
     fun surahAyahCount(surah: Int): Int = surahFirstAyah[surah + 1].let { next ->

@@ -33,6 +33,7 @@ anahtarı (`debug.keystore`) bilerek repoda (Play Store yok; gerekirse değişti
   fixture telefon varsayılanlarıyla: ilk kilit 70, pencere ±2)
 - `onnx_full_export.py`: NeMo `nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0` → ONNX (opset 18, preprocessor+encoder+CTC birleşik)
 - `sp_manual_decoder.py`: SentencePiece manuel decoder (Android'de Java SentencePiece yok, protobuf ile decode)
+- `build_meals.py`: secilebilir mealler (Ayarlar → MEAL) → `asr/meals/<id>.bin` + `meals/index.tsv` (bkz. "Meal seçimi")
 - `explore_rapidfuzz.py`: RapidFuzz partial_ratio algoritmasını debug için
 - `../tools/kayitlari_cek.sh`: ses kayıtlarını özel repodan çeker (bkz. "Repo düzeni")
 - `vad_chunker.py`: duraklamada kesen parçalayıcı — `AudioPipeline.kt` `ChunkBuilder`'ın referansı (birebir);
@@ -90,8 +91,9 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
 │   ├── MushafData.kt          — tum Kuran listesi: ayet/sure tablolari, liste satirlari, besmele gizleme
 │   ├── AppSettings.kt         — kullanıcı ayarları (SettingsRepository.kt içinde)
 │   ├── SettingsRepository.kt  — DataStore Preferences wrapper (theme, sizes, motion, idleOpacity,
-│   │                            skippedAyahTenths, G2 gözlük + yazı boyutu, tuner)
-│   └── MealLoader.kt          — meal.bin mmap reader (Türkçe meal + sure isimleri)
+│   │                            skippedAyahTenths, mealId, G2 gözlük + yazı boyutu, tuner)
+│   ├── MealCatalog.kt         — secilebilir mealler: asr/meals/index.tsv (Android'siz, JVM'de test)
+│   └── MealLoader.kt          — meal.bin / meals/<id>.bin mmap reader (Türkçe meal + sure isimleri)
 ├── ui/
 │   ├── AyahStepper.kt         — atlanan ayetleri sirayla gosterme (1:2 → 1:5 ise 1:3, 1:4 ayar kadar)
 │   ├── theme/                 — Palette.kt (8 tema: Zümrüt varsayılan + 7 klasik, AppStyle), Typography, Theme
@@ -128,7 +130,8 @@ Bu klasör **git'te değil**. İçinde olması gerekenler (`asr/` altında):
 - `tokenizer.model` (249 KB) — SentencePiece
 - `meta.json` — model meta (`blank_idx`, `sample_rate`)
 - `quran.bin` (3.5 MB) — build_quran_assets.py üretir
-- `meal.bin` (~1 MB) — build_quran_assets.py üretir (meal: `download_meal.py` `MEAL_EDITION`)
+- `meal.bin` (~1 MB) — build_quran_assets.py üretir (meal: `download_meal.py` `MEAL_EDITION`; varsayılan meal)
+- `meals/` — build_meals.py üretir: `index.tsv` + seçilebilir mealler `<id>.bin` (~0.9-1.2 MB, meal.bin biçimi)
 - `aligner_test_fixture.json` (~15 KB) — build_aligner_fixture.py
 - `fuzzy_test_fixture.json` (~10 KB) — explore_rapidfuzz.py
 - `state_machine_fixture.json` (~20 KB) — build_state_machine_fixture.py
@@ -411,7 +414,7 @@ telefona geçmiyordu.
     (G2 ÜST BİLGİ kapalıysa yok). Telefondaki kart değişmedi (Arapça + okunuş + anlam).
   - Eski **G2'DE SURE / AYET ADI** ayarının adı **G2 ÜST BİLGİ (AYET OKUNURKEN)** oldu (davranış aynı: KAPALI → üst bilgi hiç
     çıkmaz, ekranın tamamı meal; `bigHeader`).
-- **Rekât bilgisini gizle + her düzende üst bilgi gizleme (APK #106+):** kullanıcı (APK #104): "üst bilgi aktifse rekât
+- **Rekât bilgisini gizle + her düzende üst bilgi gizleme (APK #105 sonrası):** kullanıcı (APK #104): "üst bilgi aktifse rekât
   belirtecini gizleme parametresi belirsin, hide yaparsa sadece sure adı: ayet no çıksın"; "G2'nin kendi fontunu seçince (büyük
   punto yerine) üst bilgiyi gizleme ayarı kayboluyor, o zaman da gizleyebilmek istiyorum".
   - **G2 REKÂT BİLGİSİNİ GİZLE** (varsayılan KAPALI, `AppSettings.glassesHideRakat`, `GlassesState.hideRakat`; ayarlarda sadece
@@ -1377,6 +1380,47 @@ Surah entries: surah_no u16, tr_len u8, tr, ar_len u8, ar, ayah_count u16
 - Baskı tek yerde: `download_meal.py` `MEAL_EDITION` (cache `meal-tr-bulac.json`; build_quran_assets +
   server'lar oradan alır). `build_quran_assets.py` ardışık tekrar > 20 ise build'i durdurur.
 
+### Meal seçimi — Ayarlar → MEAL (APK #105 sonrası)
+- Kullanıcı (21.10): "başka meal seçeneklerini de seçtirmek istiyorum ayarlar kısmından" (Diyanet çeşitleri, Erhan Aktaş, 8-10
+  meal daha). Telefonda (Mushaf listesi, okunan ayet) ve G2 gözlükte seçili meal; hepsi APK'da (namazda internet yok).
+- 10 meal (sıra = Ayarlar'daki sıra; birleşik = ardışık ayette birebir aynı meal):
+  | id | meal | kaynak | birleşik |
+  |---|---|---|---|
+  | `bulac` | Ali Bulaç (varsayılan, `meal.bin`, değişmedi) | alquran.cloud `tr.bulac` | 0 |
+  | `diyanetvakfi` | Diyanet Vakfı | fawazahmed0 `tur-diyanetvakfi` (Tanzil) | 10 |
+  | `erhanaktas` | Erhan Aktaş — Kerim Kur'an | Açık Kuran API yazar 105 | CI |
+  | `elmalilisade` | Elmalılı Hamdi Yazır (sadeleştirilmiş) | fawazahmed0 `tur-elmallsadelesti` | 25 |
+  | `ates` | Süleyman Ateş | fawazahmed0 `tur-suleymanates` | 0 |
+  | `islamoglu` | Mustafa İslamoğlu — Hayat Kitabı Kur'an | Açık Kuran 38 | CI |
+  | `esed` | Muhammed Esed — Kur'an Mesajı | fawazahmed0 `tur-muhammedesed` | 0 |
+  | `okuyan` | Mehmet Okuyan — Kur'an Meal-Tefsir | Açık Kuran 107 | CI |
+  | `ozturk` | Yaşar Nuri Öztürk | fawazahmed0 `tur-yasarnuriozturk` | 0 |
+  | `golpinarli` | Abdulbaki Gölpınarlı | fawazahmed0 `tur-abdulbakigolpin` | 0 |
+- Kaynak araştırması (21.10): fawazahmed0/quran-api 29 Türkçe baskı (raw.githubusercontent.com — yerelden de erişiliyor; Tanzil +
+  qurandatabase.org + QuranEnc), Açık Kuran 22 Türkçe yazar (`acik-kuran/acikkuran-frontend` `data/authors.js`; API yerelden
+  kapalı; kod lisansı CC BY-NC-SA 4.0). Diyanet'in güncel resmi meali "Kur'an Yolu" ve Ömer Nasuhi Bilmen hiçbir açık veri
+  setinde yok (en yakını Diyanet Vakfı: büyük ölçüde aynı ekip). Kullanıcı kuralı **"birleşik baskıları alma"**: birleşik > 100
+  olan baskı alınmaz (`MAX_MERGED`) — Hasan Basri Çantay (159) seçilmişti ama bu yüzden yok, eski Diyanet İşleri 843, Suat
+  Yıldırım 607. Elenenler: `tur-diyanetisleri1` aslında Elmalılı, `tur-ademugur` = Diyanet Vakfı, `tur-ynozturk` = Öztürk,
+  `tur-muhammetabay` okunuş. Meal metinlerinin hakkı yazarlarında (kişisel, ticari olmayan kullanım).
+- `scripts/build_meals.py`: `MEALS` listesi (id, ad, açıklama, kaynak) → indir (önbellek `~/.cache/tilavet-meals/<id>.json`,
+  CI'da actions/cache `meals-v1-<betik hash>`), temizle (`´` `’` → `'`, Açık Kuran dipnot işareti `[n]` silinir, dipnot
+  alınmaz), doğrula (meal.bin'le aynı 6236 ayet, boş yok, birleşik ≤ 100) → `asr/meals/<id>.bin` (meal.bin v1 biçimi, sure
+  tablosu meal.bin'den byte byte) + `meals/index.tsv` (`id \t dosya \t birleşik \t ad \t açıklama`, ilki `bulac` → `meal.bin`).
+  İndirilemeyen / kurala takılan baskı atlanır (uyarı + run özetinde tablo: ayet, birleşik, kalan işaret, uzunluk, örnekler);
+  Bulaç yoksa durur. android.yml (apk) ve tests.yml (gate) `build_quran_assets.py`'den sonra çalıştırır.
+- Uygulama: `AssetSync` `assets/asr/meals/*` → `filesDir/asr/meals/` (her yeni APK, APK'da olmayan silinir); `MealCatalog`
+  index.tsv'yi okur (bilinmeyen id / dosyası yok → varsayılan); `AppSettings.mealId` (`meal_id`); `MainViewModel.openMealLocked`
+  seçili dosyayı açar (açılamazsa varsayılan), ayar değişince `MushafData.withMeals` (diziler paylaşılır, kaydırma yeri korunur),
+  G2 `meal` aynı kaynaktan; log `[meal] Diyanet Vakfı (diyanetvakfi)`. Ayarlar: "TÜRKÇE MEAL BOYUTU"nun üstünde **MEAL** —
+  seçili meal (ad + açıklama, DEĞİŞTİR), dokununca liste açılır.
+- Test: JVM `meals` (MealCatalog + MealLoader: her dosya 6236 meal / 114 sure / sure tablosu = meal.bin / boş yok / birleşik =
+  index ≤ 100, ayrıştırma ve varsayılana düşme; `meals_failures` 0), node `tests/g2/layout.test.mjs` "seçilebilir mealler"
+  (`TILAVET_MEALS_DIR`: gözlük fontu, normal / Arapçalı başlıksız düzende satır / bayt / genişlik, büyük yazı sayfası →
+  `g2_meal_editions` ↑, `g2_meals_dropped_chars` ↓). Yerelde 7 meal (Açık Kuran kapalı): hepsi geçiyor, en uzun meal Esed
+  (normal düzende 5 sayfa, büyük yazıda 19). `tools/ci_kapsam.sh`: `build_meals.py`, `MealLoader` / `MealCatalog`, `MealTests.kt`
+  → G2 kapsamı.
+
 ### AndroidManifest.xml FileProvider
 Log export için gerekli. `xml/file_paths.xml` içinde `cache-path name="logs"` tanımlı.
 
@@ -1481,12 +1525,12 @@ Mikrofon butonu (alttaki yuvarlak) → gerçek pipeline başlat. Solundaki dosya
     karar izi (gerçek + sentetik + dış kayıtlar + bileşikler + S1/S3; belirsiz aday `?` ile), `RakatTracker` / `EzanTracker` /
     `ZikirTracker` altın dosyaları (`tests/golden`), zikir kartı Kuran okunurken / tek sureli kayıtta (`zikir_false_alarms` 0),
     `ChunkBuilder` = `vad_chunker` (tüm WAV'lar, sabit + değişen anahtar), `WavReader` = soundfile (16 kHz mono kayıtlar),
-    G2 köprüsü (`glasses`: `glasses_failures` 0), ses kesilince metin (`hide`: Kotlin StateMachine + VoiceActivity gerçek WAV'la,
+    G2 köprüsü (`glasses`: `glasses_failures` 0), seçilebilir mealler (`meals`: `meals_failures` 0), ses kesilince metin (`hide`: Kotlin StateMachine + VoiceActivity gerçek WAV'la,
     TIMELINE'lı kayıtlarda okuma içinde silme `hide_false` 0, okuma bitince kalkmayan `hide_missing` 0, gecikme medyanı / en çok).
   - **g2** — G2 eklentisinin ekran düzeni (`tests/g2/layout.test.mjs`, node): satır kırma, sayfalar, kutu boyutları; CI'da
     gerçek `meal.bin` ile tüm mealler (her satır kutuya sığmalı, sayfa ≤ 999 bayt; fontta olmayan karakter sayısı
-    `dropped_chars` ↓). `g2_failures` 0 olmalı.
-  - Ayrı job **g2sim** (tests.yml): `tests/g2/sim_check.py` Even Hub simülatöründe (Xvfb) uygulamanın köprüsüyle 36 adım,
+    `dropped_chars` ↓); `asr/meals/index.tsv` varsa seçilebilir mealler de (`g2_meal_editions` ↑). `g2_failures` 0 olmalı.
+  - Ayrı job **g2sim** (tests.yml): `tests/g2/sim_check.py` Even Hub simülatöründe (Xvfb) uygulamanın köprüsüyle 46 adım,
     geliştirici + `.ehpk` (CORS, kod köprüden `boot.js`) + engellenmiş fetch (doğrudan geçiş) + geç açılan köprü (`gec`, `gec-fetch`) modu; ekran görüntüleri artifact `g2-simulator`. Yerelde: simülatör ikilisi
     `npm pack @evenrealities/sim-linux-x64@0.9.5`, `apt install libwebkit2gtk-4.1-0 xvfb`, `tests/jvm` installDist.
 - Her metrik `tests/baseline.json` ile karşılaştırılır (yön: kilit ↑, gecikme / yanlış ↓; birebirlik / fixture / altın dosya

@@ -116,6 +116,16 @@ jobs:
           python scripts/build_aligner_fixture.py
           python scripts/build_state_machine_fixture.py
 
+      # Secilebilir mealler (Ayarlar → MEAL): fawazahmed0 (GitHub) + Acik Kuran API → asr/meals/*.bin + index.tsv
+      - name: Meal onbellegi
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/tilavet-meals
+          key: meals-v1-${{ hashFiles('scripts/build_meals.py') }}
+
+      - name: Mealler
+        run: python scripts/build_meals.py
+
       - name: ASR modelini release'ten indir
         run: |
           gh release download "$MODEL_TAG" -R "$GITHUB_REPOSITORY" --clobber \

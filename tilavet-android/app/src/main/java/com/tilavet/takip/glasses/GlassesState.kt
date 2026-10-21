@@ -35,7 +35,7 @@ data class GlassesState(
     /**
      * Ayarlar → G2 ÜST BİLGİ (eski adi G2'DE SURE / AYET ADI; JSON adi tarihsel): ustte gozlugun kendi yazisiyla
      * "Bakara: 255 · 1. REKÂT · KIYAM 1/3" (ADAY da orada). KAPALI → baslik yok — buyuk yazida da, gozlugun kendi yazisinda
-     * (NORMAL) ve Arapcada da (APK #106+; kullanici: "G2'nin kendi fontunu secince bu ayar kayboluyor").
+     * (NORMAL) ve Arapcada da (APK #105 sonrasi; kullanici: "G2'nin kendi fontunu secince bu ayar kayboluyor").
      */
     val bigHeader: Boolean = true,
     /** Ayarlar → G2 REKÂT BİLGİSİNİ GİZLE: baslikta (ve bos ekranin ust satirinda) rekat / durus yok — sadece "Sure: ayet". */

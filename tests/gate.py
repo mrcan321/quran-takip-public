@@ -18,7 +18,8 @@ Kumeler (--suites, virgulle; varsayilan hepsi):
   kotlin   uygulamanin Kotlin kodu (tests/jvm): Fuzzy/Aligner/StateMachine fixture'lari, Kotlin = Python karar izi
            (gercek kayitlar + bilesik senaryolar), RakatTracker/EzanTracker altin dosyalari, ChunkBuilder = vad_chunker,
            WavReader = soundfile, G2 gozluk koprusu (GlassesBridge: JSON, uzun yoklama, dosyalar, CORS)
-  glasses  sadece G2 gozluk koprusu (JvmTests glasses; kotlin kumesinin parcasi) — tanima kodu degismeden G2 degisince
+  glasses  sadece G2 gozluk koprusu + secilebilir mealler (JvmTests glasses / meals; kotlin kumesinin parcasi) — tanima kodu
+           degismeden G2 / meal degisince
            (tests.yml kapsam)
   g2       G2 gozluk eklentisinin ekran duzeni (assets/g2/layout.js, node --test): satir kirma, sayfalar, kutu boyutlari;
            <assets>/asr/meal.bin varsa tum mealler (satir / bayt siniri, fontta olmayan karakter sayisi). Simulator
@@ -40,13 +41,13 @@ from lib import env  # noqa: E402
 from lib import ayah, compose, metrics, signals  # noqa: E402
 
 HIGHER_BETTER = ("first_ok", "sections_locked", "kamet_detected", "selam_detected", "ruku_detected", "passed",
-                 "ayah_followed", "ezan_detected", "ezan_opened")
+                 "ayah_followed", "ezan_detected", "ezan_opened", "meal_editions")
 LOWER_BETTER = ("first_wrong", "first_none", "wrong_chunks", "shown_wrong", "signal_false_alarms", "rakat_errors",
                 "namaz_errors", "delay_median", "delay_mean", "first_median", "first_mean", "ayah_latency_median",
                 "ayah_wrong_shown", "ezan_false_opened", "zikir_false_alarms", "dropped_chars", "hide_false",
                 "hide_latency_median", "hide_latency_max", "hide_missing")
 HARD_ZERO = ("app_diffs", "kotlin_trace_diffs", "chunk_diffs", "wav_diffs", "golden_diffs", "fixture_failures",
-             "glasses_failures", "g2_failures")
+             "glasses_failures", "g2_failures", "meals_failures")
 
 
 def direction(key):
@@ -392,6 +393,10 @@ def main():
         results["kotlin"].update(gl)
         notes += [f"G2 koprusu: {f}" for f in gfails]
         print(f"[kotlin] G2 koprusu {gl['glasses_passed']}/{gl['glasses_total']}", flush=True)
+        ml, mfails = kotlin.meals(Path(args.assets) / "asr")
+        results["kotlin"].update(ml)
+        notes += [f"mealler: {f}" for f in mfails]
+        print(f"[kotlin] mealler {ml.get('meals_passed')}/{ml.get('meals_total')}", flush=True)
 
     if "glasses" in suites and "kotlin" not in suites:
         from lib import kotlin
@@ -400,6 +405,10 @@ def main():
         results.setdefault("kotlin", {}).update(gl)
         notes += [f"G2 koprusu: {f}" for f in gfails]
         print(f"[glasses] G2 koprusu {gl['glasses_passed']}/{gl['glasses_total']}", flush=True)
+        ml, mfails = kotlin.meals(Path(args.assets) / "asr")
+        results["kotlin"].update(ml)
+        notes += [f"mealler: {f}" for f in mfails]
+        print(f"[glasses] mealler {ml.get('meals_passed')}/{ml.get('meals_total')}", flush=True)
 
     if "g2" in suites:
         from lib import g2

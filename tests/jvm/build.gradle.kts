@@ -1,4 +1,4 @@
-// Uygulamanin Android'siz Kotlin kaynaklarini (aligner, session, WavReader, ChunkBuilder + uygulamadaki fixture
+// Uygulamanin Android'siz Kotlin kaynaklarini (aligner, session, glasses, WavReader, ChunkBuilder, MealLoader / MealCatalog + uygulamadaki fixture
 // runner'lari) KOPYALAMADAN derleyip JVM'de calistirir — APK oncesi test kapisi (tests/gate.py, android.yml).
 // android.util.Log / android.content.Context / AssetManager icin kucuk stub'lar src/main/kotlin/android altinda.
 plugins {
@@ -25,6 +25,8 @@ sourceSets {
                 "com/tilavet/takip/audio/WavReader.kt",
                 "com/tilavet/takip/audio/ChunkBuilder.kt",
                 "com/tilavet/takip/audio/VoiceActivity.kt",
+                "com/tilavet/takip/data/MealLoader.kt",
+                "com/tilavet/takip/data/MealCatalog.kt",
                 "android/**",
                 "*.kt",
             )

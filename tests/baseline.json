@@ -209,7 +209,10 @@
     "hide_false": 0,
     "hide_missing": 0,
     "hide_latency_median": 7.1,
-    "hide_latency_max": 21.0
+    "hide_latency_max": 21.0,
+    "meals_passed": 59,
+    "meals_total": 59,
+    "meals_failures": 0
   },
   "synth": {
     "rnnt": {
@@ -272,7 +275,7 @@
     }
   },
   "g2": {
-    "g2_passed": 22,
+    "g2_passed": 23,
     "g2_failures": 0,
     "dropped_chars": 0,
     "g2_meals": 6236,
@@ -284,6 +287,10 @@
     "g2_onepage_px_median": 36,
     "g2_onepage_below_20": 99,
     "g2_onepage_default_paged": 99,
-    "g2_onepage_default_max_pages": 3
+    "g2_onepage_default_max_pages": 3,
+    "g2_meal_editions": 7,
+    "g2_meals_dropped_chars": 0,
+    "g2_meals_max_pages": 5,
+    "g2_meals_big_max_pages": 19
   }
 }

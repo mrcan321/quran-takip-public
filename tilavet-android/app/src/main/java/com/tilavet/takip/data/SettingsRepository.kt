@@ -15,6 +15,8 @@ data class AppSettings(
     val theme: AppTheme = AppTheme.DEFAULT,
     val arabicSize: Int = 26,
     val mealSize: Int = 21,
+    // Ayarlar → MEAL: secili meal (data/MealCatalog, scripts/build_meals.py; varsayilan Ali Bulac)
+    val mealId: String = MealCatalog.DEFAULT_ID,
     val motion: Float = 1f,        // 0, 0.5, 1
     val idleOpacity: Int = 42,     // 0-80
     // Takip ayni surede birden fazla ayet ileri atlayinca (ör. 1:2 → 1:5) aradaki her ayetin ekranda
@@ -59,6 +61,7 @@ class SettingsRepository(private val context: Context) {
         val THEME = stringPreferencesKey("theme_v2")
         val ARABIC_SIZE = intPreferencesKey("arabic_size")
         val MEAL_SIZE = intPreferencesKey("meal_size")
+        val MEAL_ID = stringPreferencesKey("meal_id")
         val MOTION = floatPreferencesKey("motion")
         val IDLE_OPACITY = intPreferencesKey("idle_opacity")
         val SKIPPED_AYAH_TENTHS = intPreferencesKey("skipped_ayah_tenths")
@@ -85,6 +88,7 @@ class SettingsRepository(private val context: Context) {
             theme = AppTheme.fromKey(prefs[Keys.THEME]),
             arabicSize = prefs[Keys.ARABIC_SIZE] ?: 26,
             mealSize = prefs[Keys.MEAL_SIZE] ?: 21,
+            mealId = prefs[Keys.MEAL_ID] ?: MealCatalog.DEFAULT_ID,
             motion = prefs[Keys.MOTION] ?: 1f,
             idleOpacity = prefs[Keys.IDLE_OPACITY] ?: 42,
             skippedAyahTenths = prefs[Keys.SKIPPED_AYAH_TENTHS] ?: 5,
@@ -117,6 +121,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setMealSize(size: Int) {
         context.dataStore.edit { it[Keys.MEAL_SIZE] = size }
+    }
+
+    suspend fun setMealId(id: String) {
+        context.dataStore.edit { it[Keys.MEAL_ID] = id }
     }
 
     suspend fun setMotion(motion: Float) {

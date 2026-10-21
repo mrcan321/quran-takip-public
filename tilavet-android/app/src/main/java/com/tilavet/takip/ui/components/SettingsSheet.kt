@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tilavet.takip.audio.TextHold
 import com.tilavet.takip.data.AppSettings
+import com.tilavet.takip.data.MealCatalog
 import com.tilavet.takip.glasses.GlassesState
 import com.tilavet.takip.ui.theme.AppTheme
 import com.tilavet.takip.ui.theme.LocalAppPalette
@@ -44,6 +45,8 @@ fun SettingsSheet(
     onArabicSize: (Int) -> Unit,
     onMealSize: (Int) -> Unit,
     onMotion: (Float) -> Unit,
+    meals: List<MealCatalog.MealEdition> = emptyList(),
+    onMealId: (String) -> Unit = {},
     onIdleOpacity: (Int) -> Unit,
     onSkippedAyahTenths: (Int) -> Unit = {},
     onTextHoldTenths: (Int) -> Unit = {},
@@ -147,6 +150,16 @@ fun SettingsSheet(
                     onValueChange = { onArabicSize(it.toInt()) },
                     valueRange = 18f..44f,
                 )
+            }
+
+            // === Meal (Ayarlar → MEAL; liste meals/index.tsv'den, scripts/build_meals.py) ===
+            if (meals.size > 1) {
+                SettingGroup(
+                    label = "MEAL",
+                    hint = "Telefonda ve G2 gözlükte gösterilen Türkçe meal. Hepsi uygulamanın içinde, internet gerekmez.",
+                ) {
+                    MealPicker(meals = meals, currentId = settings.mealId, onSelect = onMealId)
+                }
             }
 
             // === Meal size ===
@@ -597,6 +610,82 @@ private fun MotionRow(
                     color = if (isActive) palette.accent else palette.fgDim,
                     letterSpacing = style.tracking(0.8f).sp,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Meal secimi: kapaliyken secili meal (ad + aciklama) tek satir; dokununca tum mealler acilir, birine dokununca secilir ve
+ * liste kapanir. Bilinmeyen id (eski / silinmis baski) → ilk meal (varsayilan) secili gorunur.
+ */
+@Composable
+private fun MealPicker(
+    meals: List<MealCatalog.MealEdition>,
+    currentId: String,
+    onSelect: (String) -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    val style = LocalAppStyle.current
+    var open by remember { mutableStateOf(false) }
+    val current = meals.firstOrNull { it.id == currentId } ?: meals.first()
+    val shown = if (open) meals else listOf(current)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        shown.forEach { m ->
+            val isActive = m.id == current.id
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 1.dp,
+                        color = if (isActive) palette.accent else palette.borderStrong,
+                        shape = RoundedCornerShape(10.dp),
+                    )
+                    .background(
+                        color = if (isActive) palette.accentDim else Color.Transparent,
+                        shape = RoundedCornerShape(10.dp),
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
+                        if (open) {
+                            onSelect(m.id)
+                            open = false
+                        } else {
+                            open = true
+                        }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = m.name,
+                        fontFamily = style.body,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = if (isActive) palette.accent else palette.fg,
+                    )
+                    if (m.desc.isNotBlank()) {
+                        Text(
+                            text = m.desc,
+                            fontFamily = style.body,
+                            fontSize = 11.sp,
+                            color = palette.fgDim,
+                        )
+                    }
+                }
+                if (!open) {
+                    Text(
+                        text = "DEĞİŞTİR",
+                        fontFamily = style.label,
+                        fontWeight = if (style.ornate) FontWeight.Bold else null,
+                        fontSize = 10.sp,
+                        color = palette.accent,
+                        letterSpacing = style.tracking(0.8f).sp,
+                    )
+                }
             }
         }
     }

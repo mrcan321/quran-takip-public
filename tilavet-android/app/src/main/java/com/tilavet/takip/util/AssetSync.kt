@@ -19,6 +19,8 @@ import java.io.IOException
  *   - Model dosyalari (~440 MB): sadece meta.json degistiyse (yeni export) yeniden kopyala.
  *     APK'da olmayan model dosyasi (orn. eski surumde rnnt_*.onnx yok) silinir.
  *   - Kucuk veri dosyalari (quran.bin, meal.bin): her yeni APK surumunde yeniden kopyala.
+ *   - Secilebilir mealler (assets/asr/meals/: index.tsv + <id>.bin, scripts/build_meals.py): her yeni APK surumunde
+ *     yeniden kopyala; APK'da olmayan eski meal dosyasi silinir.
  *   - meta.json ve surum damgasi EN SON yazilir: kopya yarida kalirsa sonraki acilista tekrarlanir.
  *   - Her kopya once .tmp'ye yazilip rename edilir (yarim dosya kalmaz).
  */
@@ -27,6 +29,7 @@ object AssetSync {
     private const val TAG = "AssetSync"
     private const val DIR = "asr"
     private const val META = "meta.json"
+    private const val MEALS = "meals"
     private const val STAMP = ".asset_version"
 
     private val MODEL_FILES = listOf(
@@ -71,10 +74,28 @@ object AssetSync {
         for (name in DATA_FILES) {
             if (assetExists(context, name)) copy(context, name, File(dir, name))
         }
+        syncMeals(context, dir)
 
         stamp.writeText(version)
         Log.i(TAG, "Asset senkronu bitti (${(System.nanoTime() - t0) / 1_000_000L}ms)")
         return dir
+    }
+
+    /** assets/asr/meals/ → filesDir/asr/meals/ (Ayarlar → MEAL). APK'da olmayan dosyalar silinir. */
+    private fun syncMeals(context: Context, dir: File) {
+        val names = try {
+            context.assets.list("$DIR/$MEALS")?.toList().orEmpty()
+        } catch (_: IOException) {
+            emptyList()
+        }
+        val dst = File(dir, MEALS).apply { mkdirs() }
+        for (name in names) copy(context, "$MEALS/$name", File(dst, name))
+        dst.listFiles()?.forEach { f ->
+            if (f.name !in names) {
+                f.delete()
+                Log.i(TAG, "  $MEALS/${f.name} APK'da yok, silindi")
+            }
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -92,7 +113,7 @@ object AssetSync {
 
     private fun copy(context: Context, name: String, dst: File) {
         val t0 = System.nanoTime()
-        val tmp = File(dst.parentFile, "$name.tmp")
+        val tmp = File(dst.parentFile, "${dst.name}.tmp")
         context.assets.open("$DIR/$name").use { input ->
             FileOutputStream(tmp).use { output -> input.copyTo(output, 1 shl 16) }
         }

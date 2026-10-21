@@ -94,6 +94,8 @@ private fun AppRoot(viewModel: MainViewModel) {
                 onTheme = { viewModel.setTheme(it) },
                 onArabicSize = { viewModel.setArabicSize(it) },
                 onMealSize = { viewModel.setMealSize(it) },
+                meals = state.meals,
+                onMealId = { viewModel.setMealId(it) },
                 onMotion = { viewModel.setMotion(it) },
                 onIdleOpacity = { viewModel.setIdleOpacity(it) },
                 onSkippedAyahTenths = { viewModel.setSkippedAyahTenths(it) },
