@@ -41,15 +41,15 @@ OUT_DIR = ASR_DIR / "meals"
 CACHE_DIR = Path(os.environ.get("TILAVET_MEALS_CACHE", Path.home() / ".cache" / "tilavet-meals"))
 
 # Kullanicinin listesi (21.10); sira = Ayarlar'daki sira. Ilki varsayilan (meal.bin).
+# Erhan Aktas (Acik Kuran yazar 105), Mustafa Islamoglu (38), Mehmet Okuyan (107) da istendi ama sadece Acik Kuran'da var ve
+# api.acikkuran.com kapanmis (21.10, GitHub sunucularinda da "Name or service not known"); kullanici: "simdilik 7 meal yeter".
+# Kaynak geri gelirse: dict(id="erhanaktas", name="Erhan Aktaş", desc="Kerim Kur'an", src=("acikkuran", 105)) gibi satirlar.
 MEALS = [
     dict(id="bulac", name="Ali Bulaç", desc="Kur'an-ı Kerim ve Türkçe Anlamı", src="meal.bin"),
     dict(id="diyanetvakfi", name="Diyanet Vakfı", desc="Türkiye Diyanet Vakfı meali", src=("fawaz", "tur-diyanetvakfi")),
-    dict(id="erhanaktas", name="Erhan Aktaş", desc="Kerim Kur'an", src=("acikkuran", 105)),
     dict(id="elmalilisade", name="Elmalılı Hamdi Yazır", desc="Sadeleştirilmiş meal", src=("fawaz", "tur-elmallsadelesti")),
     dict(id="ates", name="Süleyman Ateş", desc="Kur'an-ı Kerim ve Yüce Meali", src=("fawaz", "tur-suleymanates")),
-    dict(id="islamoglu", name="Mustafa İslamoğlu", desc="Hayat Kitabı Kur'an", src=("acikkuran", 38)),
     dict(id="esed", name="Muhammed Esed", desc="Kur'an Mesajı", src=("fawaz", "tur-muhammedesed")),
-    dict(id="okuyan", name="Mehmet Okuyan", desc="Kur'an Meal-Tefsir", src=("acikkuran", 107)),
     dict(id="ozturk", name="Yaşar Nuri Öztürk", desc="Kur'an-ı Kerim Meali", src=("fawaz", "tur-yasarnuriozturk")),
     dict(id="golpinarli", name="Abdulbaki Gölpınarlı", desc="Kur'an-ı Kerim ve Meali", src=("fawaz", "tur-abdulbakigolpin")),
 ]

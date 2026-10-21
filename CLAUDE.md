@@ -1383,19 +1383,20 @@ Surah entries: surah_no u16, tr_len u8, tr, ar_len u8, ar, ayah_count u16
 ### Meal seçimi — Ayarlar → MEAL (APK #105 sonrası)
 - Kullanıcı (21.10): "başka meal seçeneklerini de seçtirmek istiyorum ayarlar kısmından" (Diyanet çeşitleri, Erhan Aktaş, 8-10
   meal daha). Telefonda (Mushaf listesi, okunan ayet) ve G2 gözlükte seçili meal; hepsi APK'da (namazda internet yok).
-- 10 meal (sıra = Ayarlar'daki sıra; birleşik = ardışık ayette birebir aynı meal):
+- 7 meal (sıra = Ayarlar'daki sıra; birleşik = ardışık ayette birebir aynı meal):
   | id | meal | kaynak | birleşik |
   |---|---|---|---|
   | `bulac` | Ali Bulaç (varsayılan, `meal.bin`, değişmedi) | alquran.cloud `tr.bulac` | 0 |
   | `diyanetvakfi` | Diyanet Vakfı | fawazahmed0 `tur-diyanetvakfi` (Tanzil) | 10 |
-  | `erhanaktas` | Erhan Aktaş — Kerim Kur'an | Açık Kuran API yazar 105 | CI |
   | `elmalilisade` | Elmalılı Hamdi Yazır (sadeleştirilmiş) | fawazahmed0 `tur-elmallsadelesti` | 25 |
   | `ates` | Süleyman Ateş | fawazahmed0 `tur-suleymanates` | 0 |
-  | `islamoglu` | Mustafa İslamoğlu — Hayat Kitabı Kur'an | Açık Kuran 38 | CI |
   | `esed` | Muhammed Esed — Kur'an Mesajı | fawazahmed0 `tur-muhammedesed` | 0 |
-  | `okuyan` | Mehmet Okuyan — Kur'an Meal-Tefsir | Açık Kuran 107 | CI |
   | `ozturk` | Yaşar Nuri Öztürk | fawazahmed0 `tur-yasarnuriozturk` | 0 |
   | `golpinarli` | Abdulbaki Gölpınarlı | fawazahmed0 `tur-abdulbakigolpin` | 0 |
+- **Erhan Aktaş, Mustafa İslamoğlu, Mehmet Okuyan** da istendi; sadece Açık Kuran API'sinde vardı (yazar 105 / 38 / 107) ve
+  `api.acikkuran.com` kapanmış (21.10 CI: GitHub sunucularında da "Name or service not known"). Kullanıcı: "şimdilik 7 meal
+  yeter". Kaynak geri gelirse `build_meals.py` `MEALS`'e `("acikkuran", id)` satırı (indirme kodu duruyor); başka yol: başka
+  sitelerden sure sayfası çekmek (ikrakuran.com, ayetbul.net, mealler.org — kırılgan) ya da kullanıcının vereceği dosya.
 - Kaynak araştırması (21.10): fawazahmed0/quran-api 29 Türkçe baskı (raw.githubusercontent.com — yerelden de erişiliyor; Tanzil +
   qurandatabase.org + QuranEnc), Açık Kuran 22 Türkçe yazar (`acik-kuran/acikkuran-frontend` `data/authors.js`; API yerelden
   kapalı; kod lisansı CC BY-NC-SA 4.0). Diyanet'in güncel resmi meali "Kur'an Yolu" ve Ömer Nasuhi Bilmen hiçbir açık veri
@@ -1417,7 +1418,7 @@ Surah entries: surah_no u16, tr_len u8, tr, ar_len u8, ar, ayah_count u16
 - Test: JVM `meals` (MealCatalog + MealLoader: her dosya 6236 meal / 114 sure / sure tablosu = meal.bin / boş yok / birleşik =
   index ≤ 100, ayrıştırma ve varsayılana düşme; `meals_failures` 0), node `tests/g2/layout.test.mjs` "seçilebilir mealler"
   (`TILAVET_MEALS_DIR`: gözlük fontu, normal / Arapçalı başlıksız düzende satır / bayt / genişlik, büyük yazı sayfası →
-  `g2_meal_editions` ↑, `g2_meals_dropped_chars` ↓). Yerelde 7 meal (Açık Kuran kapalı): hepsi geçiyor, en uzun meal Esed
+  `g2_meal_editions` ↑, `g2_meals_dropped_chars` ↓). 7 meal (yerel + CI): hepsi geçiyor, en uzun meal Esed
   (normal düzende 5 sayfa, büyük yazıda 19). `tools/ci_kapsam.sh`: `build_meals.py`, `MealLoader` / `MealCatalog`, `MealTests.kt`
   → G2 kapsamı.
 
