@@ -116,6 +116,10 @@ EXPECTED = {
     # Ayni sabah namazdan sonra (21.10): istiaze x2 + besmele → Hasr 59:22-24 (31-106) → "صدق الله العظيم" → Saffat
     # 37:180-182 (114-130)
     "tilavet_hasr_22_24_namaz_sonu.wav": "coklu",
+    # Yatsi #3 (21.10, camide telefon, 14.7 dk): kamet sonu 0-10 → iftitah ~23 → Fatiha 36.6-68.8 → Enbiya 21:11-23 (81-211)
+    # → rukû / secde (semiallah 224) → Fatiha 263-294 → Enbiya 21:24-29 (303.6-388, 1. rekatin kaldigi yerden) → 3-4. rekat
+    # sessiz (semiallah 400, 481) → selam 627.6 / 637 → dua 647-661
+    "namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -175,6 +179,10 @@ TIMELINE = {
                                                         (354.8, 100), (414, None)],
     # Hasr 59:22 "هو الله" ~31 ("الذي" 33.1), 59:24 sonu "الحكيم" 105.7, "صدق الله العظيم" 110-112, "سبحان ربك" 114.2
     "tilavet_hasr_22_24_namaz_sonu.wav": [(0, None), (31, 59), (108, None), (113.8, 37), (131, None)],
+    # yatsi #3 21.10 (kelime zamanli transkript): "الحمد" 36.6, "وكم قصمنا" 81.2 (21:11), "يفعل وهم يسألون" 211 (21:23 sonu),
+    # 2. Fatiha "الحمد" 263.2, "أم اتخذوا من دونه" 303.6 (21:24), "كذلك نجزي الظالمين" 388 (21:29 sonu)
+    "namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav": [(0, None), (36.4, 1), (81.0, 21), (212, None), (263.0, 1),
+                                                           (303.4, 21), (389, None)],
 }
 
 

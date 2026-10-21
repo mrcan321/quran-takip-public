@@ -104,6 +104,11 @@ AYAH_START_TIE_MARGIN = 2.0
 # (cuma #3: Felak → Nas, "قل أعوذ برب" 113:1 / 114:1 esitligi 114:1 lehine, Nas 12.3 → 3.2 sn).
 CONTINUE_AHEAD = 6
 CONTINUE_MARGIN = 2.0
+# Devam onceligi: devam penceresi >= ilk kilit esigi ve tum Kuran'daki en iyi yerden en fazla CONTINUE_PRIOR_MARGIN kotu ise,
+# en iyi yer bir sure acilisi degilse devam secilir. Yatsi 21.10: 1. rekat Enbiya 21:23'te bitti, 2. rekat "أَمِ اتَّخَذُوا مِن
+# دُونِهِ" (21:24) ASR'de "أم اتطعتم من دونه" → Yunus 10:38'e ("استطعتم من دون الله") 77.3 dogal gecis, devam penceresi
+# 21:24 72.2 (sozluk cezasi) → 2 parca ekranda yanlis sure.
+CONTINUE_PRIOR_MARGIN = 6.0
 # Gecis adayi varken (onceki parca) yeni parca adayin +-PENDING_VERIFY_AYAH_WINDOW ayetinde tum Kuran eslesmesinden en
 # fazla bu kadar kotu (ve >= ilk kilit esigi) eslesiyorsa aday dogrulanir. Ortak ifade tum Kuran'da baska yere oturuyordu:
 # Fatiha → bozuk Asr "الإنسان لفيه السوء" (103:2 adayi) → "الذين آمنوا وعملوا" 2:25'e dogal gecis (103:3 ayni skor).
@@ -522,15 +527,25 @@ def is_tevhid(text):
     return any(tuple(toks[i:i + 3]) == ("اله", "الا", "الله") for i in range(len(toks) - 2))
 
 
+def _drop_leading_tekbir(toks):
+    """Bastaki tekbir (kamet / ezan kapanisi "الله أكبر الله أكبر لا إله إلا الله" — Kuran'da tekbirden hemen sonra tevhid yok):
+    yatsi 21.10'da kayit kamet sonunda basladi, "الله اغبر لا اله الا الله" zikir sayilmadi → 37:35 / 28:88 belirsiz aday (Kotlin
+    aligner'inin aday budamasi farkli yer buluyordu). Kalan kelimeler zikir ifadesiyse zikir (dhikr_only)."""
+    while len(toks) > 1 and (toks[0] in TEKBIR_WORDS or (toks[0] == "الله" and toks[1] in TEKBIR_WORDS)):
+        toks = toks[1:] if toks[0] in TEKBIR_WORDS else toks[2:]
+    return toks
+
+
 def dhikr_only(text):
     """→ (sadece zikir ifadesi mi, kelime-i sehadet mi)"""
     toks = [t for t in (bare_token(w) for w in text.split()) if t]
     if is_tekbir_only(toks):
         return False, False
-    for ph in DHIKR_PHRASES:
-        n = len(ph)
-        if len(toks) - n <= DHIKR_EXTRA_MAX and any(tuple(toks[i:i + n]) == ph for i in range(len(toks) - n + 1)):
-            return True, ph[1] == "رسول"
+    for cand in (toks, _drop_leading_tekbir(toks)):
+        for ph in DHIKR_PHRASES:
+            n = len(ph)
+            if len(cand) - n <= DHIKR_EXTRA_MAX and any(tuple(cand[i:i + n]) == ph for i in range(len(cand) - n + 1)):
+                return True, ph[1] == "رسول"
     return False, False
 
 
@@ -1135,7 +1150,9 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             elif cw:
                 cm = align_transcription(transcribed_text, corpus, preferred_range=cw, preferred_bonus=PREFERRED_BONUS)
                 cs = score_transcription(transcribed_text, cm, vocab)
-                if cm and cs >= NATURAL_MIN_SCORE and cs >= gs - CONTINUE_MARGIN:
+                prior = (cm and not opening and cs >= MIN_CONFIDENCE_FIRST_LOCK and cs >= gs - CONTINUE_PRIOR_MARGIN
+                         and not is_opening_match(g, corpus, ayah_to_range))
+                if cm and ((cs >= NATURAL_MIN_SCORE and cs >= gs - CONTINUE_MARGIN) or prior):
                     g, gs, cont, opening = cm, cs, True, False
                     gv = collect_verses(corpus, g.start_word_idx, g.end_word_idx)
                     (gfs, gfa), (gls, gla) = gv[0], gv[-1]
@@ -1165,7 +1182,8 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                         g, gs, gv = ru, rs, rv
                         (gfs, gfa), (gls, gla) = gv[0], gv[-1]
             in_candidate = bool(jc) and (verify_pending(jc, gfs, gfa) or verify_pending(jc, gls, gla))
-            natural = opening or (is_natural_transition(state, gfs, gfa, surah_counts) and gs >= NATURAL_MIN_SCORE)
+            # Devam (kalinan yer) dogal gecis: devam onceliginde skor NATURAL_MIN_SCORE altinda olabilir (bkz. CONTINUE_PRIOR_MARGIN)
+            natural = opening or cont or (is_natural_transition(state, gfs, gfa, surah_counts) and gs >= NATURAL_MIN_SCORE)
             tie = (natural and not cont and is_opening_match(g, corpus, ayah_to_range)
                    and opening_tie(transcribed_text, g, corpus, ayah_to_range))
             if tie:
@@ -1183,6 +1201,13 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             elif not tie and is_unique_match(transcribed_text, g, gs, word_count, corpus, vocab, ayah_to_range):
                 # Fark payi: Kuran'da baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
                 # (telefon kaydi: 55 → 107 gecisi 12 → 7 sn; gurultu testinde yanlis kilit artmadi)
+                jump = "verified"
+            elif (state.state == NamazState.ZAMM and score < MIN_CONFIDENCE_FIRST_LOCK and gfs == state.last_surah
+                  and state.last_ayah is not None and state.last_ayah - RESUME_BACK <= gla < state.last_ayah):
+                # Geri duzeltme: pencere eslesmesi zayif, ayni surede kalinan yerin 1-2 ayet gerisi tum Kuran'da en az
+                # JUMP_MARGIN iyi → onceki zayif eslesme konumu ileri tasimis (okuma geri gitmez). Yatsi 21.10, 2. rekat: 21:24
+                # okunurken bozuk "بدأ يدع لنا" 21:25'e 65 ile esleşti; pencere (21:25-27) 21:24'u kapsamadigindan sonraki
+                # parcalar 21:27 / 21:28'e 50-57 ile kaydi (tum Kuran'da 21:24 84.5), sonra 21:25'e geri dondu.
                 jump = "verified"
             else:
                 jump = "candidate"
@@ -1809,6 +1834,88 @@ SCENARIOS = [
             (0.022, "وسلام علي المرسلين"),
             (0.03, "والحمد لله رب"),
             (0.025, ""),
+        ],
+    },
+    # ============ Senaryo 25: yatsi #3 (21.10) — 2. rekat 1. rekatin kaldigi yerden devam + geri duzeltme ============
+    {
+        "description": "Fatiha → Enbiya 21:11-23 → rukû / secde → Fatiha → 21:24 (ASR 'أم اتطعتم من دونه': devam penceresi 72.2, "
+                       "Yunus 10:38 77.3 yerine devam) → bozuk parca 21:25'e erken → 'يلمون الحق فهم معرضون' ayni surede bir "
+                       "ayet geri 21:24 (eskiden 21:27 / 21:28'e kayip 21:25'e donuyordu)",
+        "chunks": [
+            (0.0623, "الحمد لله رب العالمين"),                          # 0: Fatiha hizli kilit
+            (0.0676, "موسوعة النابلسي للعلوم الإسلامية الرحمن الرحيم"),
+            (0.0648, "مَالِكِ يَوْمِ الدِّينِ"),
+            (0.0625, "إياك نعبد وإيانا"),
+            (0.0423, "وإياك نستعين"),
+            (0.0638, "اهدنا الصراط المستقيم صراط اللّيم"),
+            (0.0674, "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ"),
+            (0.0714, "غير المغضوب عليه"),
+            (0.0691, "شركة الهدى للخدمات التقنية"),
+            (0.058, "المريض"),
+            (0.0499, ""),
+            (0.0514, "وَكَمْ قَصَمْنَا"),                               # 11: Fatiha sonu → Enbiya 21:11
+            (0.0632, "قرية كَانَتْ ظَالِمَةً وَأَنْشَأْنَا بِهَا"),
+            (0.0626, "و جنبنا بعدها قوما آخرين فلما أخرجها."),
+            (0.0701, "عفو بأسمائنا إلا"),
+            (0.0666, "لا يعوض"),
+            (0.0746, "لا تركضوا ورجعوا"),
+            (0.067, "إلى ما أُترف فيه ومساكنه"),
+            (0.0513, "لعلك"),
+            (0.0593, "قالوا يا ويلنا"),
+            (0.0643, "يَا وَيْلَنَا إِنَّا كُنا"),
+            (0.0674, "فَمَا زَالَتْ تِلْكَ دَعْوَاهُمْ حَتَّى جَعَلْنَا"),
+            (0.0602, "جَمَصِيدًا قَائِدِينَ وما خلق"),
+            (0.0739, "مَا خَلَقْنَا السماءَ والأرضَ وَمَا بَيْنَهُمَا"),
+            (0.0661, "لو أردنا أن نتعمق"),
+            (0.0691, "اتخذ مغوًا لاتّخذناهُ مِن لدُنّا"),
+            (0.0658, "إن كنا فاعلين"),
+            (0.0629, "بل نقذف بالحق على البلاد"),
+            (0.0679, "عَلَى الْبَاطِلِ فَيَدْمَغُهُ فَإِذَا هُوَ زَاهِقٌ"),
+            (0.0605, "ذَلِكَ وَلَكُمُ الْوَيْلُ مِمَّا تَصِفُونَ الأنعام ستون"),
+            (0.0711, "وَلَهُمْ مَنْ فِي السَّمَاءِ"),
+            (0.0634, "السماوات والأرض"),
+            (0.0756, "وَمَنْ عِنْدَهُ لَا يَسْتَكْبِرُونَ"),
+            (0.0664, "عَنْ عِبَادَتِهِ وَلا يَسْتَكْسِرُونَ"),
+            (0.0688, "يُسَبِّحُونَ اللَّيْلَ وَالنَّهَارَ لَا يَفْتَرُونَ"),
+            (0.0696, "أَمِ اتَّخَذُوا آلِهَةً مِّنَ الْيَوْمِ"),
+            (0.0537, "مِّن الْأَرْضِ هُم يَنشِرُونَ"),
+            (0.0699, "لَوْ كَانَ فِي مَائِحٌ إِل"),
+            (0.0736, "الا الله لفسدتا فسبحان الله ربي"),
+            (0.0681, "رب العرش عادة"),
+            (0.0741, ""),
+            (0.0651, "لا يسمع ما يفعل"),                                # 41: 21:23 (1. rekat sonu)
+            (0.0507, "لعلهم"),
+            (0.0737, "المصدر كتاب"),
+            (0.0085, ""),
+            (0.0534, "جميعاً"),
+            (0.0657, "المصدر كتاب"),
+            (0.0436, ""),
+            (0.0617, ""),
+            (0.0613, ""),
+            (0.0101, ""),
+            (0.0564, ""),
+            (0.0418, ""),
+            (0.0677, "الحمد لله رب العالمين"),                          # 53: 2. rekat Fatiha (kilidi kaybolmus zamm)
+            (0.0675, "الرحمن الرحيم مالك يوم الدين"),
+            (0.0702, "إياك نعبد وإياك نستعين"),
+            (0.0688, "المصدر"),
+            (0.0696, "اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ"),
+            (0.0569, "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ"),
+            (0.0584, "غير المغضوب عليهم"),
+            (0.0676, "شركة الهدى للخدمات التقنية"),
+            (0.0576, ""),
+            (0.0651, "أَمِ اتَّطَعْتُم مِّن دُونِهِ"),                  # 62: devam onceligi: 21:24 72.2 (eskiden Yunus 10:38 77.3 dogal gecis)
+            (0.0706, "آلِهَة قُلْ هَاتُوا قُرْآنَكُمْ"),                # 63: 21:24
+            (0.0725, "هذا ذِكرُ من معي وذِكر مني"),
+            (0.0756, "بدأ يدع لنا"),                                    # 65: bozuk parca 21:25'e 65
+            (0.0646, "يلمون الحق فهم معرضون"),                          # 66: geri duzeltme: 21:24 84.5 (eskiden pencere 21:25-27 → 21:27 50.2)
+            (0.0592, "وما حسدنا"),                                      # 67: 21:25 (eskiden 21:28)
+            (0.0667, "مِن قَبلِكَ مِنَّا نُوحِي إِلَيْكَ"),
+            (0.072, "إلي أنه لا إلهَ إِلَّا هُو"),
+            (0.0664, "اتخذ الرحمن"),
+            (0.0726, "ولداه بل عباد مؤمن"),
+            (0.0712, "بِالْقَوْلِ وَالصَّدْرِ"),
+            (0.0761, "وَبِالْقَوْلِ وَهُم بِأَمْرِهِ يَعْمَلُونَ"),
         ],
     },
 ]

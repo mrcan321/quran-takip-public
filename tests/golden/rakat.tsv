@@ -91,6 +91,20 @@ rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	835.0 olay selam (namaz bitt
 rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	835.0 etiket SELAM
 rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	860.0 etiket -
 rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	son rekat=0 toplam=4 namaz=1
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	40.0 olay 1. rekat (Fatiha)
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	40.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	240.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	265.0 olay 2. rekat (Fatiha)
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	265.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	415.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	460.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	490.0 olay sessiz rekat: 3. rekat (semiallah, okumadan 100 sn sonra)
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	490.0 etiket 3. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	560.0 etiket 3. REKÂT SONRASI · SESSİZ
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	630.0 olay selam (namaz bitti, 4 rekat)
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	630.0 etiket SELAM
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	655.0 etiket -
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	son rekat=0 toplam=4 namaz=1
 rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	15.0 olay 1. rekat (Fatiha)
 rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	15.0 etiket 1. REKÂT · KIYAM
 rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	60.0 etiket 1. REKÂT · RÜKÛ / SECDE
@@ -244,6 +258,20 @@ rnnt-hibrit	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	825.8 olay selam (nam
 rnnt-hibrit	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	825.8 etiket SELAM
 rnnt-hibrit	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	850.8 etiket -
 rnnt-hibrit	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	son rekat=0 toplam=4 namaz=1
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	40.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	40.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	238.7 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	268.0 olay 2. rekat (Fatiha)
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	268.0 etiket 2. REKÂT · KIYAM
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	415.9 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	462.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	487.0 olay sessiz rekat: 3. rekat (semiallah, okumadan 98 sn sonra)
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	487.0 etiket 3. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	557.0 etiket 3. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	632.0 olay selam (namaz bitti, 4 rekat)
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	632.0 etiket SELAM
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	657.0 etiket -
+rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	son rekat=0 toplam=4 namaz=1
 rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	15.0 olay 1. rekat (Fatiha)
 rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	15.0 etiket 1. REKÂT · KIYAM
 rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	58.5 etiket 1. REKÂT · RÜKÛ / SECDE

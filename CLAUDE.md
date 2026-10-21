@@ -29,7 +29,7 @@ anahtarı (`debug.keystore`) bilerek repoda (Play Store yok; gerekirse değişti
 - `aligner.py`: **ana** — QuranCorpus, trigram index, align_transcription (fuzzy match). Kotlin port'u için referans. `ZERO_WIDTH` normalize eklenmiş.
 - `build_quran_assets.py`: `quran.bin` (3.5 MB) + `meal.bin` (~1 MB, Ali Bulaç meali) üretir. Android asset olarak kullanılır.
 - `build_aligner_fixture.py`: 43 test case üretir, `aligner_test_fixture.json`
-- `build_state_machine_fixture.py`: 24 senaryo × 430 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
+- `build_state_machine_fixture.py`: 25 senaryo × 504 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
   fixture telefon varsayılanlarıyla: ilk kilit 70, pencere ±2)
 - `onnx_full_export.py`: NeMo `nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0` → ONNX (opset 18, preprocessor+encoder+CTC birleşik)
 - `sp_manual_decoder.py`: SentencePiece manuel decoder (Android'de Java SentencePiece yok, protobuf ile decode)
@@ -86,7 +86,7 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
 │   ├── EzanTracker.kt         — ezan/kamet penceresi icin cumle takibi (UI; state machine'i etkilemez)
 │   ├── ZikirTracker.kt        — namaz zikirleri karti: tekbir, semiallah, rabbena, selam, namaz sonu duasi (UI, JVM'de test)
 │   ├── RakatTracker.kt        — rekat sayaci + kaba durus (UI; state machine'i etkilemez, JVM'de test)
-│   └── StateMachineTestRunner.kt — 430 chunk × 24 senaryo test (5-8. = gerçek namaz akışları; 430/430)
+│   └── StateMachineTestRunner.kt — 504 chunk × 25 senaryo test (5-8. = gerçek namaz akışları; 504/504)
 ├── data/
 │   ├── MushafData.kt          — tum Kuran listesi: ayet/sure tablolari, liste satirlari, besmele gizleme
 │   ├── AppSettings.kt         — kullanıcı ayarları (SettingsRepository.kt içinde)
@@ -1366,6 +1366,36 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     metni kaldırdı (`hide_false` 0 → 1, eski kodla da aynı — ASR kaybı); kayıt son ayetten 5 sn sonra bitiyorsa silme ölçülmez
     (ortam sesi sürerken en geç 20 sn).
 
+### 22. Yatsı #3 (21.10, APK #113): 2. rekât Enbiyâ devamı Yûnus'a gitti, sonra ekran ileri gidip geldi
+- `data/namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav` (özel repoda; camide telefon, 14.7 dk; telefon log'u logcat): kamet sonu
+  0-10 → iftitah ~23 → Fatiha 36.6 → Enbiyâ 21:11-23 (81-211) → rükû / secde (semiallah 224) → Fatiha 263 → Enbiyâ 21:24-29 (303.6-388,
+  1. rekâtın kaldığı yerden) → 3-4. rekât sessiz → selam 627.6 / 637 → dua. TIMELINE kelime zamanlı transkriptten. Telefonda (APK #113):
+  Fatiha 3 sn, Enbiyâ 21:11 3 sn, 2. Fatiha 5 sn, rekât sayacı 4 rekât, selam / dua kartı doğru. Kullanıcı: "ikinci rekâtta sanki
+  baya bir yanlış yaptı veya çok ileri gitti geldi". İki hata:
+  - **307-316 sn Yûnus 10:38:** "أَمِ اتَّخَذُوا مِن دُونِهِ" ASR'de "أم اتطعتم من دونه" → 10:38 ("استطعتم من دون الله") 77.3 doğal geçiş.
+    Devam penceresi (21:23..21:29) 21:24'e 72.2 (sözlük cezası; ham hizalama 83.3 / 89.3) → `CONTINUE_MARGIN` (≥ 77 ve ≤ 2 kötü)
+    tutmadı. Düzeltme **devam önceliği** (`CONTINUE_PRIOR_MARGIN` 6): devam penceresi ≥ ilk kilit eşiği ve tüm Kuran'dan ≤ 6 kötüyse,
+    en iyi yer bir sure açılışı değilse devam; devam her zaman doğal geçiş.
+  - **321-339 sn ileri gidip gelme:** 21:24 okunurken bozuk "بدأ يدع لنا" 21:25'e 65 → ZAMM penceresi son ayetten başladığı için
+    (geri pay 0) "يلمون الحق فهم معرضون" (21:24 sonu) 21:26-27'ye 50, "وما حسدنا" 21:28'e 57 (tüm Kuran'da 21:24 84.5 — geçiş adayı,
+    görünmez) → sonra 21:25'e geri. Düzeltme **geri düzeltme**: ZAMM'da pencere < ilk kilit eşiği ve aynı surede son ayetin 1-2
+    (`RESUME_BACK`) ayet gerisi tüm Kuran'da ≥ `JUMP_MARGIN` iyiyse oraya (okuma geri gitmez — önceki zayıf eşleşme ileri taşımış).
+    Denendi, alınmadı: "zayıf pencere + daha iyi geçiş adayı varsa ekran ilerlemesin" — sentetik teravihte doğru (zayıf) bir ayet
+    güncellemesini de engelledi (ayet takibi 316 → 315).
+- Sonuç (telefon parçaları, eski → yeni): 307 sn 10:38 → **21:24**, 312 sn 10:38 → 21:24, 325 sn 21:27 → **21:24**, 330 sn 21:28 →
+  21:25. Denetim (en eski kayıttan, 232 kayıt-zincir, eski → yeni): 6'sı değişti, hepsi iyileşme — bileşik teravih Asr 30 → 20 sn
+  (rnnt + hibrit; "الإنسان لفيه السوء" Fatiha sonunda devam), hatimli teravih Rahman 15 → 10 sn, sentetik hatim Saood Tâhâ 6.5 → 1.5
+  sn, sentetik teravih Saood Nasr 17.7 → 7.7 / 8.8 → 3.8 sn; sentetik ayet takibi rnnt 304 → 305, hibrit 316 → 317 (ayet ayet:
+  önceden takip edilenlerin hiçbirinin gecikmesi artmadı; hibrit medyan 4.84 → 4.85 sadece yeni takip edilen ayetten).
+  Yatsı #3 son kodun gerçek hibrit döngüsünde (yerel eval_pipeline): Fatiha 4 / Enbiyâ 3 / Fatiha 5 / Enbiyâ (2. rekât) 4 sn, yanlış
+  kilitli parça 0 (eski kodda 2. rekâtta 2 parça 10:38).
+- **Baştaki tekbir zikir sayılmaz** (`_drop_leading_tekbir` / Kotlin `dropLeadingTekbir`): kayıt kametin sonunda başlıyor, "الله اغبر لا
+  اله الا الله" (tekbir + tevhid tek parçada) zikir sayılmıyordu → belirsiz aday; üstelik Kotlin aligner'ı (aday budaması) 28:88, Python
+  37:35 buluyordu → Kotlin = Python izi 2 kayıtta bozuldu. Zikir kontrolü önce eskisi gibi, tutmazsa baştaki tekbir ("الله اكبر" /
+  "اكبر") atılıp yeniden (Kuran'da tekbirden hemen sonra tevhid yok) → tekbir + tevhid kuralıyla kamet. Tüm kayıtlarda sadece bu parça
+  ve dış kaynak ezan_003 kapanışı ("الله أكبر لا إله إلا الله", eskiden düşük skor) değişti.
+- Kalan (bilerek): 21:24 içindeki bozuk "بدأ يدع لنا" 21:25'i bir parça erken gösteriyor (sonraki parça geri düzeltiyor).
+
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)
@@ -1405,6 +1435,10 @@ OPENING_TIE_MARGIN=2   ← doğal geçişte eşleşme bir sure açılışı ve b
   < 2: 113:1 / 114:1) geçiş adayı; her yakın ikinci yere genellemek doğru geçişleri bekletti (bkz. 14)
 CONTINUE_AHEAD/MARGIN = 6/2   ← hatim / 2. rekâtta sonraki sure: Fatiha sonunda son zamm konumu..+6 ayet (sonraki sureye taşar)
   penceresi tüm Kuran'dan ≤2 kötüyse devam (bkz. 14)
+CONTINUE_PRIOR_MARGIN=6   ← devam penceresi ≥ ilk kilit eşiği ve tüm Kuran'dan ≤6 kötü ise (en iyi yer sure açılışı değilse)
+  devam; devam her zaman doğal geçiş (bkz. 22)
+Geri düzeltme   ← ZAMM'da pencere < ilk kilit eşiği ve aynı surede son ayetin 1-2 (RESUME_BACK) gerisi tüm Kuran'da ≥ JUMP_MARGIN
+  iyi → oraya (bkz. 22)
 CANDIDATE_WINDOW_MARGIN=2   ← geçiş adayı ±4 ayetinde tüm Kuran kadar iyi eşleşme adayı doğrular (bkz. 14)
 DHIKR_PHRASES / DHIKR_EXTRA_MAX=1   ← kilit yokken sadece "محمد رسول الله" / "لا اله الا الله" / "ان شاء الله" / "اله الا الله" /
   "الله اكبر" (+1 kelime; tamamen tekbir hariç) → boş; şehadet BEKLEME'de kamet, bekleme sürerken zikir beklemeyi uzatır (bkz. 14, 15)
@@ -1571,7 +1605,7 @@ python scripts/build_state_machine_fixture.py
 Top bar'daki 6 ikon:
 - **Σ** Fuzzy Test — 51 case, ~10-35ms (bit-perfect)
 - **#** Aligner Test — 43 case, 2-5 dakika (yavaş!)
-- **▶** State Machine Test — 430 chunk × 24 senaryo, ~2-3 dakika (430/430 bit-perfect)
+- **▶** State Machine Test — 504 chunk × 25 senaryo, ~2-3 dakika (504/504 bit-perfect)
 - **🔬** ASR Test — 5sn mikrofon kaydı → transkripsiyon (sonuç durum satırında)
 - **📤** Log Export — logcat share intent
 - **⚙️** Settings — tema + tuner

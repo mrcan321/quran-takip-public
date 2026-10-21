@@ -205,6 +205,11 @@ class StateMachine(
         // okunur (cuma #3: Felak → Nas, "قل أعوذ برب" 113:1 / 114:1 esitligi 114:1 lehine, Nas 12.3 → 3.2 sn).
         const val CONTINUE_AHEAD = 6
         const val CONTINUE_MARGIN = 2.0
+        // Devam onceligi: devam penceresi >= ilk kilit esigi ve tum Kuran'daki en iyi yerden en fazla CONTINUE_PRIOR_MARGIN kotu
+        // ise, en iyi yer bir sure acilisi degilse devam secilir. Yatsi 21.10: 1. rekat Enbiya 21:23'te bitti, 2. rekat
+        // "أَمِ اتَّخَذُوا مِن دُونِهِ" (21:24) ASR'de "أم اتطعتم من دونه" → Yunus 10:38'e ("استطعتم من دون الله") 77.3 dogal gecis,
+        // devam penceresi 21:24 72.2 (sozluk cezasi) → 2 parca ekranda yanlis sure.
+        const val CONTINUE_PRIOR_MARGIN = 6.0
         // Gecis adayi varken (onceki parca) yeni parca adayin +-PENDING_VERIFY_AYAH_WINDOW ayetinde tum Kuran
         // eslesmesinden en fazla bu kadar kotu (ve >= ilk kilit esigi) eslesiyorsa aday dogrulanir. Ortak ifade tum
         // Kuran'da baska yere oturuyordu: Fatiha → bozuk Asr "الإنسان لفيه السوء" (103:2 adayi) → "الذين آمنوا وعملوا"
@@ -453,13 +458,28 @@ class StateMachine(
         }
 
         /** Sadece zikir ifadesi mi (bkz. DHIKR_PHRASES) → (zikir mi, kelime-i sehadet mi). */
+        /**
+         * Bastaki tekbir (kamet / ezan kapanisi "الله أكبر الله أكبر لا إله إلا الله" — Kuran'da tekbirden hemen sonra tevhid yok):
+         * yatsi 21.10'da kayit kamet sonunda basladi, "الله اغبر لا اله الا الله" zikir sayilmadi → belirsiz aday (bu aligner aday
+         * budamasiyla 28:88, Python 37:35). Kalan kelimeler zikir ifadesiyse zikir (dhikrOnly).
+         */
+        private fun dropLeadingTekbir(tokens: List<String>): List<String> {
+            var toks = tokens
+            while (toks.size > 1 && (toks[0] in TEKBIR_WORDS || (toks[0] == "الله" && toks[1] in TEKBIR_WORDS))) {
+                toks = if (toks[0] in TEKBIR_WORDS) toks.drop(1) else toks.drop(2)
+            }
+            return toks
+        }
+
         fun dhikrOnly(text: String): Pair<Boolean, Boolean> {
             val toks = text.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() }
             if (isTekbirOnly(toks)) return Pair(false, false)
-            for (ph in DHIKR_PHRASES) {
-                val n = ph.size
-                if (toks.size - n <= DHIKR_EXTRA_MAX && (0..toks.size - n).any { toks.subList(it, it + n) == ph }) {
-                    return Pair(true, ph[1] == "رسول")
+            for (cand in listOf(toks, dropLeadingTekbir(toks))) {
+                for (ph in DHIKR_PHRASES) {
+                    val n = ph.size
+                    if (cand.size - n <= DHIKR_EXTRA_MAX && (0..cand.size - n).any { cand.subList(it, it + n) == ph }) {
+                        return Pair(true, ph[1] == "رسول")
+                    }
                 }
             }
             return Pair(false, false)
@@ -1024,7 +1044,9 @@ class StateMachine(
                     } else if (cw != null) {
                         val cm = aligner.align(cleanText, preferredRange = cw)
                         val cs = scoreTranscription(tokens, cm)
-                        if (cm != null && cs >= NATURAL_MIN_SCORE && cs >= gsc - CONTINUE_MARGIN) {
+                        val prior = cm != null && !opening && cs >= minConfidenceFirstLock &&
+                            cs >= gsc - CONTINUE_PRIOR_MARGIN && !isOpeningMatch(gm)
+                        if (cm != null && ((cs >= NATURAL_MIN_SCORE && cs >= gsc - CONTINUE_MARGIN) || prior)) {
                             gm = cm
                             gsc = cs
                             gvv = collectVerses(cm.startWordIdx, cm.endWordIdx)
@@ -1077,7 +1099,8 @@ class StateMachine(
                 val (gfs, gfa) = gvv.first()
                 val (gls, gla) = gvv.last()
                 val inCandidate = jc != null && (verifyPending(jc, gfs, gfa) || verifyPending(jc, gls, gla))
-                var natural = opening || (isNaturalTransition(state, gfs, gfa) && gsc >= NATURAL_MIN_SCORE)
+                // Devam (kalinan yer) dogal gecis: devam onceliginde skor NATURAL_MIN_SCORE altinda olabilir (CONTINUE_PRIOR_MARGIN)
+                var natural = opening || cont || (isNaturalTransition(state, gfs, gfa) && gsc >= NATURAL_MIN_SCORE)
                 val tieWith = if (natural && !cont && isOpeningMatch(gm)) openingTie(cleanText, gm) else null
                 val tie = tieWith != null
                 if (tie) {
@@ -1103,6 +1126,15 @@ class StateMachine(
                         if (uc.unique) notes += "gecis tek parcada (${uc.note})"
                         uc.unique
                     } -> "verified"
+                    // Geri duzeltme: pencere eslesmesi zayif, ayni surede kalinan yerin 1-2 ayet gerisi tum Kuran'da en az
+                    // JUMP_MARGIN iyi → onceki zayif eslesme konumu ileri tasimis (okuma geri gitmez). Yatsi 21.10, 2. rekat: 21:24
+                    // okunurken bozuk "بدأ يدع لنا" 21:25'e 65 ile eslesti; pencere (21:25-27) 21:24'u kapsamadigindan sonraki
+                    // parcalar 21:27 / 21:28'e 50-57 ile kaydi (tum Kuran'da 21:24 84.5), sonra 21:25'e geri dondu.
+                    state.state == NamazState.ZAMM && score < minConfidenceFirstLock && gfs == state.lastSurah &&
+                        state.lastAyah.let { la -> la != null && gla >= la - RESUME_BACK && gla < la } -> {
+                        notes += "geri duzeltme: $gls:$gla ${"%.1f".format(gsc)} (pencere ${"%.1f".format(score)})"
+                        "verified"
+                    }
                     else -> {
                         state.jumpCandidate = PendingMatch(
                             surah = gls, ayah = gla, wordIndex = gm.endWordIdx, chunkIndex = chunkIndex,

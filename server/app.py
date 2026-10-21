@@ -131,6 +131,9 @@ MUQATTAAT = {"الم", "المص", "الر", "المر", "كهيعص", "طه", "
 # ise secilir (normal namazda 2. rekatta mushaf sirasiyla sonraki sure de buna uyar)
 CONTINUE_AHEAD = 6
 CONTINUE_MARGIN = 2.0
+# Devam onceligi: devam penceresi >= ilk kilit esigi ve tum Kuran'dan en fazla bu kadar kotu ise (en iyi yer sure acilisi
+# degilse) devam (yatsi 21.10: 21:24 "أم اتطعتم من دونه" → Yunus 10:38 77.3, devam penceresi 72.2)
+CONTINUE_PRIOR_MARGIN = 6.0
 # Gecis adayi varken yeni parca adayin +-PENDING_VERIFY_AYAH_WINDOW ayetinde tum Kuran eslesmesinden en fazla bu kadar
 # kotu (ve >= ilk kilit esigi) eslesiyorsa aday dogrulanir
 CANDIDATE_WINDOW_MARGIN = 2.0
@@ -797,15 +800,25 @@ def is_tevhid(text: str) -> bool:
     return any(tuple(toks[i:i + 3]) == ("اله", "الا", "الله") for i in range(len(toks) - 2))
 
 
+def _drop_leading_tekbir(toks):
+    """Bastaki tekbir (kamet / ezan kapanisi "الله أكبر الله أكبر لا إله إلا الله" — Kuran'da tekbirden hemen sonra tevhid yok):
+    yatsi 21.10'da kayit kamet sonunda basladi, "الله اغبر لا اله الا الله" zikir sayilmadi → 37:35 / 28:88 belirsiz aday (Kotlin
+    aligner'inin aday budamasi farkli yer buluyordu). Kalan kelimeler zikir ifadesiyse zikir (dhikr_only)."""
+    while len(toks) > 1 and (toks[0] in TEKBIR_WORDS or (toks[0] == "الله" and toks[1] in TEKBIR_WORDS)):
+        toks = toks[1:] if toks[0] in TEKBIR_WORDS else toks[2:]
+    return toks
+
+
 def dhikr_only(text: str) -> Tuple[bool, bool]:
     """→ (sadece zikir ifadesi mi, kelime-i sehadet mi)"""
     toks = [t for t in (bare_token(w) for w in text.split()) if t]
     if is_tekbir_only(toks):
         return False, False
-    for ph in DHIKR_PHRASES:
-        n = len(ph)
-        if len(toks) - n <= DHIKR_EXTRA_MAX and any(tuple(toks[i:i + n]) == ph for i in range(len(toks) - n + 1)):
-            return True, ph[1] == "رسول"
+    for cand in (toks, _drop_leading_tekbir(toks)):
+        for ph in DHIKR_PHRASES:
+            n = len(ph)
+            if len(cand) - n <= DHIKR_EXTRA_MAX and any(tuple(cand[i:i + n]) == ph for i in range(len(cand) - n + 1)):
+                return True, ph[1] == "رسول"
     return False, False
 
 
@@ -1362,7 +1375,9 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             elif cw:
                 cm = align_transcription(text, CORPUS, preferred_range=cw, preferred_bonus=PREFERRED_BONUS)
                 cs, c_details = score_transcription(text, cm)
-                if cm and cs >= NATURAL_MIN_SCORE and cs >= gs - CONTINUE_MARGIN:
+                prior = (cm and not opening and cs >= MIN_CONFIDENCE_FIRST_LOCK and cs >= gs - CONTINUE_PRIOR_MARGIN
+                         and not is_opening_match(g))
+                if cm and ((cs >= NATURAL_MIN_SCORE and cs >= gs - CONTINUE_MARGIN) or prior):
                     g, gs, g_details, cont, opening = cm, cs, c_details, True, False
                     gv = collect_verses(g.start_word_idx, g.end_word_idx)
                     (gfs, gfa), (gls, gla) = gv[0], gv[-1]
@@ -1393,7 +1408,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                         (gfs, gfa), (gls, gla) = gv[0], gv[-1]
                         result["ayah_start_tie"] = True
             in_candidate = jc is not None and (_verify_pending(jc, gfs, gfa) or _verify_pending(jc, gls, gla))
-            natural = opening or (is_natural_transition(state, gfs, gfa) and gs >= NATURAL_MIN_SCORE)
+            natural = opening or cont or (is_natural_transition(state, gfs, gfa) and gs >= NATURAL_MIN_SCORE)
             tie = natural and not cont and is_opening_match(g) and opening_tie(text, g)
             if tie:
                 natural = opening = False
@@ -1410,6 +1425,11 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 jump = "verified"
             elif not tie and is_unique_match(text, g, gs, word_count):
                 jump = "verified"   # fark payi: baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
+            elif (state.state == NamazState.ZAMM and score < MIN_CONFIDENCE_FIRST_LOCK and gfs == state.last_surah
+                  and state.last_ayah is not None and state.last_ayah - RESUME_BACK <= gla < state.last_ayah):
+                # Geri duzeltme: zayif pencere, ayni surede kalinan yerin 1-2 ayet gerisi cok daha iyi (yatsi 21.10: 21:24)
+                jump = "verified"
+                result["back_fix"] = True
             else:
                 jump = "candidate"
                 state.jump_candidate = PendingMatch(surah=gls, ayah=gla, word_index=g.end_word_idx,
