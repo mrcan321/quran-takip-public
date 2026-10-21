@@ -1257,12 +1257,13 @@ class StateMachine(
             val pm = state.pendingMatch
             if (pm == null) {
                 // Ilk match — pending olarak kaydet
+                val amb = ambiguity(cleanText, tokens, match, score)
                 state.pendingMatch = PendingMatch(
                     surah = lastSurah, ayah = lastAyah,
                     wordIndex = match.endWordIdx, chunkIndex = chunkIndex,
+                    altSurah = amb?.altSurah, altAyah = amb?.altAyah,
                 )
-                val amb = ambiguousNote(cleanText, tokens, match, score)
-                amb?.let { notes += it }
+                amb?.let { notes += it.note }
                 return ChunkResult(
                     chunkIndex = chunkIndex,
                     stateBefore = stateBefore,
@@ -1284,17 +1285,27 @@ class StateMachine(
                 )
             } else {
                 // Onceki pending var — dogrulanabiliyor mu?
-                val verified = verifyPending(pm, firstSurah, firstAyah) ||
+                var verified = verifyPending(pm, firstSurah, firstAyah) ||
                         verifyPending(pm, lastSurah, lastAyah)
+                // Belirsiz adayi geriye giden parca dogrulamaz (okuma ileri gider): asr 21.10, "هو الرحمن الرحيم" 2:163 sonu /
+                // 59:22 sonu esit (belirsiz aday 2:163) → sonraki "لا اله الا هو" (59:23 basi) 2:163'te adayin GERISINE oturup
+                // dogruladi, 2:163'e kilit. Ayetu'l-Kursi'de ("الله لا ال" 2:255 / 3:2 → "لا اله الا هو") dogrulayan parca
+                // ileride biter. (Ayirt etmeyen parca dogrulamasin denendi: Kursi ilk kilidi 10 → 20 sn.)
+                if (verified && pm.altSurah != null && match.endWordIdx <= pm.wordIndex) {
+                    verified = false
+                    notes += "belirsiz aday ${pm.surah}:${pm.ayah} (ikinci yer ${pm.altSurah}:${pm.altAyah}) geriye giden " +
+                        "parcayla dogrulanmaz"
+                }
                 if (!verified) {
                     // Reddedildi, yeni aday
                     val oldPending = pm
+                    val amb = ambiguity(cleanText, tokens, match, score)
                     state.pendingMatch = PendingMatch(
                         surah = lastSurah, ayah = lastAyah,
                         wordIndex = match.endWordIdx, chunkIndex = chunkIndex,
+                        altSurah = amb?.altSurah, altAyah = amb?.altAyah,
                     )
-                    val amb = ambiguousNote(cleanText, tokens, match, score)
-                    amb?.let { notes += it }
+                    amb?.let { notes += it.note }
                     return ChunkResult(
                         chunkIndex = chunkIndex,
                         stateBefore = stateBefore,
@@ -1434,13 +1445,20 @@ class StateMachine(
      * Belirsiz aday: ikinci yer (araliga degmeyen) AMBIGUOUS_MARGIN'den yakinsa gerekceli log notu, degilse null
      * (Python: runner_up_match + score_transcription, birebir). Aligner onbellegi ayni aramayi tekrar yapmaz.
      */
-    private fun ambiguousNote(cleanText: String, tokens: List<String>, match: AlignmentMatch, score: Double): String? {
+    /** Belirsiz aday: gerekceli log notu + ikinci yerin son ayeti. */
+    private class Ambiguity(val note: String, val altSurah: Int?, val altAyah: Int?)
+
+    private fun ambiguity(cleanText: String, tokens: List<String>, match: AlignmentMatch, score: Double): Ambiguity? {
         val ru = runnerUpMatch(cleanText, match) ?: return null
         val ruScore = scoreTranscription(tokens, ru)
         if (score - ruScore >= AMBIGUOUS_MARGIN) return null
-        val ref = collectVerses(ru.startWordIdx, ru.endWordIdx).lastOrNull()?.let { (s0, a0) -> "$s0:$a0" } ?: "?"
-        return "belirsiz aday (ikinci yer $ref ${"%.1f".format(ruScore)}, fark ${"%.1f".format(score - ruScore)} < " +
-            "$AMBIGUOUS_MARGIN): ekranda gosterilmez"
+        val last = collectVerses(ru.startWordIdx, ru.endWordIdx).lastOrNull()
+        val ref = last?.let { (s0, a0) -> "$s0:$a0" } ?: "?"
+        return Ambiguity(
+            "belirsiz aday (ikinci yer $ref ${"%.1f".format(ruScore)}, fark ${"%.1f".format(score - ruScore)} < " +
+                "$AMBIGUOUS_MARGIN): ekranda gosterilmez",
+            last?.first, last?.second,
+        )
     }
 
     /** Tek parcada kilit karari + gerekceli log notu (ikinci yer, fark, ayirt edici kelime). */

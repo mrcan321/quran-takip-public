@@ -29,7 +29,7 @@ anahtarı (`debug.keystore`) bilerek repoda (Play Store yok; gerekirse değişti
 - `aligner.py`: **ana** — QuranCorpus, trigram index, align_transcription (fuzzy match). Kotlin port'u için referans. `ZERO_WIDTH` normalize eklenmiş.
 - `build_quran_assets.py`: `quran.bin` (3.5 MB) + `meal.bin` (~1 MB, Ali Bulaç meali) üretir. Android asset olarak kullanılır.
 - `build_aligner_fixture.py`: 43 test case üretir, `aligner_test_fixture.json`
-- `build_state_machine_fixture.py`: 23 senaryo × 400 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
+- `build_state_machine_fixture.py`: 24 senaryo × 430 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
   fixture telefon varsayılanlarıyla: ilk kilit 70, pencere ±2)
 - `onnx_full_export.py`: NeMo `nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0` → ONNX (opset 18, preprocessor+encoder+CTC birleşik)
 - `sp_manual_decoder.py`: SentencePiece manuel decoder (Android'de Java SentencePiece yok, protobuf ile decode)
@@ -86,7 +86,7 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
 │   ├── EzanTracker.kt         — ezan/kamet penceresi icin cumle takibi (UI; state machine'i etkilemez)
 │   ├── ZikirTracker.kt        — namaz zikirleri karti: tekbir, semiallah, rabbena, selam, namaz sonu duasi (UI, JVM'de test)
 │   ├── RakatTracker.kt        — rekat sayaci + kaba durus (UI; state machine'i etkilemez, JVM'de test)
-│   └── StateMachineTestRunner.kt — 400 chunk × 23 senaryo test (5-8. = gerçek namaz akışları; 400/400)
+│   └── StateMachineTestRunner.kt — 430 chunk × 24 senaryo test (5-8. = gerçek namaz akışları; 430/430)
 ├── data/
 │   ├── MushafData.kt          — tum Kuran listesi: ayet/sure tablolari, liste satirlari, besmele gizleme
 │   ├── AppSettings.kt         — kullanıcı ayarları (SettingsRepository.kt içinde)
@@ -1337,24 +1337,31 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   - **Zamm sonundan Fatiha'ya doğal geçiş ≥ 4 kelime** (`FATIHA_FAST_LOCK_MIN_WORDS`, Fatiha yoklamasındaki gibi; kilidi kaybolmuş
     zamm / ARA hariç): sabit parçada Âdiyât sonu "إن ربهم بهم" ASR'de "إن رب العالمين" → Fatiha 1:2'ye doğal geçiş, rekât sayacı "3.
     rekât" saydı (yeni rekât rükû / secdeden sonra gelir). Ölçüdeki "önceki bölüm" toleransı yüzünden yanlış kilit sayılmıyordu.
-  - Denendi, alınmadı: "belirsiz aday belirsiz parçayla doğrulanmaz" (aşr sabit parçada 2:163 kilidini önlüyordu) — Âyetü'l-Kürsî
-    (2:255 / 3:2 aynı metin) ilk kilidi 10 → 20 / 23.5 sn. Birikmiş metin eşiğini gevşetmek (59:22 birleşik metinle 88.6) — riskli.
-- Sonuç (denetim: eski kod = git HEAD, yeni kod; tüm kayıtlar en eskiden — 2026-04 server oturumları → 21.10 — + dış + sentetik +
-  bileşik, 232 kayıt-zincir): 220'si karar izi birebir aynı, 12'si değişti, hepsi iyileşme:
-  - sabah hibrit 2. Fatiha 15.3 → **5.3 sn**; aşr hibrit yanlış kilitli parça 3 → **0**, ilk kilit 6:73 (yanlış) → 59:23 (65.5 sn),
-    59:24 105 sn, "صدق الله العظيم" 112 sn'de temizlenir, Sâffât 37:180 kilitsiz → **6 sn**; aşr sabit parça yanlış 5 → 2 (kalan:
-    "لا اله الا هو" belirsiz 2:163 adayını doğruluyor — telefon hibrit kullanıyor).
+  - **Belirsiz aday geriye giden parçayla doğrulanmaz** (`PendingMatch.alt_surah/alt_ayah` = ikinci yerin son ayeti): doğrulayan
+    parçanın eşleşmesi adayın bittiği kelimeden ileride bitmeli. Aşr: "هو الرحمن الرحيم" 2:163 sonu / 59:22 sonu eşit → belirsiz 2:163
+    adayı; 59:23 başı "لا اله الا هو" 2:163'te adayın gerisine oturup doğruluyordu → 60-70 sn 2:163'e yanlış kilit. Bu, ilk sürümün CI
+    eval'inde (gerçek hibrit döngü) çıktı: yeni kod 6:73 kilidini engelleyince aşr başında kilit yok → hibrit parçalar sabit 5 sn
+    kesiliyor (duraklama kesimi sadece kilitliyken) → sabit parçadaki 2:163 durumu telefonda da olacaktı. Yerel tekrar oynatma eski
+    kodun parça sınırlarıyla yapıldığı için görmemişti → yeni kayıtların hibrit transkripti son kodla yeniden üretildi.
+  - Denendi, alınmadı: "belirsiz aday belirsiz parçayla doğrulanmaz" ve "aday ile ikinci yeri ayırt etmeyen parça doğrulamaz" —
+    ikisi de Âyetü'l-Kürsî (2:255 / 3:2 aynı metin, "الله لا ال" → "لا اله الا هو") ilk kilidini 10 → 20 / 23.5 sn geciktirdi. Birikmiş metin eşiğini gevşetmek (59:22 birleşik metinle 88.6) — riskli.
+- Sonuç (denetim: eski kod → son kod; tüm kayıtlar en eskiden — 2026-04 server oturumları → 21.10 — + dış + sentetik + bileşik,
+  232 kayıt-zincir): 219'u karar izi birebir aynı, 13'ü değişti, hepsi iyileşme:
+  - sabah hibrit 2. Fatiha 12.5 → **5.3 sn** (telefonda 15 sn); sabit parçada Âdiyât sonu 1:2 kilidi yok (rekât sayacı 2 rekât).
+  - aşr (iki zincir): yanlış kilitli parça 5 → **0**, ilk kilit 6:73 (yanlış) → 59:23 (70 sn), 59:24 kalınan yerden devam, "صدق الله
+    العظيم" kilidi bitirir, Sâffât 37:180 kilitsiz → 6-9 sn. Son kodun gerçek hibrit döngüsünde (yerel eval_pipeline) de yanlış kilit 0.
   - sentetik hatim Fatiha 17.4 → 7.4 / 16.5 → 6.5 / 21.7 → 4.5 sn ("والحمد لله رب العالمين" 6:45 adayı yerine Fatiha), namaz2 /
     teravih8 "موسوعة النابلسي … مالك يوم الدين" → 1:4 kilit; Çollak Nas sonu 69:33 adayı yok; yatsı #2 sabit parçada "بسم الله الرحمن
     الرحيم موسوعة النابلسي…" boş → düşük skor (etkisiz).
-  - zorlama (aynı veri + tohum, eski → yeni; yeni kayıtlar listeye girince S4 / S5'in rastgele parçaları değiştiği için baseline'la
-    değil A/B ile ölçüldü): S1-S3 aynı ya da ortalama gecikme biraz düşük; S4 gürültü yanlış kilitli parça rnnt 36 → **27**, hibrit
-    35 → **28** (kilitli bölüm 336 → 340, ekranda yanlış aday 9 → 8); S5 sahte tekbir rnnt 36 → **23**, hibrit 12 → **3** (kilitli
-    344 → 349). Kayıt kayıt hiçbiri kötüleşmedi; S5 rnnt'teki farkın tamamı yeni aşr kaydında.
+  - zorlama (aynı veri + tohum, eski kod → son kod; yeni kayıtlar listeye girince S4 / S5'in rastgele parçaları değiştiği için
+    baseline'la değil A/B ile ölçüldü): S1-S3 aynı ya da ortalama gecikme biraz düşük; S4 gürültü yanlış kilitli parça rnnt 36 →
+    **14**, hibrit 43 → **18** (kilitli bölüm 337 → 338, ekranda yanlış aday 9 → 8); S5 sahte tekbir rnnt 36 → **12**, hibrit 28 →
+    **8** (rnnt kilitli 346 → 347). Kayıt kayıt hiçbiri kötüleşmedi (farkın çoğu yeni aşr kaydında). Baseline'da hibrit S4 / S5
+    kilitli bölüm 340 → 338 / 349 → 347 görünmesi aşrın son kodla üretilen hibrit transkriptinden (veri değişti, kod değil).
   - Sentetik ayet takibi rnnt %88.4 → **%90.2**, hibrit %91.7 → **%93.8** (ayet gecikmesi medyanı 5.17 → 5.14 / 5.03 → 4.84 sn).
   - UI: tilavet sonu `ChunkResult.tilavetEnd` → okunan ayetin vurgusu silinir (kamet gibi; ezan / rekât sayacı etkilenmez).
-  - Kotlin = Python, app.py = referans, fixture 400/400 (senaryo 21: sabah İsrâ kilidi kayıp + uydurmalı Fatiha, senaryo 22: aşr,
-    senaryo 23: Âdiyât sonu kısa "Fatiha" ifadesi).
+  - Kotlin = Python, app.py = referans, fixture 430/430 (senaryo 21: sabah İsrâ kilidi kayıp + uydurmalı Fatiha, senaryo 22: aşr
+    (eski kodun parça sınırları), 23: Âdiyât sonu kısa "Fatiha" ifadesi, 24: aşr son kodun hibrit parçaları — geriye doğrulama).
   - Ses kesilince metin (JVM `hide`): tilavet sonu da metni kaldırır (UI gibi); aşr'da 59:24 okunurken ASR 20 sn boş → 20 sn kuralı
     metni kaldırdı (`hide_false` 0 → 1, eski kodla da aynı — ASR kaybı); kayıt son ayetten 5 sn sonra bitiyorsa silme ölçülmez
     (ortam sesi sürerken en geç 20 sn).
@@ -1401,7 +1408,8 @@ CONTINUE_AHEAD/MARGIN = 6/2   ← hatim / 2. rekâtta sonraki sure: Fatiha sonun
 CANDIDATE_WINDOW_MARGIN=2   ← geçiş adayı ±4 ayetinde tüm Kuran kadar iyi eşleşme adayı doğrular (bkz. 14)
 DHIKR_PHRASES / DHIKR_EXTRA_MAX=1   ← kilit yokken sadece "محمد رسول الله" / "لا اله الا الله" / "ان شاء الله" / "اله الا الله" /
   "الله اكبر" (+1 kelime; tamamen tekbir hariç) → boş; şehadet BEKLEME'de kamet, bekleme sürerken zikir beklemeyi uzatır (bkz. 14, 15)
-AMBIGUOUS_MARGIN=3   ← BEKLEME / kilit kaybı adayında ikinci yer bu kadar yakınsa `ambiguous` (UI ekranı kaydırmaz; bkz. 15)
+AMBIGUOUS_MARGIN=3   ← BEKLEME / kilit kaybı adayında ikinci yer bu kadar yakınsa `ambiguous` (UI ekranı kaydırmaz; bkz. 15);
+  belirsiz adayı geriye giden parça doğrulamaz (eşleşme sonu ≤ adayın sonu, bkz. 21)
 TEKBIR_TEVHID_CHUNKS=2   ← kilit yokken (BEKLEME / ARA, kayıp kilit — bkz. 20 — bekleme dışı) tamamen tekbir parçasından ≤2
   parça sonra tevhid → kamet (bkz. 17)
 PAUSE_LOST_CHUNKS=2   ← ZAMM'da ≥2 ardışık kayıp parçadan sonra <3 kelime ve <ilk kilit eşiği eşleşme devam sayılmaz (bkz. 20)
@@ -1561,7 +1569,7 @@ python scripts/build_state_machine_fixture.py
 Top bar'daki 6 ikon:
 - **Σ** Fuzzy Test — 51 case, ~10-35ms (bit-perfect)
 - **#** Aligner Test — 43 case, 2-5 dakika (yavaş!)
-- **▶** State Machine Test — 400 chunk × 23 senaryo, ~2-3 dakika (400/400 bit-perfect)
+- **▶** State Machine Test — 430 chunk × 24 senaryo, ~2-3 dakika (430/430 bit-perfect)
 - **🔬** ASR Test — 5sn mikrofon kaydı → transkripsiyon (sonuç durum satırında)
 - **📤** Log Export — logcat share intent
 - **⚙️** Settings — tema + tuner

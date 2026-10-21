@@ -210,6 +210,9 @@ class PendingMatch:
     ayah: int
     word_index: int
     chunk_index: int
+    # Belirsiz aday: ikinci yerin son ayeti — dogrulayan parca aday ile ikinci yeri ayirt etmeli (bkz. AMBIGUOUS_MARGIN)
+    alt_surah: Optional[int] = None
+    alt_ayah: Optional[int] = None
 
 
 @dataclass
@@ -1234,14 +1237,23 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     unique = (state.state == NamazState.BEKLEME and not fatiha_fast and not hold
               and is_unique_match(transcribed_text, match, score, word_count, corpus, vocab, ayah_to_range))
     if ((state.state == NamazState.BEKLEME and not fatiha_fast) or (relock and not relock_fast)) and not unique:
-        if state.pending_match is None or not (verify_pending(state.pending_match, first_surah, first_ayah)
-                                               or verify_pending(state.pending_match, last_surah, last_ayah)):
+        pm = state.pending_match
+        verified = pm is not None and (verify_pending(pm, first_surah, first_ayah) or verify_pending(pm, last_surah, last_ayah))
+        # Belirsiz adayi geriye giden parca dogrulamaz (okuma ileri gider): asr 21.10, "هو الرحمن الرحيم" 2:163 sonu / 59:22
+        # sonu esit (belirsiz aday 2:163) → sonraki "لا اله الا هو" (59:23 basi) 2:163'te adayin GERISINE oturup dogruladi,
+        # 2:163'e kilit. Ayetu'l-Kursi'de ("الله لا ال" 2:255 / 3:2 → "لا اله الا هو") dogrulayan parca ileride biter.
+        # (Ayirt etmeyen parca dogrulamasin denendi: Kursi ilk kilidi 10 → 20 sn.)
+        if verified and pm.alt_surah is not None and match.end_word_idx <= pm.word_index:
+            verified = False
+        if not verified:
             state.pending_match = PendingMatch(surah=last_surah, ayah=last_ayah, word_index=match.end_word_idx, chunk_index=chunk_index)
             res = {"chunk_index": chunk_index, "state_before": state_before, "state": state.state.value, "status": "pending", "pending_surah": last_surah, "pending_ayah": last_ayah, "score": score}
             # Belirsiz aday: ikinci yer (araliga degmeyen) neredeyse ayni iyi → ekranda gosterilmez (bkz. AMBIGUOUS_MARGIN)
             ru = runner_up_match(transcribed_text, match, corpus)
             if ru and score - score_transcription(transcribed_text, ru, vocab) < AMBIGUOUS_MARGIN:
                 res["ambiguous"] = True
+                ra = collect_verses(corpus, ru.start_word_idx, ru.end_word_idx)[-1]
+                state.pending_match.alt_surah, state.pending_match.alt_ayah = ra
             return res
 
     return commit_match(state, match, score, word_count, chunk_index, state_before, jump, corpus)
@@ -1759,6 +1771,44 @@ SCENARIOS = [
             (0.015, "إن رب العالمين"),                                  # 17: Adiyat sonu ASR'de bozuk: 3 kelimeyle Fatiha'ya dogal gecis yok (eskiden 1:2)
             (0.013, "إنهم يومئذ لخبير"),                                # 18: 100:11
             (0.014, "الله أكبر"),                                       # 19: tekbir
+        ],
+    },
+    # ============ Senaryo 24: asr 21.10 hibrit (yeni kodun parca sinirlari) — belirsiz aday geriye dogrulanmaz ============
+    {
+        "description": "Hasr 59:22 'هو الرحمن الرحيم' 2:163 sonu / 59:22 sonu esit (belirsiz aday 2:163); 59:23 basi 'لا اله الا هو' "
+                       "2:163'te adayin gerisine oturur → dogrulama sayilmaz (eskiden 2:163 kilidi), 59:23 kilit; 'صدق الله "
+                       "العظيم' → Saffat 37:180 belirsiz aday ileride biten parcayla dogrulanir",
+        "chunks": [
+            (0.014, ""),
+            (0.023, "أعوذ بالله السميع العليم"),
+            (0.019, "أعوذ من الشيطان الرجيم"),
+            (0.046, ""),
+            (0.019, "من الشيطان الرجيم بسم الله الرحمن الرحيم"),
+            (0.022, "بسم الله الرحمن الرحيم"),
+            (0.026, "الله"),
+            (0.033, "لا اله الا هو"),                                   # 7: belirsiz aday 2:163
+            (0.023, "عالم الغيب والشاهد"),
+            (0.021, "هو الرحمن الرحيم"),                                # 9: belirsiz aday 2:163 (59:22 ile esit, eslesme ayet sonunda)
+            (0.03, "والله الذي"),
+            (0.037, "لا اله الا هو"),                                   # 11: 2:163'te adayin gerisine oturuyor → dogrulamaz (eskiden 2:163 kilidi)
+            (0.021, "السلام الملك القدوس السلام"),                      # 12: aday 59:23
+            (0.02, "اللَّه المؤمن المؤيمن العزيز الجبار"),              # 13: kilit 59:23
+            (0.02, "جفار مجهد"),
+            (0.034, "سبحان الله"),
+            (0.019, "شركة الهدى للإنسان"),
+            (0.041, ""),
+            (0.025, ""),
+            (0.026, "شركة الهدى للخدمات التقنية"),
+            (0.029, ""),
+            (0.033, "السماوات والأرض"),                                 # 21: kalinan yerden devam 59:24
+            (0.024, "الا وهو العزيز"),
+            (0.016, ""),
+            (0.024, "صدق الله العظيم"),                                 # 24: tilavet sonu: kilit biter
+            (0.027, "الظلم العظيم سبحان ربك"),                          # 25: belirsiz aday 37:180
+            (0.019, "رب العزة عمَّا يَصِفُونَ"),                        # 26: ileride biter → dogrular, kilit 37:180
+            (0.022, "وسلام علي المرسلين"),
+            (0.03, "والحمد لله رب"),
+            (0.025, ""),
         ],
     },
 ]

@@ -23,6 +23,9 @@ data class PendingMatch(
     val ayah: Int,
     val wordIndex: Int,
     val chunkIndex: Int,
+    /** Belirsiz aday: ikinci yerin son ayeti — geriye giden parca dogrulamaz (StateMachine, asr 21.10) */
+    val altSurah: Int? = null,
+    val altAyah: Int? = null,
 )
 
 /**

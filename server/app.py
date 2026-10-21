@@ -186,6 +186,14 @@ def is_ambiguous_candidate(text, match, score):
     return bool(ru) and score - score_transcription(text, ru)[0] < AMBIGUOUS_MARGIN
 
 
+def mark_ambiguous(result, text, match, score, pending):
+    """Belirsiz aday → result["ambiguous"] + adaya ikinci yerin son ayeti (geriye dogrulama yasagi icin)."""
+    ru = _runner_up_match(text, match)
+    if ru and score - score_transcription(text, ru)[0] < AMBIGUOUS_MARGIN:
+        result["ambiguous"] = True
+        pending.alt_surah, pending.alt_ayah = collect_verses(ru.start_word_idx, ru.end_word_idx)[-1]
+
+
 def is_unique_match(text, match, score, word_count):
     """Tek parcada kilit: ikinci yerden UNIQUE_LOCK_MARGIN fark ya da EXCLUSIVE_LOCK_MARGIN fark + ayirt edici kelime."""
     if score < UNIQUE_LOCK_MIN_SCORE or word_count < UNIQUE_LOCK_MIN_WORDS:
@@ -225,6 +233,9 @@ class PendingMatch:
     ayah: int
     word_index: int
     chunk_index: int
+    # Belirsiz aday: ikinci yerin son ayeti (referans: build_state_machine_fixture.PendingMatch)
+    alt_surah: Optional[int] = None
+    alt_ayah: Optional[int] = None
 
 
 @dataclass
@@ -1505,14 +1516,18 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             result["pending_surah"] = last_surah
             result["pending_ayah"] = last_ayah
             result["state"] = state.state.value
-            if is_ambiguous_candidate(text, match, score):
-                result["ambiguous"] = True
+            mark_ambiguous(result, text, match, score, state.pending_match)
             timings["total"] = time.time() - t_start
             result["timings"] = timings
             return result
         else:
-            if _verify_pending(state.pending_match, first_surah, first_ayah) or \
-               _verify_pending(state.pending_match, last_surah, last_ayah):
+            pm = state.pending_match
+            verified = _verify_pending(pm, first_surah, first_ayah) or _verify_pending(pm, last_surah, last_ayah)
+            # Belirsiz adayi geriye giden parca dogrulamaz (asr 21.10: 2:163 / 59:22 → "لا اله الا هو" adayin gerisinde)
+            if verified and pm.alt_surah is not None and match.end_word_idx <= pm.word_index:
+                verified = False
+                result["ambiguous_backward"] = True
+            if verified:
                 pass  # dogrulandi, asagiya gec
             else:
                 old_pending = state.pending_match
@@ -1528,8 +1543,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 result["pending_surah"] = last_surah
                 result["pending_ayah"] = last_ayah
                 result["state"] = state.state.value
-                if is_ambiguous_candidate(text, match, score):
-                    result["ambiguous"] = True
+                mark_ambiguous(result, text, match, score, state.pending_match)
                 timings["total"] = time.time() - t_start
                 result["timings"] = timings
                 return result
