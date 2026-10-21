@@ -54,6 +54,7 @@ fun SettingsSheet(
     onGlassesTextPx: (Int) -> Unit = {},
     onGlassesBigHeader: (Boolean) -> Unit = {},
     onGlassesFixedSize: (Boolean) -> Unit = {},
+    onGlassesHideRakat: (Boolean) -> Unit = {},
     onGlassesOnePage: (Boolean) -> Unit = {},
     onGlassesOnePageMinPx: (Int) -> Unit = {},
     onGlassesHideBlankHeader: (Boolean) -> Unit = {},
@@ -282,13 +283,22 @@ fun SettingsSheet(
                             )
                         }
                     }
+                }
+                SettingGroup(
+                    label = "G2 ÜST BİLGİ (AYET OKUNURKEN)",
+                    hint = "Açıkken gözlükte üstte küçük bir satırda sure adı, ayet numarası, rekât ve sayfa (ör. Bakara: 255 · " +
+                        "1. REKÂT · KIYAM 1/3) gözlüğün kendi yazısıyla görünür; aday ayet orada \"ADAY\" yazar. Kapalıyken üst " +
+                        "bilgi hiç çıkmaz, ekranın tamamı meal (büyük yazıda da, gözlüğün kendi yazısında ve Arapçada da).",
+                ) {
+                    OnOffRow(current = settings.glassesBigHeader, onSelect = onGlassesBigHeader)
+                }
+                if (settings.glassesBigHeader) {
                     SettingGroup(
-                        label = "G2 ÜST BİLGİ (AYET OKUNURKEN)",
-                        hint = "Açıkken büyük yazının üstünde küçük bir satırda sure adı, ayet numarası, rekât ve sayfa (ör. Bakara: " +
-                            "255 · 1. REKÂT · KIYAM 1/3) gözlüğün kendi yazısıyla görünür; aday ayet orada \"ADAY\" yazar. " +
-                            "Kapalıyken üst bilgi hiç çıkmaz, ekranın tamamı meal.",
+                        label = "G2 REKÂT BİLGİSİNİ GİZLE",
+                        hint = "Açıkken üst bilgide rekât ve duruş (1. REKÂT · KIYAM) yazmaz, sadece sure adı ve ayet numarası " +
+                            "(ör. Bakara: 255); boş ekranın üst satırında da rekât yazmaz.",
                     ) {
-                        OnOffRow(current = settings.glassesBigHeader, onSelect = onGlassesBigHeader)
+                        OnOffRow(current = settings.glassesHideRakat, onSelect = onGlassesHideRakat)
                     }
                 }
                 SettingGroup(

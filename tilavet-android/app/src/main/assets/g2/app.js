@@ -385,7 +385,7 @@ function digest(bytes) {
 
 // ------------------------------------------------------------------ gozluk
 
-const TILE_BASE = { arabic: 3, big: 10, bigh: 10 };
+const TILE_BASE = { arabic: 3, arabicn: 3, big: 10, bigh: 10 };
 
 function pageDef(screen) {
   const Ld = L.LAYOUTS[screen.layout];
@@ -404,9 +404,10 @@ function pageDef(screen) {
     imageObject.forEach((im, i) => { im.zOrderIndex = textObject.length + i; });
     return { containerTotalNum: textObject.length + imageObject.length, textObject, imageObject };
   }
+  // basliksiz duzende (textn / arabicn; Ayarlar → G2 ÜST BİLGİ: KAPALI) sadece govde
   const textObject = [
-    { containerID: 1, containerName: 'hdr', ...box(Ld.header), paddingLength: L.PADDING, content: screen.header,
-      textColor: screen.headerColor, isEventCapture: 0 },
+    ...(Ld.header ? [{ containerID: 1, containerName: 'hdr', ...box(Ld.header), paddingLength: L.PADDING,
+      content: screen.header, textColor: screen.headerColor, isEventCapture: 0 }] : []),
     { containerID: 2, containerName: 'body', ...box(Ld.body), paddingLength: L.PADDING, content: screen.body,
       textColor: screen.bodyColor, isEventCapture: 1 },
   ];
@@ -417,7 +418,7 @@ function pageDef(screen) {
 
 /** Goruntu icerigi anahtari (degisince karolar yeniden cizilir); '' = goruntu yok. */
 function imageKey(screen) {
-  if (screen.layout === 'arabic') {
+  if (screen.layout === 'arabic' || screen.layout === 'arabicn') {
     return screen.arabicPage < 0 ? 'bos' : `${S.arabic.text.length}:${L.ayahKey(S.st)}:${screen.arabicPage}`;
   }
   if (BIG_LAYOUTS.has(screen.layout)) {
@@ -455,7 +456,7 @@ function screenDesc(screen) {
   if (BIG_LAYOUTS.has(screen.layout)) {
     return `buyuk ${screen.big.px}px` + (screen.bigFixed ? ' sabit' : '') + (S.st && S.st.onePage ? ' tek' : '');
   }
-  return screen.layout === 'arabic' ? 'arapca' : 'normal';
+  return screen.layout.startsWith('arabic') ? 'arapca' : 'normal';
 }
 
 function schedule() {
@@ -507,15 +508,15 @@ async function apply(screen) {
     S.shown = { layout: screen.layout, header: screen.header, headerColor: screen.headerColor, body: screen.body,
       bodyColor: screen.bodyColor, imageKey: null };
     S.tileSent = {};
-  } else if (screen.layout !== 'big') {
-    // baslik (metin ve baslikli buyuk yazi duzeni) — gozlugun kendi yazisi, aninda
-    if (prev.header !== screen.header || prev.headerColor !== screen.headerColor) {
+  } else {
+    // baslik (basligi olan duzenler) — gozlugun kendi yazisi, aninda
+    if (L.LAYOUTS[screen.layout].header && (prev.header !== screen.header || prev.headerColor !== screen.headerColor)) {
       await b.textContainerUpgrade({ containerID: 1, containerName: 'hdr', content: screen.header,
         textColor: screen.headerColor });
       prev.header = screen.header;
       prev.headerColor = screen.headerColor;
     }
-    if (screen.layout !== 'bigh' && (prev.body !== screen.body || prev.bodyColor !== screen.bodyColor)) {
+    if (!BIG_LAYOUTS.has(screen.layout) && (prev.body !== screen.body || prev.bodyColor !== screen.bodyColor)) {
       await b.textContainerUpgrade({ containerID: 2, containerName: 'body', content: screen.body,
         textColor: screen.bodyColor });
       prev.body = screen.body;
@@ -651,9 +652,9 @@ function drawPhonePreview(screen) {
   }
   const big = BIG_LAYOUTS.has(screen.layout);
   const show = (id, on) => { const el = $(id); if (el) el.style.display = on ? 'block' : 'none'; };
-  show('pv-hdr', !big || screen.layout === 'bigh');
+  show('pv-hdr', !!L.LAYOUTS[screen.layout].header);
   show('pv-body', !big);
-  show('pv-ar', screen.layout === 'arabic');
+  show('pv-ar', screen.layout.startsWith('arabic'));
   show('pv-big', big);
   if (big) {
     if (!S.bridge) drawPhoneCanvas('pv-big', bigCanvas(screen));   // gozluk yokken de onizleme

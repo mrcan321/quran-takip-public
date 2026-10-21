@@ -153,6 +153,21 @@ export const LAYOUTS = {
     bodyLines: 5,
     tiles: [{ x: 0, y: 32, w: 288, h: 112 }, { x: 288, y: 32, w: 288, h: 112 }],
   },
+  // Ayarlar → G2 ÜST BİLGİ: KAPALI gozlugun kendi yazisinda da (kullanici: "G2'nin kendi fontunu secince ust bilgiyi
+  // gizleme ayari kayboluyor; o zaman da gizleyebilmek istiyorum"): baslik yok, meal ekranin ustunden (10 satir; Arapcada
+  // bant en ustte, altinda 6 satir)
+  textn: {
+    header: null,
+    body: { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H },
+    bodyLines: 10,
+    tiles: [],
+  },
+  arabicn: {
+    header: null,
+    body: { x: 0, y: 114, w: SCREEN_W, h: SCREEN_H - 114 },
+    bodyLines: 6,
+    tiles: [{ x: 0, y: 0, w: 288, h: 112 }, { x: 288, y: 0, w: 288, h: 112 }],
+  },
   // buyuk yazi + baslik (Ayarlar → G2'DE SURE / AYET ADI): ustte gozlugun kendi yazisiyla "Bakara 2:255 · 1/3"
   // (aninda degisir, goruntu gondermez — ADAY da baslikta, kilit dogrulaninca karolar yeniden gitmez), altinda 576x256
   // buyuk yazi (4 x 288x128 karo)
@@ -349,10 +364,16 @@ function pickPage(st, pages, manual) {
  * ta ki ilerleme yeni bir sayfaya gecene ya da ayet degisene kadar.
  * Buyuk yazi duzeninde (st.bigText, Arapca kapali) sadece metin cizilir: meal / zikir-ezan anlami / kisa durum.
  * Bos ekran (blank: true): ses kesildi (ustte rekat — Ayarlar → G2 BOŞ EKRANDA ÜST BİLGİ) ya da durum yazisi gizli.
+ * Ayarlar → G2 ÜST BİLGİ (/state bigHeader; adi tarihsel, butun duzenler): KAPALI → baslik yok (big / textn / arabicn).
+ * Ayarlar → G2 REKÂT BİLGİSİNİ GİZLE (/state hideRakat): baslikta rekat / durus yok — sadece "Sure: ayet" (kullanici:
+ * "hide yaparsa sadece sure adi: ayet no cikacak").
  */
 export function buildScreen(st, ui = {}) {
+  const noHeader = !!st && st.bigHeader === false;
   const layoutName = !(ui.connected && st) ? 'text'
-    : st.showArabic ? 'arabic' : st.bigText && ui.fitBig ? (st.bigHeader === false ? 'big' : 'bigh') : 'text';
+    : st.showArabic ? (noHeader ? 'arabicn' : 'arabic')
+      : st.bigText && ui.fitBig ? (noHeader ? 'big' : 'bigh') : (noHeader ? 'textn' : 'text');
+  const rakatOf = (s) => (s.hideRakat === true ? '' : s.rakat || '');
   const empty = (header) => ({
     layout: 'text', header, headerColor: BRIGHT.header, body: ' ', bodyColor: BRIGHT.body, page: 0, pages: 1,
     autoPage: 0, arabicPage: -1, arabicPages: 0, big: null, bigDim: false, bigFixed: false, blank: true,
@@ -362,7 +383,9 @@ export function buildScreen(st, ui = {}) {
   // blankHeader false (Ayarlar → G2 BOŞ EKRANDA ÜST BİLGİ: KAPALI; kullanici: "ekran bos kaldiginda ust bilgi durmasin"):
   // ekran bombos. Alan yoksa (eski uygulama) ustte rekat.
   if (ui.connected && st && st.blank && st.listening && !st.noteTitle) {
-    return empty(st.blankHeader === false ? ' ' : headerLine((st.rakat || APP) + (st.sim ? ' · SİM' : ''), '', ''));
+    // rekat gizliyse bos ekranin ust satirinda gosterilecek bir sey yok
+    const top = st.hideRakat === true ? '' : (st.rakat || APP) + (st.sim ? ' · SİM' : '');
+    return empty(st.blankHeader === false || !top ? ' ' : headerLine(top, '', ''));
   }
   // Durum yazisi gizli (Ayarlar → G2 DURUM YAZISINI GİZLE, /state hideStatus; kullanici: "Dinleme kapali yazisi
   // cikmasin, ekran bombos olsun"): dinleme kapaliyken ve dinlenirken ayet bulunana kadar ("Dinleniyor", "Kamet · Fatiha
@@ -378,7 +401,7 @@ export function buildScreen(st, ui = {}) {
     const fit = (t) => ui.fitBig(sanitizeBig(t), st.textPx, bigAreaHeight(layoutName), st.fixedSize === true,
       st.onePage === true, st.onePageMinPx);
     out.bigFixed = st.fixedSize === true;
-    const rakat = st.rakat || '';
+    const rakat = rakatOf(st);
     out.header = ' ';
     let text;
     if (st.noteTitle) {
@@ -412,6 +435,8 @@ export function buildScreen(st, ui = {}) {
     return out;
   }
   const body = (text) => joinLines(wrap(text).slice(0, L.bodyLines));
+  // basliksiz duzende (textn / arabicn) baslik metni kullanilmaz
+  const done = () => { if (!L.header) out.header = ' '; return out; };
 
   if (!ui.connected || !st) {
     out.header = APP + '  ·  G2';
@@ -421,27 +446,27 @@ export function buildScreen(st, ui = {}) {
       (ui.diag ? '\n(' + ui.diag + ')' : ''));
     return out;
   }
-  const rakat = st.rakat || '';
+  const rakat = rakatOf(st);
   if (st.noteTitle) {
     out.header = headerLine(st.noteTitle, rakat, '');
     out.body = body(noteText(st));
-    return out;
+    return done();
   }
   if (!st.listening) {
     out.header = headerLine(APP, '', '');
     out.body = body('Dinleme kapalı.\nTelefonda mikrofon düğmesine basın.' + (st.status ? '\nDurum: ' + st.status : ''));
-    return out;
+    return done();
   }
   if (!st.surah) {
     out.header = headerLine(APP + (st.sim ? ' · SİM' : ''), rakat, '');
     out.body = body((st.status || 'Dinleniyor') + '\nİmam okumaya başlayınca ayet ve meali burada görünür.');
-    return out;
+    return done();
   }
 
   // Okunan ayet
   const mealLines = wrap(st.meal || '(meal yok)');
   const mealPages = Math.max(1, Math.ceil(mealLines.length / L.bodyLines));
-  const arabicLines = layoutName === 'arabic' ? Math.max(0, ui.arabicLineCount | 0) : 0;
+  const arabicLines = L.tiles.length ? Math.max(0, ui.arabicLineCount | 0) : 0;
   const arabicPages = arabicLines > 0 ? Math.ceil(arabicLines / ARABIC_LINES) : 0;
   const pages = Math.max(mealPages, arabicPages, 1);
   const { page, auto } = pickPage(st, pages, ui.manual);
@@ -456,5 +481,5 @@ export function buildScreen(st, ui = {}) {
   out.autoPage = auto;
   out.arabicPages = arabicPages;
   out.arabicPage = arabicPages > 0 ? Math.floor((page * arabicPages) / pages) : -1;
-  return out;
+  return done();
 }

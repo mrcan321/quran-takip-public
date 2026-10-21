@@ -69,6 +69,8 @@ fun glassesTests(): Int {
         JSONObject(GlassesState(textPx = 64).toJson(0)).getInt("textPx") == 64)
     ck.ok("json sure / ayet satiri", JSONObject(GlassesState().toJson(0)).getBoolean("bigHeader") &&
         !JSONObject(GlassesState(bigHeader = false).toJson(0)).getBoolean("bigHeader"))
+    ck.ok("json rekat bilgisi gizli", !JSONObject(GlassesState().toJson(0)).getBoolean("hideRakat") &&
+        JSONObject(GlassesState(hideRakat = true).toJson(0)).getBoolean("hideRakat"))
     ck.ok("json sabit yazi boyutu", !JSONObject(GlassesState().toJson(0)).getBoolean("fixedSize") &&
         JSONObject(GlassesState(fixedSize = true).toJson(0)).getBoolean("fixedSize"))
     ck.ok("json bos ekran (ses kesildi)", !JSONObject(GlassesState().toJson(0)).getBoolean("blank") &&
@@ -250,6 +252,7 @@ fun glassesServe(dir: File, fontDir: File, port: Int): Int {
             progress = s.optDouble("progress", 0.0), meal = s.optString("meal"), arabic = s.optString("arabic"),
             showArabic = s.optBoolean("showArabic"), bigText = s.optBoolean("bigText", true),
             textPx = s.optInt("textPx", GlassesState.DEFAULT_TEXT_PX), bigHeader = s.optBoolean("bigHeader", true),
+            hideRakat = s.optBoolean("hideRakat"),
             fixedSize = s.optBoolean("fixedSize"), onePage = s.optBoolean("onePage"),
             onePageMinPx = s.optInt("onePageMinPx", GlassesState.DEFAULT_ONE_PAGE_PX), blank = s.optBoolean("blank"),
             blankHeader = s.optBoolean("blankHeader"), hideStatus = s.optBoolean("hideStatus"),

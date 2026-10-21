@@ -27,8 +27,10 @@ data class AppSettings(
     val glassesBigText: Boolean = true,
     // Buyuk yazida en kucuk punto (px, 30-80): kisa metin daha buyuk cizilir, sigmayan meal sayfalara bolunur
     val glassesTextPx: Int = GlassesState.DEFAULT_TEXT_PX,
-    // Buyuk yazida ustte sure / ayet adi (gozlugun kendi yazisiyla, aninda degisir)
+    // Gozlukte ustte sure / ayet adi + rekat (gozlugun kendi yazisiyla, aninda degisir) — butun yazi duzenlerinde
     val glassesBigHeader: Boolean = true,
+    // Ust bilgide rekat / durus gizli: sadece "Sure: ayet"
+    val glassesHideRakat: Boolean = false,
     // Buyuk yazida sabit punto (glassesTextPx): kisa metin buyutulmez, uzun meal kucultulmez — sayfalara bolunur
     val glassesFixedSize: Boolean = false,
     // Buyuk yazida uzun meal sayfalanmaz, punto gerektigi kadar kuculur (GlassesState.onePage)
@@ -66,6 +68,7 @@ class SettingsRepository(private val context: Context) {
         val GLASSES_TEXT_PX = intPreferencesKey("glasses_text_px")
         val GLASSES_BIG_HEADER = booleanPreferencesKey("glasses_big_header")
         val GLASSES_FIXED_SIZE = booleanPreferencesKey("glasses_fixed_size")
+        val GLASSES_HIDE_RAKAT = booleanPreferencesKey("glasses_hide_rakat")
         val GLASSES_ONE_PAGE = booleanPreferencesKey("glasses_one_page")
         val GLASSES_ONE_PAGE_MIN_PX = intPreferencesKey("glasses_one_page_min_px")
         val GLASSES_HIDE_BLANK_HEADER = booleanPreferencesKey("glasses_hide_blank_header")
@@ -91,6 +94,7 @@ class SettingsRepository(private val context: Context) {
             glassesTextPx = prefs[Keys.GLASSES_TEXT_PX] ?: GlassesState.DEFAULT_TEXT_PX,
             glassesBigHeader = prefs[Keys.GLASSES_BIG_HEADER] ?: true,
             glassesFixedSize = prefs[Keys.GLASSES_FIXED_SIZE] ?: false,
+            glassesHideRakat = prefs[Keys.GLASSES_HIDE_RAKAT] ?: false,
             glassesOnePage = prefs[Keys.GLASSES_ONE_PAGE] ?: false,
             glassesOnePageMinPx = prefs[Keys.GLASSES_ONE_PAGE_MIN_PX] ?: GlassesState.DEFAULT_ONE_PAGE_PX,
             glassesHideBlankHeader = prefs[Keys.GLASSES_HIDE_BLANK_HEADER] ?: true,
@@ -151,6 +155,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGlassesFixedSize(value: Boolean) {
         context.dataStore.edit { it[Keys.GLASSES_FIXED_SIZE] = value }
+    }
+
+    suspend fun setGlassesHideRakat(value: Boolean) {
+        context.dataStore.edit { it[Keys.GLASSES_HIDE_RAKAT] = value }
     }
 
     suspend fun setGlassesOnePage(value: Boolean) {

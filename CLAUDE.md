@@ -288,19 +288,19 @@ telefona geçmiyordu.
   `http://127.0.0.1:18765`). Sıra: eklentiyi aç → Tilavet Takip'e dön → mikrofon; telefon cebe girebilir.
 - **Test** (fiziksel gözlük yok): JVM `glasses` (gerçek soket: JSON kaçışları, uzun yoklama, dosyalar, 404 / yol dışı, CORS,
   OPTIONS, port çakışması, kapatınca bekleyen yoklama, `textPx`, eklentinin ekran / sürüm / kod kaynağı / paket sürümü bildirimi,
-  host ve geçiş logu, `bigHeader`, `fixedSize`, `blank`, `onePage`, `onePageMinPx`, `blankHeader`, `hideStatus`, aktarım logu — 64 kontrol);
+  host ve geçiş logu, `bigHeader`, `fixedSize`, `blank`, `onePage`, `onePageMinPx`, `blankHeader`, `hideStatus`, `hideRakat`, aktarım logu — 65 kontrol);
   `tests/g2/layout.test.mjs` (node: satır/sayfa/kutu, büyük yazı puntosu / sayfaları, yazı boyutu ayarı 30-80 (sınırlar,
   dengeli sayfa, tireli bölme), tek ekrana sığdır, zikirde sadece anlam, boş ekran / durum gizli, tüm mealler — CI'da
   `big_px_median` / `big_pages_median` / `onepage_*`); `tests/g2/sim_check.py` —
   **Even Hub simülatörü** (`@evenrealities/evenhub-simulator` 0.9.5, Xvfb + WebKitGTK) uygulamanın kendi köprüsüyle
-  36 adım (büyük yazı: boşta, dinleniyor, kısa meal, aday, aday → kilit (gözlüğe 0 karo gitmeli), Âyetü'l-Kürsî baş /
+  46 adım (büyük yazı: boşta, dinleniyor, kısa meal, aday, aday → kilit (gözlüğe 0 karo gitmeli), Âyetü'l-Kürsî baş /
   kaydırma / son, uzun meal, tekbir, yazı boyutu 30 / 64 / 80, hızlı ardışık 3 ekran, başlıksız Kürsî / aday / tekbir,
   sabit yazı boyutu Kürsî / kısa meal / tekbir (2 satırlık metinde 2 karo), tek ekrana sığdır Bakara 2:282 (alt sınır 12:
   tek sayfa, 20: 2 sayfa) / başlıksız Kürsî, ses kesildi (boş ekran + rekât; üst bilgisiz bombos — `EXPECT_EMPTY`: çizili piksel olmamalı) → okuma, durum
-  yazısı gizli (boşta / dinleniyor bombos, ayet gelince meal);
+  yazısı gizli (boşta / dinleniyor bombos, ayet gelince meal), rekât gizli;
   normal: boşta, dinleniyor, kamet,
-  Fatiha, aday, uzun meal + kaydırma + ilerleme, tekbir; Arapça Kevser / Âyetü'l-Kürsî baş-son, Arapça'da tekbir, Arapça
-  kapat), gözlük ekran görüntüsü + konsol hatası; iki mod:
+  Fatiha, aday, uzun meal + kaydırma + ilerleme, tekbir, üst bilgisiz uzun meal, rekât gizli; Arapça Kevser / Âyetü'l-Kürsî
+  baş-son, Arapça'da tekbir, üst bilgisiz Kürsî, Arapça kapat), gözlük ekran görüntüsü + konsol hatası; iki mod:
   geliştirici (aynı kaynak) ve `.ehpk` gibi başka kaynak (CORS, font köprüden). Simülatörün WebKitGTK'si Arapça harekeleri
   çizmiyor; telefondaki WebView (Chromium) çiziyor — 32 px + 0.8 kontur + gama 0.5 Chromium'da 4 bit gri tonda denendi.
 - **Telefonda ilk deneme (APK #44, .ehpk EvenHub'a yüklendi):** eklenti "Tilavet Takip bekleniyor", uygulama "EKLENTİ
@@ -411,6 +411,15 @@ telefona geçmiyordu.
     (G2 ÜST BİLGİ kapalıysa yok). Telefondaki kart değişmedi (Arapça + okunuş + anlam).
   - Eski **G2'DE SURE / AYET ADI** ayarının adı **G2 ÜST BİLGİ (AYET OKUNURKEN)** oldu (davranış aynı: KAPALI → üst bilgi hiç
     çıkmaz, ekranın tamamı meal; `bigHeader`).
+- **Rekât bilgisini gizle + her düzende üst bilgi gizleme (APK #106+):** kullanıcı (APK #104): "üst bilgi aktifse rekât
+  belirtecini gizleme parametresi belirsin, hide yaparsa sadece sure adı: ayet no çıksın"; "G2'nin kendi fontunu seçince (büyük
+  punto yerine) üst bilgiyi gizleme ayarı kayboluyor, o zaman da gizleyebilmek istiyorum".
+  - **G2 REKÂT BİLGİSİNİ GİZLE** (varsayılan KAPALI, `AppSettings.glassesHideRakat`, `GlassesState.hideRakat`; ayarlarda sadece
+    G2 ÜST BİLGİ açıkken): üst bilgide `Bakara: 255 1/6` (rekât / duruş yok); boş ekranda üst bilgi açıksa da rekât yazılmaz
+    (bombos); zikir / ezan kartının başlığı (TEKBİR, KAMET) kalır.
+  - **G2 ÜST BİLGİ (AYET OKUNURKEN)** artık her düzende (ayarlarda büyük yazıdan bağımsız): gözlüğün kendi yazısında (NORMAL)
+    KAPALI → `textn` düzeni (başlık kutusu yok, 10 satır meal, ekranın tamamı), Arapçada → `arabicn` (2 Arapça karo en üstte,
+    altında 6 satır meal). Sayfa etiketi başlıkla birlikte gider; sayfa yine imamın ilerlemesiyle / kaydırmayla.
 - Kalan: gerçek gözlükte deneme (parlaklık, görüntü hızı, Arapça okunurluğu, kaydırma yönü); Even uygulamasının geliştirici
   modunda `http://` localhost'a izin verdiği varsayıldı (CLI'ın varsayılan şeması http).
 

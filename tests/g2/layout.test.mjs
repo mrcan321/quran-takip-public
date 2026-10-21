@@ -190,8 +190,8 @@ test('buyuk yazi boyutu: ayardaki en kucuk punto (textPx), sinirlar, uzun kelime
 
 test('buyuk yazi duzeni: sadece meal, sayfa ilerlemeyle, aday sonuk, notlar ve bosta', () => {
   const st = { ...ST, bigText: true, bigHeader: false, surah: 2, ayah: 282, meal: LONG, progress: 0 };
-  // font hazir degilse normal duzen
-  assert.equal(L.buildScreen(st, { connected: true }).layout, 'text');
+  // font hazir degilse normal duzen (ust bilgi kapali → basliksiz)
+  assert.equal(L.buildScreen(st, { connected: true }).layout, 'textn');
   const s0 = L.buildScreen(st, { connected: true, fitBig });
   assert.equal(s0.layout, 'big');
   assert.ok(s0.pages > 3);
@@ -200,10 +200,11 @@ test('buyuk yazi duzeni: sadece meal, sayfa ilerlemeyle, aday sonuk, notlar ve b
   const manual = { key: '2:282', base: 0, page: 2 };
   assert.equal(L.buildScreen({ ...st, progress: 0.01 }, { connected: true, fitBig, manual }).page, 2);
   assert.equal(L.buildScreen({ ...st, tentative: true }, { connected: true, fitBig }).bigDim, true);
-  // Arapca acikken her zaman Arapca duzeni
-  assert.equal(L.buildScreen({ ...st, showArabic: true }, { connected: true, fitBig }).layout, 'arabic');
-  // NORMAL secili
-  assert.equal(L.buildScreen({ ...st, bigText: false }, { connected: true, fitBig }).layout, 'text');
+  // Arapca acikken her zaman Arapca duzeni (ust bilgi kapali → basliksiz Arapca)
+  assert.equal(L.buildScreen({ ...st, showArabic: true }, { connected: true, fitBig }).layout, 'arabicn');
+  // NORMAL secili (bu durumda ust bilgi kapali → basliksiz normal duzen; acikken baslikli)
+  assert.equal(L.buildScreen({ ...st, bigText: false }, { connected: true, fitBig }).layout, 'textn');
+  assert.equal(L.buildScreen({ ...st, bigText: false, bigHeader: true }, { connected: true, fitBig }).layout, 'text');
   const note = L.buildScreen({ ...st, noteTitle: 'TEKBİR', noteReading: 'Allâhu ekber', noteTurkish: 'Allah en büyüktür' },
     { connected: true, fitBig });
   assert.match(note.big.pages[0].join(' '), /Allah en büyüktür/);
@@ -444,6 +445,63 @@ test('bos ekranda ust bilgi (blankHeader) ve durum yazisi gizli (hideStatus): ek
   assert.match(L.buildScreen({ ...ST, hideStatus: true }, { connected: false }).body, /bağlanılamıyor/);
 });
 
+test('ust bilgi kapali gozlugun kendi yazisinda / Arapcada da: basliksiz duzen, daha cok satir', () => {
+  const st = { ...ST, surah: 2, ayah: 282, surahName: 'Bakara', meal: LONG, progress: 0, bigText: false };
+  const t = L.buildScreen({ ...st, bigHeader: false }, { connected: true, fitBig });
+  assert.equal(t.layout, 'textn');
+  assert.equal(L.LAYOUTS.textn.header, null);
+  assert.equal(t.header.trim(), '');
+  assert.equal(lines(t.body).length, L.LAYOUTS.textn.bodyLines);
+  assert.ok(L.LAYOUTS.textn.bodyLines > L.LAYOUTS.text.bodyLines);
+  // baslik acikken eski duzen
+  assert.equal(L.buildScreen(st, { connected: true, fitBig }).layout, 'text');
+  // Arapca: bant en ustte, altinda daha cok satir; Arapca sayfalariyla senkron
+  const a = L.buildScreen({ ...st, showArabic: true, bigHeader: false }, { connected: true, arabicLineCount: 4 });
+  assert.equal(a.layout, 'arabicn');
+  assert.equal(a.header.trim(), '');
+  assert.equal(a.arabicPages, 2);
+  assert.ok(lines(a.body).length <= L.LAYOUTS.arabicn.bodyLines);
+  assert.ok(L.LAYOUTS.arabicn.bodyLines > L.LAYOUTS.arabic.bodyLines);
+  for (const k of L.LAYOUTS.arabicn.tiles) assert.equal(k.y, 0);
+  assert.equal(L.buildScreen({ ...st, showArabic: true }, { connected: true, arabicLineCount: 4 }).layout, 'arabic');
+  // not, bosta, dinleniyor da basliksiz; aday sonuk
+  for (const x of [{ noteTitle: 'TEKBİR', noteTurkish: 'Allah en büyüktür' }, { listening: false }, { surah: 0 },
+    { tentative: true }]) {
+    const s = L.buildScreen({ ...st, ...x, bigHeader: false }, { connected: true, fitBig });
+    assert.equal(s.layout, 'textn', JSON.stringify(x));
+    assert.equal(s.header.trim(), '');
+    assert.ok(s.body.trim().length > 0);
+  }
+  assert.ok(L.buildScreen({ ...st, tentative: true, bigHeader: false }, { connected: true }).bodyColor < L.BRIGHT.body);
+  // baglanti yokken tani ekrani baslikli (ayar bilinmiyor)
+  assert.equal(L.buildScreen({ ...st, bigHeader: false }, { connected: false }).layout, 'text');
+});
+
+test('rekat bilgisi gizli (hideRakat): baslikta sadece "Sure: ayet", notta sadece baslik, bos ekran ust satiri bos', () => {
+  const rk = { ...ST, surahName: 'Kevser', rakat: '1. REKÂT · KIYAM', hideRakat: true };
+  for (const extra of [{ bigText: true }, { bigText: false }, { showArabic: true }]) {
+    const s = L.buildScreen({ ...rk, ...extra }, { connected: true, fitBig, arabicLineCount: 2 });
+    assert.equal(s.header, 'Kevser: 2', JSON.stringify(extra));
+    const n = L.buildScreen({ ...rk, ...extra, noteTitle: 'TEKBİR', noteTurkish: 'Allah en büyüktür' },
+      { connected: true, fitBig, arabicLineCount: 2 });
+    assert.equal(n.header, 'TEKBİR');
+    const d = L.buildScreen({ ...rk, ...extra, surah: 0 }, { connected: true, fitBig });
+    assert.doesNotMatch(d.header, /REKÂT/);
+  }
+  // aday ve sayfa etiketi kalir
+  const u = L.buildScreen({ ...rk, bigText: true, surah: 2, ayah: 282, surahName: 'Bakara', meal: LONG, tentative: true },
+    { connected: true, fitBig });
+  assert.match(u.header, /^Bakara: 282 · ADAY \d+\/\d+$/);
+  // kapaliyken rekat baslikta
+  assert.match(L.buildScreen({ ...rk, hideRakat: false, bigText: true }, { connected: true, fitBig }).header, /REKÂT/);
+  // bos ekran: ust bilgi acik olsa da rekat yazmaz
+  const b = L.buildScreen({ ...rk, blank: true, blankHeader: true }, { connected: true, fitBig });
+  assert.equal(b.blank, true);
+  assert.equal(b.header.trim(), '');
+  assert.equal(L.buildScreen({ ...rk, hideRakat: false, blank: true, blankHeader: true }, { connected: true, fitBig }).header,
+    '1. REKÂT · KIYAM');
+});
+
 test('baslik sigmazsa rekat kisalir, sonra atilir', () => {
   const st = { ...ST, surahName: 'Ankebût Ankebût Ankebût', surah: 29, ayah: 45, rakat: '2. REKÂT SONRASI · SESSİZ',
     meal: LONG, tentative: true };
@@ -530,8 +588,9 @@ test('tum mealler: font, satir, bayt', { skip: !MEAL_BIN || !fs.existsSync(MEAL_
       const cp = ch.codePointAt(0);
       if (ch !== ' ' && L.charWidth(cp) === 0 && L.sanitize(ch) === '') dropped.set(ch, (dropped.get(ch) || 0) + 1);
     }
-    for (const arabic of [false, true]) {
-      const st = { ...ST, surah: s, ayah: a, surahName: names[s - 1] || 'X', meal, showArabic: arabic, rakat: '2. REKÂT · KIYAM' };
+    for (const [arabic, bigHeader] of [[false, true], [true, true], [false, false], [true, false]]) {
+      const st = { ...ST, surah: s, ayah: a, surahName: names[s - 1] || 'X', meal, showArabic: arabic, rakat: '2. REKÂT · KIYAM',
+        bigHeader };
       const s0 = L.buildScreen(st, { connected: true, arabicLineCount: arabic ? 4 : 0 });
       maxPages = Math.max(maxPages, s0.pages);
       assert.ok(L.textWidth(s0.header) <= L.WRAP_W, `${s}:${a} baslik`);

@@ -96,6 +96,7 @@ def scenario(arabic):
                                  meal=LONG_TR), [], 2.5),
         ("buyuk_tekbir", dict(BIG, noteTitle="TEKBİR", noteReading="Allâhu ekber", noteTurkish="Allah en büyüktür"),
          [], 2.5),
+        ("buyuk_rekat_gizli", dict(BIG, **KURSI, progress=0.1, hideRakat=True), [], 2.5),
         # Ayarlar → G2 YAZI BOYUTU (en kucuk punto): kucuk / buyuk / en buyuk (kisa meal de 2 dengeli sayfa)
         ("buyuk_boyut_30", dict(BIG, **KURSI, progress=0.1, textPx=30), [], 2.5),
         ("buyuk_boyut_64", dict(BIG, **KURSI, progress=0.1, textPx=64), [], 2.5),
@@ -151,6 +152,12 @@ def scenario(arabic):
                                meal=LONG_TR), [], 2.0),
         ("tekbir", dict(BASE, rakat="1. REKÂT · RÜKÛ / SECDE", noteTitle="TEKBİR", noteReading="Allâhu ekber",
                         noteTurkish="Allah en büyüktür"), [], 2.0),
+        # Ayarlar → G2 ÜST BİLGİ: KAPALI gozlugun kendi yazisinda da: baslik yok, 10 satir meal
+        ("normal_basliksiz_uzun", dict(BASE, surah=2, ayah=282, surahName="Bakara", surahAyahCount=286, progress=0.1,
+                                       meal=LONG_TR, bigHeader=False), [], 2.0),
+        # Ayarlar → G2 REKÂT BİLGİSİNİ GİZLE: baslikta sadece "Fâtiha: 2"
+        ("normal_rekat_gizli", dict(BASE, surah=1, ayah=2, surahName="Fâtiha", surahAyahCount=7, progress=1.0,
+                                    meal="Hamd, alemlerin Rabbi olan Allah'a aittir.", hideRakat=True), [], 2.0),
     ]
     if arabic:
         s += [
@@ -163,6 +170,10 @@ def scenario(arabic):
                                    meal=AYETEL_KURSI_TR, arabic=AYETEL_KURSI_AR, showArabic=True), [], 3.0),
             ("ar_tekbir", dict(BASE, noteTitle="TEKBİR", noteReading="Allâhu ekber", noteTurkish="Allah en büyüktür",
                                showArabic=True), [], 2.5),
+            # basliksiz Arapca: bant en ustte, altinda 6 satir meal
+            ("ar_basliksiz_kursi", dict(BASE, surah=2, ayah=255, surahName="Bakara", surahAyahCount=286, progress=0.05,
+                                        meal=AYETEL_KURSI_TR, arabic=AYETEL_KURSI_AR, showArabic=True, bigHeader=False),
+             [], 3.0),
             ("ar_kapat", dict(BASE, surah=108, ayah=2, surahName="Kevser", surahAyahCount=3, progress=1.0,
                               meal="Şu halde Rabbin için namaz kıl ve kurban kes.", showArabic=False), [], 3.0),
         ]

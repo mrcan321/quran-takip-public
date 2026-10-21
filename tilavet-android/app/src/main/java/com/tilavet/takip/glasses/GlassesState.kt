@@ -32,8 +32,14 @@ data class GlassesState(
     val bigText: Boolean = true,
     /** Ayarlar → G2 YAZI BOYUTU: buyuk yazida en kucuk punto (px; kisa metin daha buyuk, sigmayan sayfalanir). */
     val textPx: Int = DEFAULT_TEXT_PX,
-    /** Ayarlar → G2'DE SURE / AYET ADI: buyuk yazida ustte gozlugun kendi yazisiyla "Bakara 2:255 · 1/3" (ADAY da orada). */
+    /**
+     * Ayarlar → G2 ÜST BİLGİ (eski adi G2'DE SURE / AYET ADI; JSON adi tarihsel): ustte gozlugun kendi yazisiyla
+     * "Bakara: 255 · 1. REKÂT · KIYAM 1/3" (ADAY da orada). KAPALI → baslik yok — buyuk yazida da, gozlugun kendi yazisinda
+     * (NORMAL) ve Arapcada da (APK #106+; kullanici: "G2'nin kendi fontunu secince bu ayar kayboluyor").
+     */
     val bigHeader: Boolean = true,
+    /** Ayarlar → G2 REKÂT BİLGİSİNİ GİZLE: baslikta (ve bos ekranin ust satirinda) rekat / durus yok — sadece "Sure: ayet". */
+    val hideRakat: Boolean = false,
     /** Ayarlar → G2 SABİT YAZI BOYUTU: buyuk yazi her metinde textPx (kisa metin buyutulmez, uzun meal kucultulmez). */
     val fixedSize: Boolean = false,
     /**
@@ -91,6 +97,7 @@ data class GlassesState(
         sb.append(",\"bigText\":").append(bigText)
         sb.append(",\"textPx\":").append(textPx)
         sb.append(",\"bigHeader\":").append(bigHeader)
+        sb.append(",\"hideRakat\":").append(hideRakat)
         sb.append(",\"fixedSize\":").append(fixedSize)
         sb.append(",\"onePage\":").append(onePage)
         sb.append(",\"onePageMinPx\":").append(onePageMinPx)
