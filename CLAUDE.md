@@ -1304,9 +1304,9 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   oturumlarından 20.10'a, 38 kayıt × 2 zincir): 37 eski kayıtta karar izi birebir aynı, yatsı #2'de sadece hedeflenen 2 parça;
   test kapısının Python kümelerinde (aynı veri / zaman çizelgesi / tohum) 170 metrikten tek fark S4 gürültü hibrit yanlış kilitli
   parça 10 → 9; Kotlin = Python 272 kayıt, app.py = referans, fixture 312/312 (senaryo 20).
-- **CI / APK düzeni (kullanıcı: "taleplerimi biriktir, sonra sor; onay verirsem APK üret"; "görüntü / kullanım yeniliğiyse ses tanıma
-  testlerini boşuna koşma"):** APK yalnız commit mesajında `[apk]` (ya da elle) — bkz. "Nasıl build edilir"; test kapsamı değişen
-  dosyalara göre (`tools/ci_kapsam.sh`).
+- **CI / APK düzeni (kullanıcı: "görüntü / kullanım yeniliğiyse ses tanıma testlerini boşuna koşma"; 21.10: "apk üretmen için artık
+  benim onayımı beklemene gerek yok"):** APK yalnız commit mesajı `[apk]` ile başlıyorsa (ya da elle) — bkz. "Nasıl build edilir";
+  test kapsamı değişen dosyalara göre (`tools/ci_kapsam.sh`).
 
 ### 21. Sabah namazı + namaz sonu aşr (21.10): uydurmalı Fatiha, belirsiz aday doğrulaması, kayıp kilitte devam, "صدق الله العظيم"
 - `data/namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav` (özel repoda; camide telefon, 9 dk 27 sn): kamet 0-50 → iftitah ~52 →
@@ -1518,10 +1518,12 @@ Log export için gerekli. `xml/file_paths.xml` içinde `cache-path name="logs"` 
 ## Nasıl build edilir
 
 **Build GitHub Actions'ta yapılır** (`.github/workflows/android.yml`) — yerel build yok.
-Her push'ta (tüm branch'ler; sadece `**.md` değişince değil), PR'da ve elle (`workflow_dispatch`) çalışır. **APK sadece onayla**
-(20.10'dan beri; kullanıcı: "taleplerimi biriktir, sonra sor, onay verirsem APK üret"): `model` + `apk` işleri commit mesajı
-**`[apk]` ile başlıyorsa** ya da elle; diğer push'larda sadece test kapısı. İstekler birikince kullanıcıya liste sunulur, onayla
-başlığı `[apk] ...` olan commit push. DİKKAT: işaretleri commit gövdesinde de yazma (ilk sürümde "içinde geçiyor mu" bakılıyordu,
+Her push'ta (tüm branch'ler; sadece `**.md` değişince değil), PR'da ve elle (`workflow_dispatch`) çalışır. `model` + `apk` işleri
+commit mesajı **`[apk]` ile başlıyorsa** ya da elle; diğer push'larda sadece test kapısı. **Onay gerekmez** (21.10, kullanıcı: "bundan
+sonra apk üretmen için artık benim onayımı beklemene gerek yok"; 20.10-21.10 arası "biriktir, sonra sor, onay verirsem üret"):
+bir değişiklik seti bitip test kapısı yeşil olunca APK doğrudan üretilir (`[apk]` başlıklı commit ya da elle), ama build sayısı yine
+az tutulur (her küçük adımda değil). Aynı dalda yeni push süren koşuyu iptal eder (`concurrency: cancel-in-progress`) — APK derlenirken
+`.md` dışı push yapma. DİKKAT: işaretleri commit gövdesinde de yazma (ilk sürümde "içinde geçiyor mu" bakılıyordu,
 kuralı anlatan commit'in gövdesi APK #105'i onaysız derletti; `[tam-test]` de sadece başlıkta).
 
 1. **`model` job** (`model-export.yml`, tekrar kullanılabilir) — `asr-model-v2` release'inde model
