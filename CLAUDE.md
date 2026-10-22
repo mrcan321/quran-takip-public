@@ -1427,7 +1427,11 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
 - Sonuç (telefon parçaları, eski → yeni): 92.7 sn 7:158 → **109:1**, 143.8 sn Fatiha → görünmez aday, 210.6 sn — → **110:1**,
   213.2 sn 15:63 → 110:2, 222.2 sn aday → 110:3, 240.3 sn 110:3 → rükû. Son kodun gerçek hibrit döngüsünde: Fatiha 4 / Kâfirûn
   9.7 → **4.7** / Fatiha 4 / Nasr 24.3 → **7.7 sn**, yanlış kilitli parça 5 → 1. Denetim (en eski kayıttan, 236 kayıt-zincir):
-  sadece bu kayıt değişti. Zorlama (aynı veri, 5 tohum, eski → yeni): sabit parça S1-S5 birebir aynı; hibrit S1 / S3 yanlış kilitli 5 → 1, S4 46 → 28 (kilitlenen 376 → 377), S5 25 → 5. Fixture senaryo 26 (telefon parçaları) → 26 × 558.
+  sadece bu kayıt değişti. Zorlama (aynı veri, 5 tohum, eski → yeni): sabit parça S1-S5 birebir aynı; hibrit S1 / S3 yanlış
+  kilitli 5 → 1, S4 46 → 28 (kilitlenen 376 → 377), S5 25 → 5. Fixture senaryo 26 (telefon parçaları) → 26 × 558.
+- **CI eval teyidi (42 kayıt, gerçek RNNT, APK #115 kodu):** yerel ile aynı — akşam 22.10 hibrit Fatiha 4 / Kâfirûn 5 / Fatiha 4 /
+  Nasr 8 sn (1 yanlış kilitli parça: 206 sn 15:61), sabit parça 4 / 7 / 4 / 7 sn, 0 yanlış; genel ilk kilit 19/0/0 (medyan 10 sn), takip
+  78 bölümün 78'i (iki zincir), yanlış kilitli parça rnnt 0 / hibrit 1, ekranda yanlış aday 0.
 
 ---
 
