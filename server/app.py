@@ -134,6 +134,20 @@ CONTINUE_MARGIN = 2.0
 # Devam onceligi: devam penceresi >= ilk kilit esigi ve tum Kuran'dan en fazla bu kadar kotu ise (en iyi yer sure acilisi
 # degilse) devam (yatsi 21.10: 21:24 "أم اتطعتم من دونه" → Yunus 10:38 77.3, devam penceresi 72.2)
 CONTINUE_PRIOR_MARGIN = 6.0
+# Fatiha sonunda sure acilisi onceligi: dogal gecis acilis olmayan yere oturduysa ilk kelimesi parcanin ilk 2 kelimesinden
+# biri olan surelerin acilisi (1-2. ayet) tum Kuran'dan en fazla bu kadar kotuyse acilis (aksam 22.10: "قل يا أيها الرحم"
+# 7:158 / 109:1 esit)
+OPENING_PREFER_MARGIN = 1.0
+# Taze gecisin yeniden kontrolu: Fatiha sonunda acilis / devam olmayan yere gecisten sonraki FRESH_JUMP_CHUNKS parcada
+# pencere < MIN_CONFIDENCE ise (2 kelime de) tum Kuran; baska surenin 1-2. ayeti >= FRESH_JUMP_MIN_SCORE ve gecis
+# parcasi o acilisa >= ilk kilit esigi oturuyorsa gecilir (aksam 22.10: "فما جاء النصر" 15:61 → "والله والفتح" 110:1)
+FRESH_JUMP_CHUNKS = 2
+FRESH_JUMP_MIN_SCORE = 80
+# Erken Fatiha: zamm'da son saglam eslesmeden (>= 3 kelime, >= ilk kilit esigi) bu kadar parca gecmeden gelen, Fatiha'nin
+# 1-2. ayetinde biten eslesme gecis adayi olur, sonraki parca dogrularsa gecilir (aksam 22.10: secde tekbiri basi ASR'de
+# "الحمد لله رب العالمين" → "yeni rekat")
+FATIHA_MIN_GAP_CHUNKS = 6
+FATIHA_EARLY_MAX_AYAH = 2
 # Gecis adayi varken yeni parca adayin +-PENDING_VERIFY_AYAH_WINDOW ayetinde tum Kuran eslesmesinden en fazla bu kadar
 # kotu (ve >= ilk kilit esigi) eslesiyorsa aday dogrulanir
 CANDIDATE_WINDOW_MARGIN = 2.0
@@ -265,6 +279,10 @@ class SessionState:
     zamm_ayah: Optional[int] = None
     # Son "sadece tekbir" parcasinin indeksi — bkz. TEKBIR_TEVHID_CHUNKS
     last_tekbir_chunk: Optional[int] = None
+    # Fatiha sonundaki taze (acilis / devam olmayan) dogal gecis: (parca indeksi, temiz metin) — bkz. FRESH_JUMP_CHUNKS
+    fresh_jump: Optional[Tuple[int, str]] = None
+    # Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — bkz. FATIHA_MIN_GAP_CHUNKS
+    last_solid_chunk: Optional[int] = None
 
 
 # ============================================================
@@ -782,8 +800,11 @@ def strip_asr_hallucination(text: str) -> str:
 # sadece bunlardan biriyse (+ en fazla DHIKR_EXTRA_MAX kelime) bos sayilir; kelime-i sehadet BEKLEME'de kamet sayilir,
 # bekleme surerken gelen zikir beklemeyi uzatir (referans: build_state_machine_fixture.DHIKR_PHRASES)
 # + ezan sonu "الله أكبر X" (9:72'ye kilitleniyordu), kesik tevhid "إله إلا الله"; tamamen tekbir olan parca zikir sayilmaz
+# + namaz sonu tesbihati "(لا حول) ولا قوة إلا بالله" (Kuran'da sadece 18:39 "ما شاء الله لا قوة إلا بالله"; aksam 22.10)
+# + tesbihat "(الحمد) لله ولا إله إلا الله" ("ولا اله الا الله" Kuran'da hic yok)
 DHIKR_PHRASES = (("محمد", "رسول", "الله"), ("محمدا", "رسول", "الله"), ("لا", "اله", "الا", "الله"), ("ان", "شاء", "الله"),
-                 ("اله", "الا", "الله"), ("الله", "اكبر"))
+                 ("اله", "الا", "الله"), ("الله", "اكبر"), ("قوه", "الا", "بالله"),
+                 ("حول", "ولا", "قوه", "الا", "بالله"), ("ولا", "اله", "الا", "الله"), ("لله", "ولا", "اله", "الا", "الله"))
 DHIKR_EXTRA_MAX = 1
 
 # Kamet / ezan basi: zamm kilitli degilken (BEKLEME / ARA) ve bekleme yokken son TEKBIR_TEVHID_CHUNKS parcada sadece
@@ -914,6 +935,9 @@ def namaz_signal(text: str) -> Optional[str]:
     # kamet sayiliyordu ("محمدا"), "سمع الله من حمداً" hicbir kaliba uymuyordu
     if any(toks[i] == "سمع" and toks[i + 1] == "الله" and toks[i + 2] != "قول" for i in range(len(toks) - 2)):
         return "ruku"
+    # "استمع الله" (aksam 22.10): Kuran'da "استمع" sadece 72:1'de ("استمع نفر")
+    if any(a == "استمع" and b == "الله" for a, b in zip(toks, toks[1:])):
+        return "ruku"
     if any(t in KAMET_WORDS and not (t == "الفلاح" and i > 0 and toks[i - 1] in FALAQ_PREV) for i, t in enumerate(toks)) \
             or any(p in KAMET_PAIRS for p in zip(toks, toks[1:])):
         return "kamet"
@@ -981,6 +1005,47 @@ def opening_tie(text, match) -> bool:
     ru = _runner_up_match(text, match)
     return (ru is not None and CORPUS.words[ru.start_word_idx].surah != CORPUS.words[match.start_word_idx].surah
             and is_opening_match(ru) and ru.score >= match.score - OPENING_TIE_MARGIN)
+
+
+def _opening_first_word(surah: int) -> int:
+    st, en = AYAH_TO_CORPUS_RANGE[(surah, 1)]
+    p = st
+    while p < en and p in BESMELE_POSITIONS:
+        p += 1
+    return p
+
+
+OPENING_FIRST_TOKENS = {s: bare_token(CORPUS.words[_opening_first_word(s)].normalized.split()[0])
+                        for s in range(1, 115) if (s, 1) in AYAH_TO_CORPUS_RANGE}
+
+
+def opening_preference(text):
+    """Fatiha sonu: ilk kelimesi parcanin ilk 2 kelimesinden biri olan surelerin acilisinda (1-2. ayet) en iyi eslesme
+    → (eslesme, skor, ayrinti) ya da (None, -1, None) — bkz. OPENING_PREFER_MARGIN."""
+    toks = [t for t in (bare_token(w) for w in text.split()) if t][:2]
+    best, best_s, best_d = None, -1.0, None
+    for s, fw in OPENING_FIRST_TOKENS.items():
+        if s == 1 or fw not in toks:
+            continue
+        ow = (AYAH_TO_CORPUS_RANGE[(s, 1)][0], AYAH_TO_CORPUS_RANGE[(s, min(2, SURAH_AYAH_COUNTS[s]))][1])
+        m = align_transcription(text, CORPUS, preferred_range=ow, preferred_bonus=PREFERRED_BONUS)
+        if m is None or m.score < OPENING_MIN_FUZZY or not is_opening_match(m):
+            continue
+        sc, d = score_transcription(text, m)
+        if sc > best_s:
+            best, best_s, best_d = m, sc, d
+    return best, best_s, best_d
+
+
+def early_fatiha(state: SessionState, chunk_index: int, fatiha_ayah: int) -> bool:
+    """Zamm'da son saglam eslesmeden FATIHA_MIN_GAP_CHUNKS parca gecmeden Fatiha'nin 1-2. ayetinde biten eslesme ve onceki
+    parcalarda Fatiha gecis adayi yok → erken (gecis adayi olur)."""
+    if state.state != NamazState.ZAMM or state.last_solid_chunk is None or fatiha_ayah > FATIHA_EARLY_MAX_AYAH:
+        return False
+    if chunk_index - state.last_solid_chunk >= FATIHA_MIN_GAP_CHUNKS:
+        return False
+    jc = state.jump_candidate
+    return not (jc is not None and jc.surah == 1 and chunk_index - jc.chunk_index <= 2)
 
 
 def content_word_count(match) -> int:
@@ -1116,6 +1181,9 @@ def _commit_match(state: SessionState, match, score, jump, result):
     state.last_ayah = last_ayah
     state.lost_chunks = 0
     state.matched_chunks += 1
+    state.fresh_jump = None
+    if result.get("word_count", 0) >= MIN_WORD_COUNT_FIRST_LOCK and score >= MIN_CONFIDENCE_FIRST_LOCK:
+        state.last_solid_chunk = result["index"]
     return result
 
 
@@ -1292,6 +1360,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     # (tum Kuran aramasi "الحمد لله رب العالمين"i baska yere de oturtabiliyor)
     # ZAMM'da en az FATIHA_FAST_LOCK_MIN_WORDS kelime ("وإلى رب العالمين" 94:8 → Fatiha 92.6)
     fatiha_jump = False
+    fatiha_cand = None   # erken Fatiha (bkz. FATIHA_MIN_GAP_CHUNKS): gecis adayi, sonraki parca dogrular
     # Kilidi kaybolmus zamm ARA gibi (yeni rekat beklenir; sabah 21.10 2. rekat "والحمد لله رب العالمين" → 6:45)
     ara_like = state.state == NamazState.ARA or (state.state == NamazState.ZAMM and lock_abandoned)
     probe_words = MIN_WORD_COUNT_FIRST_LOCK if ara_like else FATIHA_FAST_LOCK_MIN_WORDS
@@ -1309,9 +1378,14 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
         else:
             better = fs >= base + JUMP_MARGIN
         if fm and fs >= FATIHA_FAST_LOCK_MIN_SCORE and better:
-            match, score, score_details = fm, fs, f_details
-            fatiha_jump = True
-            result["fatiha_jump"] = True
+            fv = collect_verses(fm.start_word_idx, fm.end_word_idx)[-1]
+            if early_fatiha(state, chunk_index, fv[1]):
+                fatiha_cand = PendingMatch(surah=1, ayah=fv[1], word_index=fm.end_word_idx, chunk_index=chunk_index)
+                result["early_fatiha"] = True
+            else:
+                match, score, score_details = fm, fs, f_details
+                fatiha_jump = True
+                result["fatiha_jump"] = True
 
     # BEKLEME + aday: aday penceresinde tutmadiysa ayni chunk'ta tum Kuran'da ara. Eskiden yanlis
     # aday (orn. 113:1 / 114:1 ortak ifadesi) 2 chunk bayatlayana kadar dogru yeri aratmiyordu.
@@ -1342,12 +1416,34 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     # Kilitliyken (FATIHA/ZAMM/ARA) pencere emin degilse tum Kuran'da da ara: sure gecisi. Eskiden
     # ABANDON_LOCK_AFTER_LOST (6 chunk, ~30 sn) dolmadan baska yere gecilemiyordu; ustelik Fatiha
     # penceresi zamm suresinin besmelesine / kisa ifadelerine 50-80 skorla "eslesip" kilidi tutuyordu.
+    # Taze gecisin yeniden kontrolu (bkz. FRESH_JUMP_CHUNKS): gecis parcasi da yeni surenin acilisina oturmali
+    fresh_fix = False
+    fj = state.fresh_jump
+    if (not hold and state.state == NamazState.ZAMM and fj is not None and 0 < chunk_index - fj[0] <= FRESH_JUMP_CHUNKS
+            and not lock_abandoned and not fatiha_jump and fatiha_cand is None and (not match or score < MIN_CONFIDENCE)):
+        g = align_transcription(text, CORPUS, preferred_range=None, preferred_bonus=PREFERRED_BONUS)
+        gs, g_details = score_transcription(text, g)
+        if g and gs >= FRESH_JUMP_MIN_SCORE and gs >= (score if match else 0.0) + JUMP_MARGIN:
+            gfs, gfa = collect_verses(g.start_word_idx, g.end_word_idx)[0]
+            if gfs != state.last_surah and gfa <= 2:
+                ow = (AYAH_TO_CORPUS_RANGE[(gfs, 1)][0], AYAH_TO_CORPUS_RANGE[(gfs, min(2, SURAH_AYAH_COUNTS[gfs]))][1])
+                pm = align_transcription(fj[1], CORPUS, preferred_range=ow, preferred_bonus=PREFERRED_BONUS)
+                if (pm and is_opening_match(pm) and pm.start_word_idx <= g.start_word_idx
+                        and score_transcription(fj[1], pm)[0] >= MIN_CONFIDENCE_FIRST_LOCK):
+                    match, score, score_details = g, gs, g_details
+                    fresh_fix = True
+                    result["fresh_jump_fix"] = True
+
     jump = "natural" if fatiha_jump else None  # "natural" | "verified" (gecildi) | "candidate" (aday)
+    if fresh_fix:
+        jump = "verified"
+        result["jump"] = jump
     opening = False   # sure basi gecisi (bkz. OPENING_MIN_FUZZY)
+    fresh = False
     short_jump = word_count == JUMP_SHORT_WORDS and at_transition_point(state)
     if (not hold and state.state in (NamazState.FATIHA, NamazState.ZAMM, NamazState.ARA) and preferred_range
             and not lock_abandoned and (word_count >= MIN_WORD_COUNT_FIRST_LOCK or short_jump)
-            and (not match or score < JUMP_SEARCH_BELOW)):
+            and fatiha_cand is None and (not match or score < JUMP_SEARCH_BELOW)):
         g = align_transcription(text, CORPUS, preferred_range=None, preferred_bonus=PREFERRED_BONUS)
         gs, g_details = score_transcription(text, g)
         base = score if match else 0.0
@@ -1407,6 +1503,15 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                         g, gs, g_details, gv = ru, rs, r_details, rv
                         (gfs, gfa), (gls, gla) = gv[0], gv[-1]
                         result["ayah_start_tie"] = True
+            if (not opening and not cont and state.state == NamazState.FATIHA and gs >= MIN_CONFIDENCE_FIRST_LOCK
+                    and at_transition_point(state) and not is_opening_match(g)):
+                # Sure acilisi onceligi: bkz. OPENING_PREFER_MARGIN
+                om, oms, om_details = opening_preference(text)
+                if om is not None and oms >= gs - OPENING_PREFER_MARGIN:
+                    g, gs, g_details, opening = om, oms, om_details, True
+                    gv = collect_verses(g.start_word_idx, g.end_word_idx)
+                    (gfs, gfa), (gls, gla) = gv[0], gv[-1]
+                    result["opening_prefer"] = True
             in_candidate = jc is not None and (_verify_pending(jc, gfs, gfa) or _verify_pending(jc, gls, gla))
             natural = opening or cont or (is_natural_transition(state, gfs, gfa) and gs >= NATURAL_MIN_SCORE)
             tie = natural and not cont and is_opening_match(g) and opening_tie(text, g)
@@ -1415,15 +1520,16 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 result["opening_tie"] = True
             # Zamm sonundan Fatiha'ya dogal gecis en az FATIHA_FAST_LOCK_MIN_WORDS kelimeyle (sabah 21.10: Adiyat sonu
             # "إن ربهم بهم" → ASR "إن رب العالمين" → Fatiha 1:2)
+            early = gfs == 1 and early_fatiha(state, chunk_index, gla)
             if (natural and gfs == 1 and state.state == NamazState.ZAMM and not lock_abandoned
-                    and word_count < FATIHA_FAST_LOCK_MIN_WORDS):
+                    and word_count < FATIHA_FAST_LOCK_MIN_WORDS) or early:
                 natural = opening = False
-                result["fatiha_short_jump"] = True
+                result["fatiha_short_jump" if not early else "early_fatiha"] = True
             if natural:
                 jump = "natural"
             elif in_candidate:
                 jump = "verified"
-            elif not tie and is_unique_match(text, g, gs, word_count):
+            elif not tie and not early and is_unique_match(text, g, gs, word_count):
                 jump = "verified"   # fark payi: baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
             elif (state.state == NamazState.ZAMM and score < MIN_CONFIDENCE_FIRST_LOCK and gfs == state.last_surah
                   and state.last_ayah is not None and state.last_ayah - RESUME_BACK <= gla < state.last_ayah):
@@ -1437,6 +1543,11 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             if jump != "candidate":
                 match, score, score_details = g, gs, g_details
             result["jump"] = jump
+            fresh = jump == "natural" and state.state == NamazState.FATIHA and not opening and not cont
+    if fatiha_cand is not None:
+        jump = "candidate"
+        state.jump_candidate = fatiha_cand
+        result["jump"] = jump
     timings["align"] = time.time() - t0
 
     result["confidence"] = score
@@ -1569,6 +1680,8 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 return result
 
     _commit_match(state, match, score, jump, result)
+    if fresh:
+        state.fresh_jump = (chunk_index, text)
 
     timings["total"] = time.time() - t_start
     timings["since_chunk_start"] = time.time() - chunk_start_time

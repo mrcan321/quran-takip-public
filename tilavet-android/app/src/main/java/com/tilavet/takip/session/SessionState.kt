@@ -58,6 +58,10 @@ data class SessionState(
     var zammAyah: Int? = null,
     /** Son "sadece tekbir" parcasinin indeksi — StateMachine.TEKBIR_TEVHID_CHUNKS. */
     var lastTekbirChunk: Int? = null,
+    /** Fatiha sonundaki taze (acilis / devam olmayan) dogal gecis: (parca indeksi, temiz metin) — StateMachine.FRESH_JUMP_CHUNKS. */
+    var freshJump: Pair<Int, String>? = null,
+    /** Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — StateMachine.FATIHA_MIN_GAP_CHUNKS. */
+    var lastSolidChunk: Int? = null,
 )
 
 /**

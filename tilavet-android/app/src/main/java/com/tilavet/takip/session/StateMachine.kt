@@ -210,6 +210,26 @@ class StateMachine(
         // "أَمِ اتَّخَذُوا مِن دُونِهِ" (21:24) ASR'de "أم اتطعتم من دونه" → Yunus 10:38'e ("استطعتم من دون الله") 77.3 dogal gecis,
         // devam penceresi 21:24 72.2 (sozluk cezasi) → 2 parca ekranda yanlis sure.
         const val CONTINUE_PRIOR_MARGIN = 6.0
+        // Fatiha sonunda sure acilisi onceligi: dogal gecis acilis olmayan bir yere oturduysa, ilk kelimesi parcanin ilk 2
+        // kelimesinden biri olan surelerin acilisi (1-2. ayet) ayrica hizalanir; tum Kuran'daki en iyi yerden en fazla bu
+        // kadar kotuyse acilis alinir. Aksam 22.10: "قل يا أيها الرحم" 7:158 / 62:6 / 109:1 esit 78.6 → 7:158'e gecti,
+        // Kafirun 5 sn gecikti.
+        const val OPENING_PREFER_MARGIN = 1.0
+        // Taze gecisin yeniden kontrolu: Fatiha sonunda acilis / devam olmayan yere dogal gecisten sonraki FRESH_JUMP_CHUNKS
+        // parcada pencere eslesmesi minConfidence altindaysa parca (2 kelime de) tum Kuran'da aranir; en iyi yer baska bir
+        // surenin 1-2. ayetinde, >= FRESH_JUMP_MIN_SCORE, pencereden >= JUMP_MARGIN iyi ve gecis parcasinin metni o surenin
+        // acilisina >= ilk kilit esigi oturuyorsa (sirali) gecilir. Aksam 22.10: Nasr "إذا جاء نصر الله" ASR'de "فما جاء النصر"
+        // → 15:61 ("فلما جاء آل لوط") 90.5, 110:1 75.0; sonraki "والله والفتح" (2 kelime, 110:1 86.7) aranmadi, 20 sn Hicr.
+        const val FRESH_JUMP_CHUNKS = 2
+        const val FRESH_JUMP_MIN_SCORE = 80.0
+        // Erken Fatiha: zamm'da kilit dusmeden, son saglam eslesmeden (>= 3 kelime, >= ilk kilit esigi) bu kadar parca
+        // gecmeden gelen ve Fatiha'nin 1-2. ayetinde biten eslesme ("الحمد لله رب العالمين": dua / tesbihatta da gecen, ASR'nin
+        // uydurdugu kalip) hemen gecmez, gecis adayi olur; sonraki parca Fatiha'da dogrularsa gecilir. Yeni rekat rukû + iki
+        // secdeden sonra gelir (>= ~30 sn). Aksam 22.10: Kafirun 109:6'dan 21 sn sonra semiallah kuyrugu + sessizlik + secde
+        // tekbiri basi ASR'de "الحمد لله رب العالمين" → "yeni rekat" Fatiha'si, 2. rekat 31 sn erken. (Zayif / Fatiha'nin
+        // ilerisine oturan eslesme denendi: gurultu testinde rukû arasindaki cop eslesmeler gercek 2. Fatiha'yi geciktirdi.)
+        const val FATIHA_MIN_GAP_CHUNKS = 6
+        const val FATIHA_EARLY_MAX_AYAH = 2
         // Gecis adayi varken (onceki parca) yeni parca adayin +-PENDING_VERIFY_AYAH_WINDOW ayetinde tum Kuran
         // eslesmesinden en fazla bu kadar kotu (ve >= ilk kilit esigi) eslesiyorsa aday dogrulanir. Ortak ifade tum
         // Kuran'da baska yere oturuyordu: Fatiha → bozuk Asr "الإنسان لفيه السوء" (103:2 adayi) → "الذين آمنوا وعملوا"
@@ -230,6 +250,12 @@ class StateMachine(
             listOf("محمد", "رسول", "الله"), listOf("محمدا", "رسول", "الله"),
             listOf("لا", "اله", "الا", "الله"), listOf("ان", "شاء", "الله"),
             listOf("اله", "الا", "الله"), listOf("الله", "اكبر"),
+            // namaz sonu tesbihati "(لا حول) ولا قوة إلا بالله": Kuran'da sadece 18:39 ("ما شاء الله لا قوة إلا بالله");
+            // aksam 22.10'da selamdan sonra "ولا قوة إلا بالله" 18:39'a tek parcada kilit
+            listOf("قوه", "الا", "بالله"), listOf("حول", "ولا", "قوه", "الا", "بالله"),
+            // tesbihat "(الحمد) لله ولا إله إلا الله": "ولا اله الا الله" Kuran'da hic yok (aksam 22.10: Kotlin 2:255 / Python
+            // 37:35 belirsiz aday — aligner aday budamasi farki)
+            listOf("ولا", "اله", "الا", "الله"), listOf("لله", "ولا", "اله", "الا", "الله"),
         )
         const val DHIKR_EXTRA_MAX = 1
         // Kamet / ezan basi: tekbir + tevhid ("الله أكبر الله أكبر" | "أشهد أن لا إله إلا الله"). Yatsi (19.10): kamet 685'te
@@ -602,6 +628,8 @@ class StateMachine(
             for (i in 0 until toks.size - 2) {
                 if (toks[i] == "سمع" && toks[i + 1] == "الله" && toks[i + 2] != "قول") return "ruku"
             }
+            // "استمع الله" (ASR: semiallah, aksam 22.10): Kuran'da "استمع" sadece 72:1'de ("استمع نفر")
+            if ((0 until toks.size - 1).any { toks[it] == "استمع" && toks[it + 1] == "الله" }) return "ruku"
             val kametWord = toks.indices.any { i ->
                 toks[i] in KAMET_WORDS && !(toks[i] == "الفلاح" && i > 0 && toks[i - 1] in FALAQ_PREV)
             }
@@ -927,6 +955,8 @@ class StateMachine(
         // cuma: 2. rekat Fatiha'si 21:107'ye (62) pencere eslesmesi aldi, kamet kilidinde Fatiha 4:102'ye eslesti.
         // ZAMM'da en az FATIHA_FAST_LOCK_MIN_WORDS kelime: "وإلى رب العالمين" (94:8, ASR bozuk) Fatiha'ya 92.6 aliyor.
         var fatihaJump = false
+        var fatihaCand: PendingMatch? = null   // erken Fatiha (bkz. FATIHA_MIN_GAP_CHUNKS): gecis adayi, sonraki parca dogrular
+        var fatihaCandMatch: AlignmentMatch? = null
         // Kilit kaybolmus zamm (ABANDON_LOCK_AFTER_LOST kayip parca, ~30 sn okuma yok) ARA gibi: yeni rekat beklenir. Sabah
         // 21.10: semiallah duyulmadi, 2. rekat Fatiha'si "والحمد لله رب العالمين" ZAMM'da (ARA'ya 12 kayip parca) tum Kuran'da
         // 6:45'e esit skor aldi (belirsiz aday) → Fatiha kilidi 10 sn gecikti.
@@ -949,10 +979,18 @@ class StateMachine(
                 fs >= base + JUMP_MARGIN
             }
             if (fm != null && fs >= FATIHA_FAST_LOCK_MIN_SCORE && better) {
-                match = fm
-                score = fs
-                fatihaJump = true
-                notes += "Fatiha yoklamasi ${"%.1f".format(fs)} (yeni rekat)"
+                val (_, fa) = collectVerses(fm.startWordIdx, fm.endWordIdx).last()
+                if (earlyFatiha(state, chunkIndex, fa)) {
+                    fatihaCand = PendingMatch(surah = 1, ayah = fa, wordIndex = fm.endWordIdx, chunkIndex = chunkIndex)
+                    fatihaCandMatch = fm
+                    notes += "Fatiha yoklamasi ${"%.1f".format(fs)}: erken (son saglam eslesmeden " +
+                        "${chunkIndex - (state.lastSolidChunk ?: chunkIndex)} parca), gecis adayi"
+                } else {
+                    match = fm
+                    score = fs
+                    fatihaJump = true
+                    notes += "Fatiha yoklamasi ${"%.1f".format(fs)} (yeni rekat)"
+                }
             }
         }
 
@@ -996,13 +1034,41 @@ class StateMachine(
         // ABANDON_LOCK_AFTER_LOST (6 chunk, ~30 sn) dolmadan baska yere gecilemiyordu; ustelik Fatiha
         // penceresi zamm suresinin besmelesine / kisa ifadelerine 50-80 skorla "eslesip" kilidi tutuyordu.
         // "natural" | "verified" (gecildi) | "candidate" (aday, sonraki chunk dogrulayacak)
-        var jump: String? = if (fatihaJump) "natural" else null
+        // Taze gecisin yeniden kontrolu (bkz. FRESH_JUMP_CHUNKS): gecis parcasi da yeni surenin acilisina oturmali
+        var freshFix = false
+        val fj = state.freshJump
+        if (!hold && state.state == NamazState.ZAMM && fj != null && chunkIndex - fj.first in 1..FRESH_JUMP_CHUNKS &&
+            !lockAbandoned && !fatihaJump && fatihaCand == null && (match == null || score < minConfidence)
+        ) {
+            val g = aligner.align(cleanText, preferredRange = null)
+            val gs = scoreTranscription(tokens, g)
+            if (g != null && gs >= FRESH_JUMP_MIN_SCORE && gs >= (if (match != null) score else 0.0) + JUMP_MARGIN) {
+                val (gfs, gfa) = collectVerses(g.startWordIdx, g.endWordIdx).first()
+                val ow = openingWindow(gfs)
+                if (gfs != state.lastSurah && gfa <= 2 && ow != null) {
+                    val pm = aligner.align(fj.second, preferredRange = ow)
+                    val pTokens = fj.second.trim().split(Regex("\\s+")).map { Normalizer.normalize(it) }.filter { it.isNotEmpty() }
+                    if (pm != null && isOpeningMatch(pm) && pm.startWordIdx <= g.startWordIdx &&
+                        scoreTranscription(pTokens, pm) >= minConfidenceFirstLock
+                    ) {
+                        notes += "taze gecis duzeltmesi: $gfs:$gfa ${"%.1f".format(gs)} (pencere " +
+                            "${"%.1f".format(if (match != null) score else 0.0)}; gecis parcasi $gfs acilisina oturuyor)"
+                        match = g
+                        score = gs
+                        freshFix = true
+                    }
+                }
+            }
+        }
+
+        var jump: String? = if (fatihaJump) "natural" else if (freshFix) "verified" else null
         var jumpCandidateMatch: AlignmentMatch? = null  // UI adayi gosterebilsin diye
         var opening = false   // sure basi gecisi (bkz. OPENING_MIN_FUZZY)
+        var fresh = false
         val shortJump = wordCount == JUMP_SHORT_WORDS && atTransitionPoint(state)
         if (!hold && (state.state == NamazState.FATIHA || state.state == NamazState.ZAMM || state.state == NamazState.ARA) &&
             preferredRange != null && !lockAbandoned && (wordCount >= MIN_WORD_COUNT_FIRST_LOCK || shortJump) &&
-            (match == null || score < JUMP_SEARCH_BELOW)
+            fatihaCand == null && (match == null || score < JUMP_SEARCH_BELOW)
         ) {
             val g = aligner.align(cleanText, preferredRange = null)
             val gs = scoreTranscription(tokens, g)
@@ -1096,6 +1162,22 @@ class StateMachine(
                         }
                     }
                 }
+                // Sure acilisi onceligi: bkz. OPENING_PREFER_MARGIN
+                if (!opening && !cont && state.state == NamazState.FATIHA && gsc >= minConfidenceFirstLock &&
+                    atTransitionPoint(state) && !isOpeningMatch(gm)
+                ) {
+                    val op = openingPreference(cleanText, tokens)
+                    if (op != null && op.second >= gsc - OPENING_PREFER_MARGIN) {
+                        val ov = collectVerses(op.first.startWordIdx, op.first.endWordIdx)
+                        val (o0s, o0a) = ov.first()
+                        val (f0s, f0a) = gvv.first()
+                        notes += "sure acilisi onceligi: $o0s:$o0a ${"%.1f".format(op.second)} (ilk yer $f0s:$f0a ${"%.1f".format(gsc)})"
+                        gm = op.first
+                        gsc = op.second
+                        gvv = ov
+                        opening = true
+                    }
+                }
                 val (gfs, gfa) = gvv.first()
                 val (gls, gla) = gvv.last()
                 val inCandidate = jc != null && (verifyPending(jc, gfs, gfa) || verifyPending(jc, gls, gla))
@@ -1111,18 +1193,23 @@ class StateMachine(
                 // Zamm sonundan Fatiha'ya dogal gecis en az FATIHA_FAST_LOCK_MIN_WORDS kelimeyle (Fatiha yoklamasindaki gibi):
                 // sabah 21.10 sabit parca, Adiyat sonu "إن ربهم بهم" → ASR "إن رب العالمين" Fatiha 1:2'ye dogal gecis oldu
                 // (yeni rekat rukû / secdeden sonra gelir — kilit kaybolmus zamm / ARA'da Fatiha yoklamasi 3 kelimeyle)
+                val early = gfs == 1 && earlyFatiha(state, chunkIndex, gla)
                 if (natural && gfs == 1 && state.state == NamazState.ZAMM && !lockAbandoned &&
                     wordCount < FATIHA_FAST_LOCK_MIN_WORDS) {
                     natural = false
                     opening = false
                     notes += "zamm sonundan Fatiha'ya $wordCount kelime (min $FATIHA_FAST_LOCK_MIN_WORDS): dogal gecis degil"
+                } else if (early) {
+                    natural = false
+                    opening = false
+                    notes += "erken Fatiha (son saglam eslesmeden ${chunkIndex - (state.lastSolidChunk ?: chunkIndex)} parca): gecis adayi"
                 }
                 jump = when {
                     natural -> "natural"
                     inCandidate -> "verified"
                     // Fark payi: Kuran'da baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
                     // (telefon kaydi: 55 → 107 gecisi 12 → 7 sn; gurultu testinde yanlis kilit artmadi)
-                    !tie && uniqueCheck(cleanText, tokens, gm, gsc, wordCount).let { uc ->
+                    !tie && !early && uniqueCheck(cleanText, tokens, gm, gsc, wordCount).let { uc ->
                         if (uc.unique) notes += "gecis tek parcada (${uc.note})"
                         uc.unique
                     } -> "verified"
@@ -1148,7 +1235,13 @@ class StateMachine(
                     score = gsc
                     notes += if (opening) "sure basi gecisi" else if (cont) "hatim devami" else if (jump == "natural") "dogal gecis" else "gecis dogrulandi"
                 }
+                fresh = jump == "natural" && state.state == NamazState.FATIHA && !opening && !cont
             }
+        }
+        if (fatihaCand != null) {
+            jump = "candidate"
+            state.jumpCandidate = fatihaCand
+            jumpCandidateMatch = fatihaCandMatch
         }
 
         val inPreferred = match != null && preferredRange != null &&
@@ -1377,10 +1470,12 @@ class StateMachine(
                 "aday dogrulandi (${pmBefore?.surah}:${pmBefore?.ayah} → $firstSurah:$firstAyah)"
             else -> "kilitli takip"
         }
-        return commitMatch(
+        val res = commitMatch(
             state, chunkIndex, match, score, wordCount, stateBefore, jump, rms, transcribedText, withNotes(acceptReason, notes),
             preferredRange, inPreferred, nearSurahEnd, lockAbandoned,
         )
+        if (fresh) state.freshJump = Pair(chunkIndex, cleanText)
+        return res
     }
 
     /** Eslesmeyi kabul et: durum gecisi, en ileri ayet, bosluk doldurma, son konum (Python commit_match ile birebir). */
@@ -1447,6 +1542,8 @@ class StateMachine(
         state.lastAyah = lastAyah
         state.lostChunks = 0
         state.matchedChunks += 1
+        state.freshJump = null
+        if (wordCount >= MIN_WORD_COUNT_FIRST_LOCK && score >= minConfidenceFirstLock) state.lastSolidChunk = chunkIndex
 
         return ChunkResult(
             chunkIndex = chunkIndex,
@@ -1783,6 +1880,56 @@ class StateMachine(
         } else {
             null
         }
+    }
+
+    /** Sure no → acilisin (1. ayet, besmele disi) ilk kelimesinin ilk parcasi (bare) — Python opening_first_tokens. */
+    private val openingFirstTokens: Map<Int, String> by lazy {
+        val out = LinkedHashMap<Int, String>()
+        for (s in 1..114) {
+            val (st, en) = ayahToCorpusRange[Pair(s, 1)] ?: continue
+            var p = st
+            while (p < en && p in besmelePositions) p++
+            out[s] = bareToken(index.getNormalized(p).split(' ').first())
+        }
+        out
+    }
+
+    /** Surenin acilis penceresi (1-2. ayet). */
+    private fun openingWindow(surah: Int): IntRange? {
+        val total = surahAyahCounts[surah] ?: return null
+        val st = ayahToCorpusRange[Pair(surah, 1)]?.first ?: return null
+        val en = ayahToCorpusRange[Pair(surah, min(2, total))]?.second ?: return null
+        return st..en
+    }
+
+    /**
+     * Fatiha sonu: ilk kelimesi parcanin ilk 2 kelimesinden biri olan surelerin acilisinda (1-2. ayet) en iyi eslesme
+     * → (eslesme, skor) ya da null — bkz. OPENING_PREFER_MARGIN (Python opening_preference ile birebir).
+     */
+    private fun openingPreference(cleanText: String, tokens: List<String>): Pair<AlignmentMatch, Double>? {
+        val toks = cleanText.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() }.take(2)
+        var best: Pair<AlignmentMatch, Double>? = null
+        for ((s, fw) in openingFirstTokens) {
+            if (s == 1 || fw !in toks) continue
+            val ow = openingWindow(s) ?: continue
+            val m = aligner.align(cleanText, preferredRange = ow) ?: continue
+            if (m.score < OPENING_MIN_FUZZY || !isOpeningMatch(m)) continue
+            val sc = scoreTranscription(tokens, m)
+            if (best == null || sc > best.second) best = Pair(m, sc)
+        }
+        return best
+    }
+
+    /**
+     * Zamm'da son saglam eslesmeden FATIHA_MIN_GAP_CHUNKS parca gecmeden Fatiha'nin 1-2. ayetinde biten eslesme ve onceki
+     * parcalarda Fatiha gecis adayi yok → erken (gecis adayi olur).
+     */
+    private fun earlyFatiha(state: SessionState, chunkIndex: Int, fatihaAyah: Int): Boolean {
+        if (state.state != NamazState.ZAMM || fatihaAyah > FATIHA_EARLY_MAX_AYAH) return false
+        val solid = state.lastSolidChunk ?: return false
+        if (chunkIndex - solid >= FATIHA_MIN_GAP_CHUNKS) return false
+        val jc = state.jumpCandidate
+        return !(jc != null && jc.surah == 1 && chunkIndex - jc.chunkIndex <= 2)
     }
 
     /** Eslesmedeki besmele-disi kelime sayisi. */
