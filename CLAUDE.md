@@ -1466,6 +1466,9 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   14:3'e eşleşmiyor), sentetik hatim (semiallah 47:19'a eşleşmiyor); başka değişiklik yok. Zorlama (aynı veri, 5 tohum, eski → yeni): sabit parça yanlış kilitli S1 2 → 0, S3 2 → 0, S4 26 → 22
   (kilitlenen aynı), S5 8 → 0; hibrit aynı (gecikme ort. 8.31 → 8.19 / 7.25 → 7.19). Fixture senaryo 27 (telefon
   parçaları) → 27 × 651.
+- **CI eval teyidi (43 kayıt, gerçek RNNT, APK #116 kodu):** yatsı 22.10 hibrit Fatiha 6 / Enbiyâ 6 / Fatiha 4 / Enbiyâ 3 sn, sabit
+  parça 6 / 8 / 3 / 5 sn, ikisinde de 0 yanlış; genel ilk kilit 19/0/0 (medyan 10 sn), takip 82 bölümün 82'si (iki zincir), yanlış
+  kilitli parça rnnt 0 / hibrit 1 (akşam 22.10'un 206 sn 15:61'i), ekranda yanlış aday 0.
 
 ---
 
