@@ -60,6 +60,8 @@ data class SessionState(
     var lastTekbirChunk: Int? = null,
     /** Fatiha sonundaki taze (acilis / devam olmayan) dogal gecis: (parca indeksi, temiz metin) — StateMachine.FRESH_JUMP_CHUNKS. */
     var freshJump: Pair<Int, String>? = null,
+    /** Son kabul edilen eslesmenin parca indeksi — StateMachine.TILAVET_END_NAMAZ_GAP. */
+    var lastMatchChunk: Int? = null,
     /** Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — StateMachine.FATIHA_MIN_GAP_CHUNKS. */
     var lastSolidChunk: Int? = null,
 )

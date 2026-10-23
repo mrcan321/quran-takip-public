@@ -66,7 +66,7 @@ class ZikirTracker {
                     w == "استمع" && next == "الله" -> add(NamazZikri.SEMIALLAH)
                     // Tek basina "حمده" (namazSignal'de rukû) kart icin yetmez: sentetik teravihte Kureys 106:4
                     // "أطعمهم" → ASR "الذي حمده منه" okuma ortasinda kart acti
-                    w == "لمن" && next != null && next.startsWith("حمد") -> add(NamazZikri.SEMIALLAH)
+                    w == "لمن" && next != null && next.startsWith("حم") -> add(NamazZikri.SEMIALLAH)
                     w == "ربنا" && (next == "لك" || next == "ولك") && t.getOrNull(i + 2) == "الحمد" -> add(NamazZikri.RABBENA)
                     w == "السلام" && (next == "عليكم" || next == "عليك") -> add(NamazZikri.SELAM)
                     // parca sinirinda bolunen selam ("السلام" onceki parcada)

@@ -273,6 +273,14 @@ class StateMachine(
         // kalkarken "سمع الله لمن حمده" → ASR "لم يعد" 20:112'ye 62.9 → rukûda ekranda henuz okunmamis ayet. FATIHA'da
         // uygulanmaz (aminden sonra zammin kisa ilk parcasi; bilesik teravihte Asr bolumu kilitsiz kaldi).
         const val PAUSE_LOST_CHUNKS = 2
+        // Kilitliyken (FATIHA / ZAMM) parca sadece "(و)الحمد لله" ve pencere eslesmesi < ilk kilit esigi → okuma degil (kayip
+        // parca). Kuran'da 20+ yerde gecen kalip; ASR nefes / kuyruktan uyduruyor. Yatsi 22.10: Enbiya 21:79 bitti, 2.6 sn'lik
+        // kuyruk parcasi "الحمد لله" → 21:80-81'e 62.1 → rukûda ekranda henuz okunmamis 21:80 / 21:81 (2. rekatta okundu).
+        val STOCK_PHRASES = setOf(listOf("الحمد", "لله"), listOf("والحمد", "لله"))
+        // Okumadan sonra tekbir duyulduysa (rukû; bkz. tekbirAfterReading) ZAMM'da kisa (< ilk kilit kelime sayisi) eslesme
+        // ancak bu skorla okumanin devami. Yatsi 22.10 sabit parca: 21:79 bitti, rukû tekbiri, semiallah ASR'de "لمن قبله" →
+        // 21:82'ye 76 → son zamm konumu 21:82 oldu, 2. rekatin devam penceresi 21:80'i kacirdi, 26:109'a dogal gecis.
+        const val TEKBIR_SHORT_MIN_SCORE = 90.0
         // Belirsiz aday (UI): BEKLEME / kilit kaybi adayinda ikinci yer bu kadar yakinsa aday ekranda gosterilmez
         // (ChunkResult.ambiguous; state machine ayni, dogrulaninca kayar). 39 + 44 kayit (gercek, sentetik, dis kaynak)
         // × 2 zincir: ekrandaki 22 yanlis adayin farki 0-2.7 ("قل أعوذ برب" 113:1 / 114:1, "ألم تر كيف" 105:1 / 89:6 /
@@ -327,6 +335,12 @@ class StateMachine(
         // ARA'da / kilidi kaybolmus zamm'da (yeni rekat beklenir) Fatiha yoklamasi pencere disindaki en iyi yerden bu kadar
         // dusuk olsa da kazanir: ASR basa "و" ekliyor, "والحمد لله رب العالمين" 6:45'te birebir 100, Fatiha 1:2 92.4 (sabah 21.10)
         const val FATIHA_ARA_MARGIN = 8.0
+        // BEKLEME'de (bekleme yokken) en iyi eslesme Fatiha disinda ama belirsizse (ikinci yer AMBIGUOUS_MARGIN icinde) ve
+        // parca Fatiha'nin 1-3. ayetine >= FATIHA_FAST_LOCK_MIN_SCORE, en iyiden en fazla FATIHA_ARA_MARGIN kotu oturuyorsa
+        // Fatiha (namaz Fatiha ile baslar). Yatsi 22.10: kamet onceki oturumda kaldi (uygulama yeniden baslatildi), ilk parca
+        // "والحمد لله رب العالمين" 6:45 / 37:182 esit 100, Fatiha 1:2 92 → belirsiz aday, Fatiha 5 sn gec (1:3'ten). Bekleyen aday
+        // varken uygulanmaz: gurultu testinde asr'in 37:180'i kilitlenmeyince 37:181 aday oldu, "والحمد لله رب العالمين" (37:182,
+        // adayi dogruluyordu) Fatiha sanildi.
 
         // Istiaze ayet degil ama "من الشيطان الرجيم" 16:98'e aday uretiyordu. Chunk sinirinda
         // bolunebilir: "الشيطان" iceren >=3 kelimelik ardisik parcalari cikar.
@@ -399,6 +413,9 @@ class StateMachine(
         // (<= SEMIALLAH_HEAD_LEN harf: "سمع", "يدع", "الله", "القول") da atilir.
         const val SEMIALLAH_HEAD_MAX = 2
         const val SEMIALLAH_HEAD_LEN = 5
+        // Tek basina semiallah sonu: "حمده", "حميده" (yatsi 22.10: "لمَن حميده"; Kuran'da "لمن"den sonra "حم" ile baslayan kelime
+        // yok — sadece "لمن حارب", "لمن حوله" — "لمن حم…" da semiallah)
+        val SEMIALLAH_TAIL = setOf("حمده", "حميده")
         // Kamet / ezan: Kuran'da HIC gecmeyen kelime ve ikililer (korpusla dogrulandi; eval'deki 33 kaydin RNNT +
         // CTC transkriptlerinde hic cikmadi). Cuma kameti: "أشهد ان لا إله", "الله محمد", "أن محمد", "الصلاة حي الصلاة",
         // "بل قام بالصلاة". "لا اله الا الله", "محمد رسول الله", "الله اكبر", "حي" (21:30, 8:42) Kuran'da var → isaret degil.
@@ -438,8 +455,11 @@ class StateMachine(
         // Tilavet sonu: asr / mukabele bitince okunan "صدق الله العظيم" (Kuran'da yok; "صدق الله" 3:95 / 33:22'de baska
         // kelimeyle). Asr 21.10: Hasr 59:24'ten sonra bu ifade + Saffat 37:180-182 — kilit 59:24'te kaldi, 37:180 okunurken
         // ekranda 59:24. Ifade cikarilir, kilit ve adaylar biter (BEKLEME, beklemesiz). Dis kaynak kayitlarinda (Collak, Harem)
-        // da kayit sonunda.
+        // da kayit sonunda. Namazda tilavet sonu yok: son eslesmeden sonra tekbir duyulduysa (rukû / secde) ve son eslesmeden en
+        // az TILAVET_END_NAMAZ_GAP parca gectiyse ifade sadece cikarilir, kilit bitmez (yatsi 22.10: secdede, son eslesmeden 8 parca
+        // sonra ASR "صدق الله العظيم" uydurdu → kilit sifirlandi; asr 21.10'da gercek tilavet sonu 2, sahte tekbir testinde 3 parca).
         val TILAVET_END = listOf("صدق", "الله", "العظيم")
+        const val TILAVET_END_NAMAZ_GAP = 5
 
         /** "صدق الله العظيم" → (ifade cikarilmis metin, bulundu mu). */
         fun stripTilavetEnd(text: String): Pair<String, Boolean> {
@@ -545,7 +565,7 @@ class StateMachine(
                     norms[i + 2] == "الحمد"
                 ) {
                     k = 3
-                } else if (norms[i] == "لمن" && i + 1 < n && norms[i + 1].startsWith("حمد")) {
+                } else if (norms[i] == "لمن" && i + 1 < n && norms[i + 1].startsWith("حم")) {
                     k = 2
                     var back = 0
                     while (keep.isNotEmpty() && back < SEMIALLAH_HEAD_MAX && bareToken(keep.last()).length <= SEMIALLAH_HEAD_LEN) {
@@ -553,7 +573,7 @@ class StateMachine(
                         back++
                     }
                     removed += back
-                } else if (norms[i] == "حمده") {
+                } else if (norms[i] in SEMIALLAH_TAIL) {
                     k = 1
                 } else if (norms[i] in ASR_NOISE_WORDS) {
                     k = 1
@@ -639,7 +659,7 @@ class StateMachine(
             if ((0 until toks.size - 1).any { toks[it] == "السلام" && (toks[it + 1] == "عليكم" || toks[it + 1] == "عليك") }) {
                 return "selam"
             }
-            if ("حمده" in toks || (0 until toks.size - 1).any { toks[it] == "لمن" && toks[it + 1].startsWith("حمد") }) {
+            if (toks.any { it in SEMIALLAH_TAIL } || (0 until toks.size - 1).any { toks[it] == "لمن" && toks[it + 1].startsWith("حم") }) {
                 return "ruku"
             }
             return null
@@ -770,7 +790,12 @@ class StateMachine(
         var tilavetEnd = false
         if (asrText.isNotBlank()) {
             val (t, found) = stripTilavetEnd(asrText)
-            if (found) {
+            val lt = state.lastTekbirChunk
+            val lm = state.lastMatchChunk
+            if (found && lt != null && lm != null && lt > lm && chunkIndex - lm >= TILAVET_END_NAMAZ_GAP) {
+                asrText = t
+                notes += "tilavet sonu ifadesi namazda (tekbirden sonra): sadece cikarildi"
+            } else if (found) {
                 asrText = t
                 tilavetEnd = true
                 resetForNewNamaz(state, chunkIndex, 0)
@@ -1087,6 +1112,16 @@ class StateMachine(
                 val (os, oa) = collectVerses(g.startWordIdx, g.endWordIdx).first()
                 opening = isNaturalTransition(state, os, oa)
                 ok = opening
+            } else if (contentOk && !ok && state.state == NamazState.FATIHA && state.zammSurah != null &&
+                atTransitionPoint(state) && g!!.score >= OPENING_MIN_FUZZY && g.score >= base + JUMP_MARGIN
+            ) {
+                // Kalinan yerden devam da ham hizalama skoruyla: Fatiha sonunda tum Kuran'daki en iyi yer onceki zamm'in
+                // devam penceresindeyse (bkz. CONTINUE_*) sozluk cezasi esige takilmasin. Yatsi 22.10 sabit parca: 2. rekat
+                // "وعلمناه صنعة لبوس لكم" ASR'de "وعلمناه صنعة لوس لكل تعز" → en iyi yer 21:80 (ham 89.4, cezali 69.2 < 70).
+                val zs = state.zammSurah!!
+                val cw = state.zammAyah?.let { continueWindow(zs, it) }
+                ok = cw != null && g.startWordIdx in cw
+                if (ok) notes += "kalinan yerden devam (ham hizalama ${"%.1f".format(g.score)})"
             }
             val gv = if (ok) collectVerses(g!!.startWordIdx, g.endWordIdx) else emptyList()
             if (ok && !opening && wordCount < MIN_WORD_COUNT_FIRST_LOCK) {
@@ -1244,6 +1279,27 @@ class StateMachine(
             jumpCandidateMatch = fatihaCandMatch
         }
 
+        // BEKLEME'de belirsiz eslesme yerine Fatiha basi — bkz. FATIHA_ARA_MARGIN
+        val m0 = match
+        if (!hold && state.state == NamazState.BEKLEME && m0 != null && jump == null &&
+            state.pendingMatch == null &&
+            wordCount >= FATIHA_FAST_LOCK_MIN_WORDS && collectVerses(m0.startWordIdx, m0.startWordIdx).first().first != 1
+        ) {
+            val fm = aligner.align(cleanText, preferredRange = fatihaRange)
+            val fs = scoreTranscription(tokens, fm)
+            if (fm != null && fs >= FATIHA_FAST_LOCK_MIN_SCORE && fs >= score - FATIHA_ARA_MARGIN &&
+                collectVerses(fm.startWordIdx, fm.startWordIdx).first().second <= 3
+            ) {
+                val ru = runnerUpMatch(cleanText, m0)
+                if (ru != null && score - scoreTranscription(tokens, ru) < AMBIGUOUS_MARGIN) {
+                    val (m0s, m0a) = collectVerses(m0.startWordIdx, m0.startWordIdx).first()
+                    notes += "belirsiz eslesme ($m0s:$m0a ${"%.1f".format(score)}) yerine Fatiha ${"%.1f".format(fs)}"
+                    match = fm
+                    score = fs
+                }
+            }
+        }
+
         val inPreferred = match != null && preferredRange != null &&
                 match.startWordIdx in preferredRange
 
@@ -1273,16 +1329,30 @@ class StateMachine(
         // Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS
         val pausedWeak = state.state == NamazState.ZAMM && !relock && !opening && state.lostChunks >= PAUSE_LOST_CHUNKS &&
             wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < minConfidenceFirstLock
+        val tekbirWeak = state.state == NamazState.ZAMM && !relock && !opening && jump != "natural" && jump != "verified" &&
+            tekbirAfterReading(state) && wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < TEKBIR_SHORT_MIN_SCORE
+        // Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
+        val stockWeak = (state.state == NamazState.FATIHA || state.state == NamazState.ZAMM) && !relock &&
+            jump != "natural" && jump != "verified" && score < minConfidenceFirstLock &&
+            cleanText.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() } in STOCK_PHRASES
 
         // 6. Skor / kelime yetersizse low_confidence
         // Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
-        if ((score < effectiveThreshold && !opening) || match == null || insufficientWords || pausedWeak) {
+        if ((score < effectiveThreshold && !opening) || match == null || insufficientWords || pausedWeak || stockWeak ||
+            tekbirWeak
+        ) {
             val where = match?.let { m ->
                 collectVerses(m.startWordIdx, m.endWordIdx).firstOrNull()?.let { (s0, a0) -> " @ $s0:$a0" }
             } ?: ""
             val reason = withNotes(when {
                 match == null -> "eslesme yok"
                 insufficientWords -> "yetersiz kelime ($wordCount<$requireMinWords)$where"
+                tekbirWeak && !stockWeak && score >= effectiveThreshold ->
+                    "tekbirden sonra kisa eslesme ($wordCount kelime, skor ${"%.1f".format(score)}$where < " +
+                        "${"%.0f".format(TEKBIR_SHORT_MIN_SCORE)})"
+                stockWeak && score >= effectiveThreshold ->
+                    "kalip ifade '${cleanText.trim()}' zayif eslesme (skor ${"%.1f".format(score)}$where < " +
+                        "${"%.0f".format(minConfidenceFirstLock)})"
                 pausedWeak && score >= effectiveThreshold ->
                     "okuma ara verdi (${state.lostChunks} kayip parca): kisa zayif eslesme ($wordCount kelime, " +
                         "skor ${"%.1f".format(score)}$where < ${"%.0f".format(minConfidenceFirstLock)})"
@@ -1543,6 +1613,7 @@ class StateMachine(
         state.lostChunks = 0
         state.matchedChunks += 1
         state.freshJump = null
+        state.lastMatchChunk = chunkIndex
         if (wordCount >= MIN_WORD_COUNT_FIRST_LOCK && score >= minConfidenceFirstLock) state.lastSolidChunk = chunkIndex
 
         return ChunkResult(
@@ -1880,6 +1951,13 @@ class StateMachine(
         } else {
             null
         }
+    }
+
+    /** Son saglam eslesmeden sonra tekbir duyuldu mu (namazda rukû / secde) — bkz. TILAVET_END. */
+    private fun tekbirAfterReading(state: SessionState): Boolean {
+        val t = state.lastTekbirChunk ?: return false
+        val s = state.lastSolidChunk ?: return false
+        return t > s
     }
 
     /** Sure no → acilisin (1. ayet, besmele disi) ilk kelimesinin ilk parcasi (bare) — Python opening_first_tokens. */

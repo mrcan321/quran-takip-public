@@ -175,6 +175,10 @@ SEARCH_CONCAT_MAX_OVERLAP = 4
 VERIFY_GLOBAL_MARGIN = 15
 # ARA'da / kilidi kaybolmus zamm'da Fatiha yoklamasi pencere disindaki en iyi yerden bu kadar dusuk olsa da kazanir
 FATIHA_ARA_MARGIN = 8
+# BEKLEME'de (bekleme yokken) en iyi eslesme Fatiha disi ama belirsizse (ikinci yer AMBIGUOUS_MARGIN icinde) ve Fatiha'nin 1-3.
+# ayetine >= FATIHA_FAST_LOCK_MIN_SCORE, en iyiden en fazla FATIHA_ARA_MARGIN kotu oturuyorsa Fatiha (yatsi 22.10: kamet onceki
+# oturumda, "والحمد لله رب العالمين" 6:45 / 37:182 esit → Fatiha 5 sn gec). Bekleyen aday varken uygulanmaz (gurultu testi: asr
+# 37:181 adayini 37:182 dogruluyordu)
 
 
 def _runner_up_match(text, match):
@@ -281,6 +285,8 @@ class SessionState:
     last_tekbir_chunk: Optional[int] = None
     # Fatiha sonundaki taze (acilis / devam olmayan) dogal gecis: (parca indeksi, temiz metin) — bkz. FRESH_JUMP_CHUNKS
     fresh_jump: Optional[Tuple[int, str]] = None
+    # Son kabul edilen eslesmenin parca indeksi — bkz. TILAVET_END_NAMAZ_GAP
+    last_match_chunk: Optional[int] = None
     # Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — bkz. FATIHA_MIN_GAP_CHUNKS
     last_solid_chunk: Optional[int] = None
 
@@ -734,6 +740,8 @@ TEKBIR_WORDS = {"اكبر", "اغبر", "اكبار"}
 # SEMIALLAH_HEAD_MAX kisa kelime (<= SEMIALLAH_HEAD_LEN harf) da atilir
 SEMIALLAH_HEAD_MAX = 2
 SEMIALLAH_HEAD_LEN = 5
+# Tek basina semiallah sonu ("حمده", "حميده"); "لمن حم…" (Kuran'da "لمن"den sonra sadece "حارب", "حوله"; yatsi 22.10 "لمَن حميده")
+SEMIALLAH_TAIL = {"حمده", "حميده"}
 KAMET_WORDS = {"الفلاح", "قامت", "محمدا"}
 KAMET_PAIRS = {("اشهد", "ان"), ("اشهد", "انه"), ("اشهد", "لا"), ("ان", "محمد"), ("الله", "محمد"), ("قد", "قام"),
                ("قام", "الصلاه"), ("قام", "بالصلاه"), ("حي", "علي"), ("حي", "الصلاه"), ("الصلاه", "حي"),
@@ -758,8 +766,17 @@ def is_asr_hallucination(text: str) -> bool:
 HALLUCINATION_HEADS = {"شركه", "موسوعه"}
 HALLUCINATION_CONT = {"للخدمات", "الخدمات", "التقنيه", "التاريخ", "التاريخيه", "للعلوم", "الاسلاميه", "للبناء",
                       "للنوم", "للاعجاب", "شريك"}
-# Tilavet sonu "صدق الله العظيم" (Kuran'da yok): ifade cikarilir, kilit / adaylar biter (asr 21.10)
+# Tilavet sonu "صدق الله العظيم" (Kuran'da yok): ifade cikarilir, kilit / adaylar biter (asr 21.10). Son saglam eslesmeden
+# sonra tekbir duyulduysa (namazda rukû / secde) ve son eslesmeden en az TILAVET_END_NAMAZ_GAP parca gectiyse sadece cikarilir
+# (yatsi 22.10: secdede, son eslesmeden 8 parca sonra uydurma; asr 21.10'da gercek tilavet sonu 2 parca sonra)
+TILAVET_END_NAMAZ_GAP = 5
 TILAVET_END = ("صدق", "الله", "العظيم")
+
+
+def tekbir_after_reading(state) -> bool:
+    """Son saglam eslesmeden sonra tekbir duyuldu mu (namazda rukû / secde) — bkz. TILAVET_END."""
+    return (state.last_tekbir_chunk is not None and state.last_solid_chunk is not None
+            and state.last_tekbir_chunk > state.last_solid_chunk)
 
 
 def strip_tilavet_end(text: str) -> Tuple[str, bool]:
@@ -814,6 +831,12 @@ TEKBIR_TEVHID_CHUNKS = 2
 # Kilit kaybolmussa zikir / tekbir + tevhid kurali ZAMM'da da (yatsi #2) ve zamm okunurken ara verildiyse kisa + zayif
 # eslesme devam sayilmaz (FATIHA'da degil) — bkz. scripts/build_state_machine_fixture.py PAUSE_LOST_CHUNKS
 PAUSE_LOST_CHUNKS = 2
+# Kilitliyken parca sadece "(و)الحمد لله" ve pencere eslesmesi < ilk kilit esigi → okuma degil (yatsi 22.10: 21:79 sonu kuyruk
+# parcasi → 21:80-81'e 62.1, rukûda ekranda okunmamis ayet)
+STOCK_PHRASES = {("الحمد", "لله"), ("والحمد", "لله")}
+# Okumadan sonra tekbir duyulduysa (rukû) ZAMM'da kisa (< 3 kelime) eslesme ancak >= bu skorla okumanin devami (yatsi 22.10 sabit
+# parca: semiallah "لمن قبله" 21:82'ye 76 → 2. rekat devam penceresi 21:80'i kacirdi)
+TEKBIR_SHORT_MIN_SCORE = 90
 
 
 def is_tevhid(text: str) -> bool:
@@ -870,14 +893,14 @@ def strip_namaz_phrases(text: str) -> Tuple[str, int]:
                 k = 4 if i + 3 < n and norms[i + 3].startswith("حمد") else 3
         elif norms[i] == "ربنا" and i + 2 < n and norms[i + 1] in ("لك", "ولك") and norms[i + 2] == "الحمد":
             k = 3
-        elif norms[i] == "لمن" and i + 1 < n and norms[i + 1].startswith("حمد"):
+        elif norms[i] == "لمن" and i + 1 < n and norms[i + 1].startswith("حم"):
             k = 2
             back = 0
             while keep and back < SEMIALLAH_HEAD_MAX and len(bare_token(keep[-1])) <= SEMIALLAH_HEAD_LEN:
                 keep.pop()
                 back += 1
             removed += back
-        elif norms[i] == "حمده":
+        elif norms[i] in SEMIALLAH_TAIL:
             k = 1
         elif norms[i] in ASR_NOISE_WORDS:
             k = 1
@@ -943,7 +966,7 @@ def namaz_signal(text: str) -> Optional[str]:
         return "kamet"
     if any(a == "السلام" and b in ("عليكم", "عليك") for a, b in zip(toks, toks[1:])):
         return "selam"
-    if "حمده" in toks or any(a == "لمن" and b.startswith("حمد") for a, b in zip(toks, toks[1:])):
+    if any(t in SEMIALLAH_TAIL for t in toks) or any(a == "لمن" and b.startswith("حم") for a, b in zip(toks, toks[1:])):
         return "ruku"
     return None
 
@@ -1182,6 +1205,7 @@ def _commit_match(state: SessionState, match, score, jump, result):
     state.lost_chunks = 0
     state.matched_chunks += 1
     state.fresh_jump = None
+    state.last_match_chunk = result["index"]
     if result.get("word_count", 0) >= MIN_WORD_COUNT_FIRST_LOCK and score >= MIN_CONFIDENCE_FIRST_LOCK:
         state.last_solid_chunk = result["index"]
     return result
@@ -1224,6 +1248,11 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     # Tilavet sonu ("صدق الله العظيم") → kilit / adaylar biter
     if text:
         text, tilavet_end = strip_tilavet_end(text)
+        if (tilavet_end and state.last_tekbir_chunk is not None and state.last_match_chunk is not None
+                and state.last_tekbir_chunk > state.last_match_chunk
+                and chunk_index - state.last_match_chunk >= TILAVET_END_NAMAZ_GAP):
+            tilavet_end = False
+            result["tilavet_end_in_namaz"] = True
         if tilavet_end:
             result["tilavet_end"] = True
             reset_for_new_namaz(state, chunk_index, 0)
@@ -1455,6 +1484,14 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 and g.score >= base + JUMP_MARGIN and is_opening_match(g):
             gv = collect_verses(g.start_word_idx, g.end_word_idx)
             opening = ok = is_natural_transition(state, gv[0][0], gv[0][1])
+        # Kalinan yerden devam da ham hizalama skoruyla (yatsi 22.10 sabit parca: "وعلمناه صنعة لوس لكل تعز" 21:80 ham 89.4,
+        # sozluk cezali 69.2 — referans: build_state_machine_fixture)
+        elif content_ok and not ok and state.state == NamazState.FATIHA and state.zamm_surah \
+                and at_transition_point(state) and g.score >= OPENING_MIN_FUZZY and g.score >= base + JUMP_MARGIN:
+            cw = _continue_window(state.zamm_surah, state.zamm_ayah)
+            ok = bool(cw) and cw[0] <= g.start_word_idx <= cw[1]
+            if ok:
+                result["continue_raw"] = True
         if ok:
             gv = collect_verses(g.start_word_idx, g.end_word_idx)
             (gfs, gfa), (gls, gla) = gv[0], gv[-1]
@@ -1548,6 +1585,16 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
         jump = "candidate"
         state.jump_candidate = fatiha_cand
         result["jump"] = jump
+    # BEKLEME'de belirsiz eslesme yerine Fatiha basi — bkz. FATIHA_ARA_MARGIN
+    if (not hold and state.state == NamazState.BEKLEME and match is not None and jump is None
+            and state.pending_match is None
+            and word_count >= FATIHA_FAST_LOCK_MIN_WORDS and CORPUS.words[match.start_word_idx].surah != 1):
+        fm = align_transcription(text, CORPUS, preferred_range=FATIHA_RANGE, preferred_bonus=PREFERRED_BONUS)
+        fs, f_details = score_transcription(text, fm)
+        if (fm and fs >= FATIHA_FAST_LOCK_MIN_SCORE and fs >= score - FATIHA_ARA_MARGIN
+                and CORPUS.words[fm.start_word_idx].ayah <= 3 and is_ambiguous_candidate(text, match, score)):
+            match, score, score_details = fm, fs, f_details
+            result["fatiha_over_ambiguous"] = True
     timings["align"] = time.time() - t0
 
     result["confidence"] = score
@@ -1579,11 +1626,22 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     # Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS
     paused_weak = (state.state == NamazState.ZAMM and not relock and not opening and state.lost_chunks >= PAUSE_LOST_CHUNKS
                    and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
+    # Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
+    tekbir_weak = (state.state == NamazState.ZAMM and not relock and not opening and jump not in ("natural", "verified")
+                   and tekbir_after_reading(state) and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
+    stock_weak = (state.state in (NamazState.FATIHA, NamazState.ZAMM) and not relock and jump not in ("natural", "verified")
+                  and score < MIN_CONFIDENCE_FIRST_LOCK
+                  and tuple(t for t in (bare_token(w) for w in text.split()) if t) in STOCK_PHRASES)
 
     # Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
-    if (score < effective_threshold and not opening) or not match or insufficient_words or paused_weak:
+    if (score < effective_threshold and not opening) or not match or insufficient_words or paused_weak or stock_weak \
+            or tekbir_weak:
         result["status"] = "low_confidence"
-        if insufficient_words:
+        if tekbir_weak and score >= effective_threshold and not stock_weak:
+            result["reason"] = f"tekbirden sonra kisa eslesme ({word_count} kelime, skor {score:.1f} < {TEKBIR_SHORT_MIN_SCORE})"
+        elif stock_weak and score >= effective_threshold:
+            result["reason"] = f"kalip ifade '{text}' zayif eslesme (skor {score:.1f} < {MIN_CONFIDENCE_FIRST_LOCK})"
+        elif insufficient_words:
             result["reason"] = f"yetersiz kelime ({word_count}<{require_min_words})"
         elif paused_weak and score >= effective_threshold:
             result["reason"] = (f"okuma ara verdi ({state.lost_chunks} kayip parca): kisa zayif eslesme "

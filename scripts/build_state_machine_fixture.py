@@ -176,6 +176,11 @@ VERIFY_GLOBAL_MARGIN = 15
 # ARA'da / kilidi kaybolmus zamm'da (yeni rekat beklenir) Fatiha yoklamasi pencere disindaki en iyi yerden bu kadar
 # dusuk olsa da kazanir
 FATIHA_ARA_MARGIN = 8
+# BEKLEME'de (bekleme yokken) en iyi eslesme Fatiha disinda ama belirsizse (ikinci yer AMBIGUOUS_MARGIN icinde) ve parca
+# Fatiha'nin 1-3. ayetine >= FATIHA_FAST_LOCK_MIN_SCORE, en iyiden en fazla FATIHA_ARA_MARGIN kotu oturuyorsa Fatiha (namaz
+# Fatiha ile baslar). Yatsi 22.10: kamet onceki oturumda kaldi (uygulama yeniden baslatildi), ilk parca "والحمد لله رب العالمين"
+# 6:45 / 37:182 esit 100, Fatiha 1:2 92 → belirsiz aday, Fatiha 5 sn gec (1:3'ten). Bekleyen aday varken uygulanmaz: gurultu
+# testinde asr'in 37:180'i kilitlenmeyince 37:181 aday oldu, "والحمد لله رب العالمين" (37:182, adayi dogruluyordu) Fatiha sanildi.
 
 
 def runner_up_match(text, match, corpus):
@@ -265,6 +270,8 @@ class SessionState:
     last_tekbir_chunk: Optional[int] = None
     # Fatiha sonundaki taze (acilis / devam olmayan) dogal gecis: (parca indeksi, temiz metin) — bkz. FRESH_JUMP_CHUNKS
     fresh_jump: Optional[Tuple[int, str]] = None
+    # Son kabul edilen eslesmenin parca indeksi — bkz. TILAVET_END_NAMAZ_GAP
+    last_match_chunk: Optional[int] = None
     # Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — bkz. FATIHA_MIN_GAP_CHUNKS
     last_solid_chunk: Optional[int] = None
 
@@ -430,6 +437,9 @@ TEKBIR_WORDS = {"اكبر", "اغبر", "اكبار"}
 # (<= SEMIALLAH_HEAD_LEN harf: "سمع", "يدع", "الله", "القول") da atilir.
 SEMIALLAH_HEAD_MAX = 2
 SEMIALLAH_HEAD_LEN = 5
+# Tek basina semiallah sonu: "حمده", "حميده" (yatsi 22.10: "لمَن حميده"; Kuran'da "لمن"den sonra "حم" ile baslayan kelime yok —
+# sadece "لمن حارب", "لمن حوله" — "لمن حم…" da semiallah)
+SEMIALLAH_TAIL = {"حمده", "حميده"}
 # Kamet / ezan: Kuran'da HIC gecmeyen kelime ve ikililer (korpusla dogrulandi; eval'deki 33 kaydin RNNT + CTC
 # transkriptlerinde hic cikmadi). Cuma kameti: "أشهد ان لا إله", "الله محمد", "أن محمد", "الصلاة حي الصلاة",
 # "بل قام بالصلاة". "لا اله الا الله", "محمد رسول الله", "الله اكبر", "حي" (21:30, 8:42) Kuran'da var → isaret degil.
@@ -473,6 +483,17 @@ HALLUCINATION_CONT = {"للخدمات", "الخدمات", "التقنيه", "ا�
 # Asr 21.10: Hasr 59:24'ten sonra bu ifade + Saffat 37:180-182 — kilit 59:24'te kaldi, 37:180 okunurken ekranda 59:24.
 # Ifade cikarilir, kilit ve adaylar biter (BEKLEME, beklemesiz). Dis kaynak kayitlarinda (Collak, Harem) da kayit sonunda.
 TILAVET_END = ("صدق", "الله", "العظيم")
+# Namazda tilavet sonu yok: son eslesmeden sonra tekbir duyulduysa (rukû / secde) ve son eslesmeden en az TILAVET_END_NAMAZ_GAP
+# parca gectiyse ifade sadece cikarilir, kilit bitmez. Yatsi 22.10: secdede (son eslesmeden 8 parca sonra) ASR "صدق الله العظيم"
+# uydurdu → 1. rekat ortasinda kilit sifirlandi. Gercek tilavet sonu okumanin hemen ardindan (asr 21.10: 2 parca; sahte tekbir
+# testinde 3); sadece tekbir sarti gurultu / sahte tekbir testinde asr'in tilavet sonunu kaciriyordu (37:180 kilitlenmedi).
+TILAVET_END_NAMAZ_GAP = 5
+
+
+def tekbir_after_reading(state):
+    """Son saglam eslesmeden sonra tekbir duyuldu mu (namazda rukû / secde) — bkz. TILAVET_END."""
+    return (state.last_tekbir_chunk is not None and state.last_solid_chunk is not None
+            and state.last_tekbir_chunk > state.last_solid_chunk)
 
 
 def strip_tilavet_end(text):
@@ -547,6 +568,15 @@ TEKBIR_TEVHID_CHUNKS = 2
 # rekatta okundu). FATIHA'da uygulanmaz: Fatiha → zamm arasindaki aminden sonra zammin kisa ilk parcasi ("إن الإنسان")
 # Fatiha'ya zayif eslesip kayip sayacini sifirliyor; reddedilince bilesik teravihte Asr bolumu hic kilitlenmedi.
 PAUSE_LOST_CHUNKS = 2
+# Kilitliyken (FATIHA / ZAMM) parca sadece "(و)الحمد لله" ve pencere eslesmesi < ilk kilit esigi → okuma degil (kayip parca).
+# Kuran'da 20+ yerde gecen kalip; ASR nefes / kuyruktan uyduruyor. Yatsi 22.10: Enbiya 21:79 bitti, 2.6 sn'lik kuyruk parcasi
+# "الحمد لله" → 21:80-81'e 62.1 → rukûda ekranda henuz okunmamis 21:80 / 21:81 (2. rekatta okundu).
+STOCK_PHRASES = {("الحمد", "لله"), ("والحمد", "لله")}
+# Okumadan sonra tekbir duyulduysa (rukû; bkz. tekbir_after_reading) ZAMM'da kisa (< ilk kilit kelime sayisi) eslesme ancak
+# >= TEKBIR_SHORT_MIN_SCORE ise okumanin devami. Yatsi 22.10 sabit parca: 21:79 bitti, rukû tekbiri, semiallah ASR'de
+# "لمن قبله" → 21:82'ye 76 → son zamm konumu 21:82 oldu, 2. rekatin devam penceresi (21:82..) 21:80'i kacirdi, "فهل أنتم يا
+# رب العالمين" 26:109'a dogal gecis (2 parca yanlis sure).
+TEKBIR_SHORT_MIN_SCORE = 90
 
 
 def is_tevhid(text):
@@ -604,14 +634,14 @@ def strip_namaz_phrases(text):
                 k = 4 if i + 3 < n and norms[i + 3].startswith("حمد") else 3
         elif norms[i] == "ربنا" and i + 2 < n and norms[i + 1] in ("لك", "ولك") and norms[i + 2] == "الحمد":
             k = 3
-        elif norms[i] == "لمن" and i + 1 < n and norms[i + 1].startswith("حمد"):
+        elif norms[i] == "لمن" and i + 1 < n and norms[i + 1].startswith("حم"):
             k = 2
             back = 0
             while keep and back < SEMIALLAH_HEAD_MAX and len(bare_token(keep[-1])) <= SEMIALLAH_HEAD_LEN:
                 keep.pop()
                 back += 1
             removed += back
-        elif norms[i] == "حمده":
+        elif norms[i] in SEMIALLAH_TAIL:
             k = 1
         elif norms[i] in ASR_NOISE_WORDS:
             k = 1
@@ -679,7 +709,7 @@ def namaz_signal(text):
         return "kamet"
     if any(a == "السلام" and b in ("عليكم", "عليك") for a, b in zip(toks, toks[1:])):
         return "selam"
-    if "حمده" in toks or any(a == "لمن" and b.startswith("حمد") for a, b in zip(toks, toks[1:])):
+    if any(t in SEMIALLAH_TAIL for t in toks) or any(a == "لمن" and b.startswith("حم") for a, b in zip(toks, toks[1:])):
         return "ruku"
     return None
 
@@ -996,6 +1026,7 @@ def commit_match(state, match, score, word_count, chunk_index, state_before, jum
     state.lost_chunks = 0
     state.matched_chunks += 1
     state.fresh_jump = None
+    state.last_match_chunk = chunk_index
     if word_count >= MIN_WORD_COUNT_FIRST_LOCK and score >= MIN_CONFIDENCE_FIRST_LOCK:
         state.last_solid_chunk = chunk_index
 
@@ -1039,6 +1070,10 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     tilavet_end = False
     if transcribed_text:
         transcribed_text, tilavet_end = strip_tilavet_end(transcribed_text)
+        if (tilavet_end and state.last_tekbir_chunk is not None and state.last_match_chunk is not None
+                and state.last_tekbir_chunk > state.last_match_chunk
+                and chunk_index - state.last_match_chunk >= TILAVET_END_NAMAZ_GAP):
+            tilavet_end = False
         if tilavet_end:
             reset_for_new_namaz(state, chunk_index, 0)
             state.hold_until = None
@@ -1238,6 +1273,14 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                 and g.score >= base + JUMP_MARGIN and is_opening_match(g, corpus, ayah_to_range):
             gv = collect_verses(corpus, g.start_word_idx, g.end_word_idx)
             opening = ok = is_natural_transition(state, gv[0][0], gv[0][1], surah_counts)
+        # Kalinan yerden devam da ham hizalama skoruyla: Fatiha sonunda tum Kuran'daki en iyi yer onceki zamm'in devam
+        # penceresindeyse (bkz. CONTINUE_*) sozluk cezasi esige takilmasin. Yatsi 22.10 sabit parca: 2. rekat "وعلمناه صنعة
+        # لبوس لكم" ASR'de "وعلمناه صنعة لوس لكل تعز" → en iyi yer 21:80 (ham 89.4, sozluk cezali 69.2 < 70) gecilmedi.
+        elif content_ok and not ok and state.state == NamazState.FATIHA and state.zamm_surah \
+                and at_transition_point(state, surah_counts) and g.score >= OPENING_MIN_FUZZY \
+                and g.score >= base + JUMP_MARGIN:
+            cw = continue_window(state.zamm_surah, state.zamm_ayah, ayah_to_range, surah_counts)
+            ok = bool(cw) and cw[0] <= g.start_word_idx <= cw[1]
         if ok:
             gv = collect_verses(corpus, g.start_word_idx, g.end_word_idx)
             (gfs, gfa), (gls, gla) = gv[0], gv[-1]
@@ -1332,6 +1375,18 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
         jump = "candidate"
         state.jump_candidate = fatiha_cand
 
+    # BEKLEME'de belirsiz eslesme yerine Fatiha basi — bkz. FATIHA_ARA_MARGIN
+    if (not hold and state.state == NamazState.BEKLEME and match is not None and jump is None
+            and state.pending_match is None
+            and word_count >= FATIHA_FAST_LOCK_MIN_WORDS and corpus.words[match.start_word_idx].surah != 1):
+        fm = align_transcription(transcribed_text, corpus, preferred_range=fatiha_range(ayah_to_range), preferred_bonus=PREFERRED_BONUS)
+        fs = score_transcription(transcribed_text, fm, vocab)
+        if (fm and fs >= FATIHA_FAST_LOCK_MIN_SCORE and fs >= score - FATIHA_ARA_MARGIN
+                and corpus.words[fm.start_word_idx].ayah <= 3):
+            ru = runner_up_match(transcribed_text, match, corpus)
+            if ru is not None and score - score_transcription(transcribed_text, ru, vocab) < AMBIGUOUS_MARGIN:
+                match, score = fm, fs
+
     is_first_lock = state.state == NamazState.BEKLEME
     # Kilit kayboldu (6+ kayip chunk ya da ARA): yeniden kilit ilk kilit gibi. Eskiden ARA'da tum Kuran'da
     # 50 skorla tek chunk kilit veriyordu (gercek namaz: selam → 6:54, "سمع الله حمدا" → 3:181)
@@ -1344,11 +1399,17 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
         req_min = 0
     insufficient = req_min > 0 and word_count < req_min
     # Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS
+    # Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
+    stock_weak = (state.state in (NamazState.FATIHA, NamazState.ZAMM) and not relock and jump not in ("natural", "verified")
+                  and score < MIN_CONFIDENCE_FIRST_LOCK
+                  and tuple(t for t in (bare_token(w) for w in transcribed_text.split()) if t) in STOCK_PHRASES)
+    tekbir_weak = (state.state == NamazState.ZAMM and not relock and not opening and jump not in ("natural", "verified")
+                   and tekbir_after_reading(state) and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
     paused_weak = (state.state == NamazState.ZAMM and not relock and not opening and state.lost_chunks >= PAUSE_LOST_CHUNKS
                    and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
 
     # Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
-    if (score < eff_thresh and not opening) or not match or insufficient or paused_weak:
+    if (score < eff_thresh and not opening) or not match or insufficient or paused_weak or stock_weak or tekbir_weak:
         state.lost_chunks += 1
         cleanup_stale_candidates(state, chunk_index)
         new_state = transition_state(state, False, None, None)
@@ -2099,6 +2160,108 @@ SCENARIOS = [
             (0.0347, "استمع الله"),                         # 51: semiallah 'استمع الله' → rukû
             (0.0524, "شركة التابعين"),
             (0.0635, ""),
+        ],
+    },
+
+    # ============ Senaryo 27: yatsi 22.10 (APK #114 telefon parcalari) — Fatiha onceligi, kalip ifade, namazda tilavet sonu ============
+    {
+        "description": "kamet onceki oturumda: 'والحمد لله رب العالمين' belirsiz → Fatiha → Enbiya 21:71-79 → kuyruk 'الحمد لله' "
+                       "(kalip ifade, 21:80-81'e gecmez) → rukû tekbiri → secdede 'صدق الله العظيم' (tekbirden sonra: kilit bitmez) → "
+                       "2. rekat Fatiha → 21:80-87 (devam) → semiallah 'لمَن حميده' rukû",
+        "chunks": [
+            (0.0418, ""),
+            (0.0688, "والحمد لله رب العالمين نهاية الدرس"), # 1: 'والحمد' 6:45 / 37:182 esit (belirsiz) → Fatiha 1:2 (bekleme yokken Fatiha onceligi)
+            (0.062, "الرحمن الرحيم مالك يوم الدين"),
+            (0.067, "إياك ندعو"),
+            (0.0652, "المصدر"),
+            (0.0537, "اهدنا الصراط المستقيم"),
+            (0.0673, "المستقيم صراط الذين انعمت عليهم"),
+            (0.0627, "ولا يقل"),
+            (0.0818, "شركة الهدى للخدمات التقنية"),
+            (0.0643, ""),
+            (0.0448, "وجرى"),
+            (0.0788, "وَنَجَّيْنَاهُ وَلُوطًا إِلَى الْأَرْضِ الَّتِي بَارَكْنَا"), # 11: Enbiya 21:71
+            (0.0749, "وبارك لنا فيها للعالمين وغيرها."),
+            (0.0804, "وَوَهَبْنَا لَهُ إِسْحَاقَ وَيَعْقُوبَ نَافِلًا"),
+            (0.0686, "وكل جعلنا"),
+            (0.0655, "وجعلناهم أئمة يهدون"),
+            (0.0743, "وَأَوْحَيْنَا إِلَيْهِمْ"),
+            (0.0705, "فِعْلِ الْخَيْرَاتِ وَإِقَامِ الصَّلاَةِ وَإِيتَاءِ الزَّكاة"),
+            (0.0735, "وَإِقَامِ الصَّلَاةِ وَإِيتَارِ الزَّكَاةِ"),
+            (0.0648, "وَإِنَّ لِلزَّكَاةِ وَكَانُوا لَنَا عَابِدِينَ"),
+            (0.0802, "وَلُوطًا آتَيْنَاهُ حُكْمًا وَعِلْمًا"),
+            (0.0775, "وَعِلْمًا وَنَجَّيْنَاهُ مِنَ الْقَرْيَةِ الَّتِي كَانَ"),
+            (0.0731, "التي كانت تعمائر"),
+            (0.0753, "إِنَّهُمْ كَانُوا قَوْمَ سَوْءٍ فَاسِقِينَ"),
+            (0.0695, ""),
+            (0.0644, "إنه من الصالحين"),
+            (0.0648, "ودوحي نادت من قبل"),
+            (0.0725, ""),
+            (0.0736, "ونصرنا"),
+            (0.078, "وَنَصَرْنَاهُ مِنَ الْقَوْمِ الَّذِينَ كَذَّبُوا بِآيَاتِنَا"),
+            (0.0732, "إِنَّهُمْ كَانُوا قَوْمَ سَوْءٍ"),
+            (0.0686, "فَأَغْرَقْنَاهُ أَجْمَعِينَ"),
+            (0.0771, "وَدَاوُودَ وَسُلَيْمَانَ إِذْ يَحْكُمَانِ فِي الْحَمِيمِ"),
+            (0.0717, "ألف الحث دفشت فيه ودم القمر"),
+            (0.0679, "وكُنَّا لحكمهم شارِبين"),
+            (0.0711, "فَفَتَّرْنَاهَا سُلَيْمَانَ وَكُلَّ مَكَانٍ"),
+            (0.0764, "وَكُلًّا آتَيْنَاهُ حُكْمًا وَعِلْمًا وَسَفَّرَ"),
+            (0.0773, "وَسَخَّرْنَا مَعَ دَاوُودَ الْجِبَالَ يُسَبِّحْنَ وَالطَّيْر"),
+            (0.0742, "والطيق وكن لنا فاعلين"),
+            (0.0574, "الحمد لله"),                          # 39: 21:79 sonu kuyruk uydurmasi 'الحمد لله' 21:80-81'e 62 → kalip ifade, kayip parca
+            (0.0667, "الله اغبر"),                          # 40: rukû tekbiri
+            (0.0308, ""),
+            (0.0608, "يعنى"),
+            (0.0592, ""),
+            (0.0634, ""),
+            (0.0144, ""),
+            (0.069, "صدق الله العظيم"),                     # 46: secdede uydurma 'صدق الله العظيم': tekbirden sonra → kilit bitmez
+            (0.0525, "أعوذ بالله"),
+            (0.0259, ""),
+            (0.0635, ""),
+            (0.0188, ""),
+            (0.0589, "الحمد لله رب العالمين"),              # 51: 2. rekat Fatiha
+            (0.0677, "الرحمن الرحيم مالك يوم الدين"),
+            (0.0731, "إياك نعبد وإياك نستعين"),
+            (0.0663, "وإياك نستعين اهدنا الصراط"),
+            (0.0651, "اهدِ الصراط المستقيم صراط الذين أنعمت"),
+            (0.0673, "أنعمت عليهم غير المغضوب عليهم"),
+            (0.0699, "ومتوب عليه ولا ض"),
+            (0.0687, "الضالين"),
+            (0.0567, ""),
+            (0.0505, "وعلَّمناه صنعة"),                     # 60: 2. rekat devam 21:80
+            (0.0642, "سِلَّة لِتُحْصِنَكُم مِّن بَأْسِكُمْ"),
+            (0.0639, "فَهَلْ أَنتُم شَاكِرُونَ"),
+            (0.0632, "وَلِسُلَيْمَانَ الرِّيحَ عَاصِفَةً تَجْرِي بِيَ"),
+            (0.0641, "الي بارت بارت"),
+            (0.0637, "وَلِسُلَيْمَانَ الرِّياسَ"),
+            (0.0669, "عاصفة تجري بي"),
+            (0.0665, "وَالَّتِي بَارَكْنَا فِيهَا لِلعَالَمِينَ"),
+            (0.0662, "وَمِنَ الشياطِينِ مَنْ يَغُوصُونَ لَهُ"),
+            (0.0687, "ويصلون له ويعملون عَمَلًا دُونَ ذَلِكَ"),
+            (0.0692, "وكنا نحن حافظين"),
+            (0.075, "وَأَيُّوبَ إِذْ نَادَى رَبَّهُ أَنِّي مَسَّنِيَ"),
+            (0.0726, "مسني الضر وأنت أرحم الراحمين"),
+            (0.0673, "فَاسْتَجَبْنَا لَهُ فَكَشَفْنَا مَا بِهِ"),
+            (0.0704, "مِن ضُرٍّ وَآتَيْنَاهُ أَهْلَهُ"),
+            (0.0585, "لهم ومِثلَهم معهم رحمةً من عندنا"),
+            (0.0688, "ومثلهم رحمةً من عندنا وذكار"),
+            (0.0607, "وذِكران للعابدين"),
+            (0.0697, "وإسماعيل وإدريس وذا الكفل"),
+            (0.0674, "كُلٌّ مِّنَ الصَّابِرِينَ وَأَدْخَلْنَا"),
+            (0.0727, "وأدخلناهم في رحمتنا إنهم من المحسنين"),
+            (0.0907, "الصالحين"),
+            (0.0803, "وظنني إذ ناحاً غاضباً فض"),
+            (0.0651, "فَظَنَّ أَن لَّن نَّقْدِرَ عَلَيْهِ"),
+            (0.0696, "إِلا هدى في الظلمات الا اله"),
+            (0.0697, "لا اله الا سبحانك إني"),
+            (0.0555, "لي الغالبين"),
+            (0.0714, "الله أكبر"),
+            (0.0196, ""),
+            (0.0453, ""),
+            (0.0661, "لمَن حميده"),                         # 90: semiallah 'لمَن حميده' → rukû
+            (0.0561, ""),
+            (0.0282, ""),
         ],
     },
 ]

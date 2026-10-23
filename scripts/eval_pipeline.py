@@ -121,6 +121,7 @@ EXPECTED = {
     # sessiz (semiallah 400, 481) → selam 627.6 / 637 → dua 647-661
     "namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav": "coklu",
     "namaz_aksam3_kamet_fatiha_kafirun_fatiha_nasr.wav": "coklu",
+    "namaz_yatsi4_fatiha_enbiya_fatiha_enbiya.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -188,6 +189,11 @@ TIMELINE = {
     # ~138, secdeler, 2. rekat Fatiha 171.3, Nasr "إذا جاء" 203.1 (110:3 sonu ~226.7), sonra semiallah / oturus / selam
     "namaz_aksam3_kamet_fatiha_kafirun_fatiha_nasr.wav": [(0, None), (56.2, 1), (88.0, 109), (123, None), (171.1, 1),
                                                           (202.9, 110), (227, None)],
+    # yatsi 22.10 (kelime zamanli transkript; kamet onceki oturumda): Fatiha "الحمد" 3.8, "ونجيناه" 52.6 (21:71), "وكنا فاعلين"
+    # 191.3 (21:79 sonu), rukû 196, semiallah 206, 2. Fatiha 246.8, "وعلمناه" 290.2 (21:80), "من الظالمين" 415.4 (21:87 sonu),
+    # 3-4. rekat sessiz (semiallah 513, 568), selam 648 / 658, istigfar + dua 667-691
+    "namaz_yatsi4_fatiha_enbiya_fatiha_enbiya.wav": [(0, None), (3.6, 1), (52.4, 21), (193, None), (246.6, 1), (290.0, 21),
+                                                     (417, None)],
 }
 
 
