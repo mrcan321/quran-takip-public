@@ -62,6 +62,7 @@ rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	845.0 DUA
 rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	850.0 DUA
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	5.0 TEKBIR
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	245.0 TEKBIR
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	490.0 SEMIALLAH
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	565.0 TEKBIR
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	630.0 SELAM
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	645.0 SELAM
@@ -97,16 +98,15 @@ rnnt-hibrit	namaz_aksam_fatiha_zilzal_fatiha_kafirun.wav	373.8 SELAM
 rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	55.0 TEKBIR
 rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	143.4 TEKBIR
 rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	156.0 SEMIALLAH
-rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	170.9 TEKBIR
-rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	185.0 TEKBIR
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	161.0 TEKBIR
+rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	176.0 TEKBIR
 rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	257.2 SEMIALLAH
 rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	262.2 TEKBIR
 rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	277.2 TEKBIR
 rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	337.2 SELAM
 rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	342.2 SELAM
 rnnt-hibrit	namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav	347.2 SELAM
-rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	40.2 TEKBIR ezan
-rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	74.6 TEKBIR
+rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	75.0 TEKBIR
 rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	145.8 TEKBIR
 rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	159.9 SEMIALLAH
 rnnt-hibrit	namaz_cuma3_kamet_fatiha_felak_fatiha_nas.wav	164.9 TEKBIR

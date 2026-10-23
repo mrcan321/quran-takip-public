@@ -7,7 +7,8 @@ package com.tilavet.takip.session
  * ezan/kametteki gibi popup olarak goster; esselamu aleykum de." Her parcanin ASR metninde aranir:
  *   - tekbir: parca agirlikla "الله أكبر" (tekbir ciftleri ve diger zikirler cikinca en fazla 1 kelime kalir) ve parca
  *     Kuran'a eslesmedi — "الله أكبر" Kuran'da 3 ayette ayet ortasinda geciyor (9:72, 29:45, 40:10)
- *   - semiallah: "سمع الله" + "قول" disi kelime, "استمع الله" ya da bozuk "لمن حمد…" (namazSignal'in tek basina "حمده" kurali kart icin yok)
+ *   - semiallah: "سمع الله" + "قول" disi kelime, "استمع الله", bozuk "لمن حمد…" / "بمن حمده" / "ومن حمده"; tek basina "حمده"
+ *     sadece son okumadan en az [AFTER_RECITATION_SEC] sonra (namazSignal'de her zaman rukû)
  *   - "ربنا (و)لك الحمد"
  *   - selam ("السلام عليكم/عليك", bolunmus "عليكم ورحمة") ve namaz sonu duasi ("أنت السلام", "منك السلام", "تباركت",
  *     "ذا الجلال"): son Kuran okumasindan en az [AFTER_RECITATION_SEC] sonra — Hani Rifai teravihinde okuma arasinda ASR
@@ -48,6 +49,7 @@ class ZikirTracker {
          */
         const val DUA_AFTER_SELAM_SEC = 90.0
         private val TEKBIR_WORDS = setOf("اكبر", "اغبر", "اكبار")
+        private val MEN_WORDS = setOf("بمن", "ومن", "من", "ممن")
 
         private fun tokens(text: String?): List<String> =
             (text ?: "").trim().split(Regex("\\s+")).map { StateMachine.bareToken(it) }.filter { it.isNotEmpty() }
@@ -67,6 +69,10 @@ class ZikirTracker {
                     // Tek basina "حمده" (namazSignal'de rukû) kart icin yetmez: sentetik teravihte Kureys 106:4
                     // "أطعمهم" → ASR "الذي حمده منه" okuma ortasinda kart acti
                     w == "لمن" && next != null && next.startsWith("حم") -> add(NamazZikri.SEMIALLAH)
+                    // "بمن حمده" / "ومن حمده" (ASR, yatsi 22.10 telefon log'u; yatsi #3 "ومن حمده الله"): Kuran'da "حمده"
+                    // hic yok, "من" + "حمد…" ikilisi de yok ("من حما / حمل / حميم" var — "حمد" ile baslamiyor)
+                    w in MEN_WORDS && next != null && (next.startsWith("حمد") || next in StateMachine.SEMIALLAH_TAIL) ->
+                        add(NamazZikri.SEMIALLAH)
                     w == "ربنا" && (next == "لك" || next == "ولك") && t.getOrNull(i + 2) == "الحمد" -> add(NamazZikri.RABBENA)
                     w == "السلام" && (next == "عليكم" || next == "عليك") -> add(NamazZikri.SELAM)
                     // parca sinirinda bolunen selam ("السلام" onceki parcada)
@@ -117,6 +123,12 @@ class ZikirTracker {
      */
     fun onChunk(r: ChunkResult, t: Double): List<NamazZikri> {
         val found = detect(r.text).toMutableList()
+        // Tek basina "حمده" (yatsi 22.10, 4. rekat: ASR sadece "حمده"): okumadan en az AFTER_RECITATION_SEC sonra —
+        // sentetik teravihte Kureys 106:4 "أطعمهم" → ASR "الذي حمده منه" okuma ortasinda (selamdaki kuralla ayni)
+        if (NamazZikri.SEMIALLAH !in found && r.status != ChunkStatus.MATCHED &&
+            t - lastRecitationSec >= AFTER_RECITATION_SEC && tokens(r.text).any { it in StateMachine.SEMIALLAH_TAIL }) {
+            found.add(0, NamazZikri.SEMIALLAH)
+        }
         if (NamazZikri.DUA !in found && !duaAfterSelam && t - lastSelamSec in 0.0..DUA_AFTER_SELAM_SEC &&
             r.status != ChunkStatus.MATCHED && duaOpening(r.text)) {
             found.add(NamazZikri.DUA)

@@ -1489,6 +1489,31 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   on plan servisi acik/KAPALI, uygulama ekranda/arka planda`, `[mic] mikrofon tekrar acik`, `[mic] uygulama arka planda, on plan
   servisi ...`. Android kuralı (developer.android.com "Sharing audio input"): başka uygulama mikrofonu ekranda öndeyken alırsa
   ön plan servisi olsa da biz sıfır alırız — log artık hangisi olduğunu ayırır.
+- Aynı akşam aşr (20:16, `data/tilavet_bakara_285_286_namaz_sonu.wav`, özel repoda; 106 sn): mikrofon açık, ses normal (RMS
+  0.04-0.07, bant diğer cami kayıtlarıyla aynı) ama **hiç kilit yok**. Telefon = yerel ASR (birebir). Okunan: 2:285 sonu + tek
+  uzun ayet 2:286, çok uzatmalı. ASR sesli parçaların %33'ünde boş, parça başına 1.5 kelime (diğer kayıtlarda ~2.5), çıkanlar
+  bozuk ("لا تؤاخذنا" → "ولا صدأ عليه", "حملته على الذين" → "إسرائيل تهون على المؤمنين"); doğru kısa ifadeler çok yerde geçiyor
+  ("على القوم الكافرين" 2:250 / 2:286 eşit). Kök neden ses tanıma (makamlı / uzatmalı okuma) — ince ayar verisi (açık sorun 19).
+  Küçük state machine fikri (ölçülmedi): boş / kısa parçalar adayı bayatlatmasın (aday 2 parçada bitiyor; burada 13. parçadaki
+  2:286 adayı 19. parçada doğrulanabilirdi — kayıt sonunda, faydası az).
+
+### 26. Semiallah kartı biçimleri + rükû/secde'de duraklama kesimi denemesi (reddedildi)
+- Kullanıcı: "semiallahu limen hamideh'i tanıdı mı, kaç sn sonra?" Hibrit: 16 rükûnun 12'si, kart medyan 5.9 sn (konuşma başından,
+  ~0.9 sn işlem dahil); sessiz rekâtlarda (ARA, sabit 5 sn parça) 6-8 sn, sesli rekâtlarda (duraklama kesimi) 4-5 sn.
+- **Kart biçimleri** (`ZikirTracker`, uygulandı): "بمن حمده" / "ومن حمده" ("من" ailesi + "حمد…"; Kuran'da "حمده" hiç yok, "من" +
+  "حمد…" ikilisi yok — "من حما / حمل / حميم" var) ve tek başına "حمده" / "حميده" (son okumadan ≥ `AFTER_RECITATION_SEC` 20 sn —
+  sentetik Kureyş "الذي حمده منه" okuma ortasında). Sonuç: yatsı #3 sabit parça 490 sn yeni kart, `zikir_false_alarms` 0; APK #114
+  yatsı 22.10 telefon log'unda 3 rükûnun hepsinde kart (516 "يعطوه الله بمن حمده", 576 "حمده"; telefonda hiç kart çıkmamıştı).
+- **ARA'da duraklama kesimi** (denendi, alınmadı): 13 kayıt (rükû/secde'ye giren 11 cami namazı + 2 oturum) iki zincirle yerelde
+  gerçek ASR (yerel ASR = CI, ilk ARA'ya kadar parçalar birebir). Kazanç: sessiz rekât semiallahı 1-3 sn erken (yatsı #4 520 → 517,
+  575 → 573), akşam 27.09'da yeni semiallah, bazı selamlar erken. Kayıp: 2. rekât Fatiha kilidi gecikti (cuma 3.8 → 4.9, cuma #2
+  2.0 → 5.3, cuma #3 2.9 → 5.8 sn — rükû/secde sonrası Fatiha "الحمد لله" kısa parçalarına bölünüyor), yatsı 19.10 3. rekât
+  semiallahı (1081) kayboldu, vaazdaki Felak kilitlenmedi, cuma #2 selamı 9 sn geç → kural gereği alınmadı. Fikir (ölçülmedi):
+  parçalayıcıyı değiştirmeden ARA'da duraklamada sadece zikir kartı için ek ASR yoklaması (state machine aynı parçaları görür).
+- Depodaki 3 hibrit transkript (cuma #2, cuma #3, session_1777005126) eski kodun parça sınırlarıyla üretilmişti → şimdiki kodla
+  yeniden (yerel gerçek ASR): cuma #2 2. Fatiha 5.3 → 2.0 sn, cuma #3 1. Fatiha 4.6 → 3.0 sn (kod zaten böyleydi). Zorlama S4
+  gürültüsü (hibrit) yeniden karıştı: yanlış kilitli 30 → 15, ekranda yanlış aday 9 → 13, kilitli bölüm 399 → 398 (rastgele gürültü
+  dizisi kaydı; kod değişmedi).
 
 ---
 
