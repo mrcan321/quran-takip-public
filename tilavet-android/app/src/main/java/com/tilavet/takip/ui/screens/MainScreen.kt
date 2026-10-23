@@ -134,7 +134,7 @@ fun MainScreen(
     Column(modifier = Modifier.fillMaxSize().then(rootBg)) {
         if (style.ornate) {
             OrnateHeader(
-                statusText = state.statusText,
+                statusText = if (state.isListening && state.micSilenced) "Mikrofon susturuldu" else state.statusText,
                 surahName = visibleSurah?.let { s -> mushaf?.surahNameTr(s) },
                 surahNo = visibleSurah,
                 isListening = state.isListening,
@@ -150,7 +150,7 @@ fun MainScreen(
             )
         } else {
             TopBar(
-                statusText = state.statusText,
+                statusText = if (state.isListening && state.micSilenced) "Mikrofon susturuldu" else state.statusText,
                 surahText = visibleSurah?.let { s -> "${mushaf?.surahNameTr(s) ?: ""} · $s" } ?: "",
                 isListening = state.isListening,
                 motion = state.settings.motion,

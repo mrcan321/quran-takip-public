@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +22,20 @@ import com.tilavet.takip.ui.theme.LocalAppPalette
 import com.tilavet.takip.ui.theme.TilavetTheme
 
 class MainActivity : ComponentActivity() {
+    // Compose'taki viewModel() ile ayni ornek (ayni ViewModelStore)
+    private val vm: MainViewModel by viewModels()
+
+    override fun onStart() {
+        super.onStart()
+        // Dinlerken on plan servisi arka planda baslatilamadiysa simdi ac (bkz. MainViewModel.onAppForeground)
+        vm.onAppForeground()
+    }
+
+    override fun onStop() {
+        vm.onAppBackground()
+        super.onStop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)

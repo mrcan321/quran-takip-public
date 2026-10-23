@@ -29,7 +29,7 @@ object LogExporter {
     private const val MAX_LINES = 10000  // Cok fazla buyumesin
     private val FILTERED_TAGS = listOf(
         "AudioPipeline", "AudioRecorder", "MainViewModel", "SessionAudioWriter", "SessionLog", "PublicRecordings",
-        "AssetSync",
+        "AssetSync", "ListenService",
         "Aligner", "QuranIndex", "MushafData", "OnnxAsrEngine", "SentencePieceDecoder",
         "AlignerTestRunner", "FuzzyTestRunner", "StateMachineTestRunner",
         "AndroidRuntime",

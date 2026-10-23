@@ -11,7 +11,6 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -36,13 +35,27 @@ class ListenService : Service() {
         private const val NOTIFICATION_ID = 41
         private const val EXTRA_TEXT = "text"
 
+        /**
+         * startForeground basarili ve servis acik. Yatsi 23.10 (APK #116): mikrofona model yuklenirken basilip Even
+         * uygulamasina gecildi; servis model hazir olunca (uygulama arka plandayken) baslatilmak istendi → Android reddetti
+         * (hata sadece logcat'te, oturum log'unda yoktu) → uygulama ekranda olmadigi her an mikrofon sifir (8 dk).
+         * MainViewModel dinleme baslarken (dokunma aninda) ve uygulama her one geldiginde bunu kontrol eder.
+         */
+        @Volatile
+        var active = false
+            private set
+
         /** Dinleme basladi: servisi ac (mikrofon izni yoksa acilmaz — on plan mikrofon servisi izin ister). */
         fun start(ctx: Context, text: String) {
-            if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
+            if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                SessionLog.w(TAG, "servis acilmadi: mikrofon izni yok")
+                return
+            }
             try {
                 ctx.startService(Intent(ctx, ListenService::class.java).putExtra(EXTRA_TEXT, text))
             } catch (e: Throwable) {
-                Log.w(TAG, "servis baslatilamadi: ${e.message}")
+                // Uygulama arka plandayken Android servis baslatmaya izin vermez (IllegalStateException)
+                SessionLog.w(TAG, "servis baslatilamadi (uygulama arka planda?): ${e.javaClass.simpleName} ${e.message}")
             }
         }
 
@@ -50,7 +63,7 @@ class ListenService : Service() {
             try {
                 ctx.stopService(Intent(ctx, ListenService::class.java))
             } catch (e: Throwable) {
-                Log.w(TAG, "servis durdurulamadi: ${e.message}")
+                SessionLog.w(TAG, "servis durdurulamadi: ${e.message}")
             }
         }
     }
@@ -87,17 +100,20 @@ class ListenService : Service() {
                 this, NOTIFICATION_ID, n,
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0,
             )
-            Log.d(TAG, "on plan servisi acik: $text")
+            active = true
+            SessionLog.d(TAG, "on plan servisi acik: $text")
         } catch (e: Throwable) {
-            // Dinleme yine calisir; sadece ekran kilitlenince Android mikrofonu susturur
-            Log.w(TAG, "startForeground basarisiz: ${e.message}")
+            // Dinleme yine calisir; sadece uygulama ekranda degilken Android mikrofonu susturur
+            active = false
+            SessionLog.w(TAG, "startForeground basarisiz: ${e.javaClass.simpleName} ${e.message}")
             stopSelf()
         }
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-        Log.d(TAG, "on plan servisi kapandi")
+        active = false
+        SessionLog.d(TAG, "on plan servisi kapandi")
         super.onDestroy()
     }
 }

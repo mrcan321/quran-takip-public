@@ -116,6 +116,11 @@ data class UiState(
     /** G2 gozluk koprusu durumu (ayarlarda): null = kapali, "bağlı", "eklenti bekleniyor · istek yok / son istek N sn önce",
      *  "açılamadı". */
     val glassesLink: String? = null,
+    /**
+     * Android mikrofonu susturdu (kayda tam sifir geliyor): uygulama ekranda degil ve on plan servisi yok, ya da baska
+     * uygulama mikrofonu aldi. Telefonda durum satirinda, G2'de kart olarak uyari. Bkz. AudioRecorder.onSilenced.
+     */
+    val micSilenced: Boolean = false,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -191,6 +196,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val loadMutex = Mutex()
 
     init {
+        recorder.onSilenced = { silenced, why -> onMicSilenced(silenced, why) }
         // Onceki oturumlardan disari kopyalanmamis kayit kaldiysa (uygulama oturum ortasinda kapandi) simdi kopyala
         viewModelScope.launch(Dispatchers.IO) { PublicRecordings.publishPending(getApplication()) }
 
@@ -307,8 +313,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         rakatTracker.reset()
         ayahStepper.cancel()   // onceki oturumun ara ayet adimlamasi yeni oturumun ekranini bozmasin
 
+        // On plan servisi HEMEN (kullanici dokundu, uygulama ekranda): model yuklenirken Even uygulamasina gecilirse servis
+        // arka planda baslatilamiyor ve mikrofon susuyordu (yatsi 23.10, APK #116 — 8 dk tam sifir ses). Bkz. ListenService.
+        ListenService.start(getApplication(), listenText(simFile))
+
         _state.update { it.copy(
             isListening = true,
+            micSilenced = false,
             simFile = simFile,
             simPositionSec = 0,
             simDurationSec = simDurationSec,
@@ -338,6 +349,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     asrEngine.initialize()
                 }
                 if (asrEngine.state.value !is AsrState.Ready) {
+                    ListenService.stop(getApplication())
                     _state.update { it.copy(
                         isListening = false,
                         statusText = "ASR yüklenemedi",
@@ -390,8 +402,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // 5. Baslat
                 p.start()
                 _state.update { it.copy(statusText = if (simFile != null) "Simülasyon" else "Dinleniyor") }
-                // Ekran kilitlenince / baska uygulamaya (G2 icin Even) gecince de dinleme sursun
-                ListenService.start(app, if (simFile != null) "Simülasyon: $simFile" else "Dinleniyor")
+                // Ekran kilitlenince / baska uygulamaya (G2 icin Even) gecince de dinleme sursun: servis dokunma aninda
+                // acildi; acilamadiysa uygulama ekrandaysa simdi tekrar dene (arka plandaysa one gelince — onAppForeground)
+                SessionLog.d(TAG, "[mic] on plan servisi: ${if (ListenService.active) "acik" else "KAPALI"}")
+                if (!ListenService.active && appInForeground) ListenService.start(app, listenText(simFile))
 
             } catch (e: Throwable) {
                 SessionLog.e(TAG, "Pipeline baslat hatasi", e)
@@ -404,6 +418,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun listenText(simFile: String?) = if (simFile != null) "Simülasyon: $simFile" else "Dinleniyor"
+
+    /** Uygulama ekranda mi (MainActivity onStart / onStop). */
+    @Volatile
+    private var appInForeground = true
+
+    /**
+     * Uygulama one geldi: dinlenirken on plan servisi kapaliysa (arka planda baslatilamadi) simdi ac — yoksa uygulama
+     * ekrandan cikinca Android mikrofonu yine susturur.
+     */
+    fun onAppForeground() {
+        appInForeground = true
+        val s = _state.value
+        if (s.isListening && !ListenService.active) {
+            SessionLog.w(TAG, "[mic] on plan servisi kapali — yeniden baslatiliyor")
+            ListenService.start(getApplication(), listenText(s.simFile))
+        }
+    }
+
+    fun onAppBackground() {
+        appInForeground = false
+        val s = _state.value
+        if (s.isListening && s.simFile == null) {
+            SessionLog.d(TAG, "[mic] uygulama arka planda, on plan servisi ${if (ListenService.active) "acik" else "KAPALI — mikrofon susabilir"}")
+        }
+    }
+
+    /** AudioRecorder: Android kayda sifir veriyor / tekrar ses geldi. */
+    private fun onMicSilenced(silenced: Boolean, why: String) {
+        val s = _state.value
+        if (!s.isListening || s.simFile != null) return
+        SessionLog.w(TAG, if (silenced) "[mic] MIKROFON SUSTURULDU ($why) — on plan servisi ${if (ListenService.active) "acik (baska uygulama mikrofonu almis olabilir)" else "KAPALI"}, uygulama ${if (appInForeground) "ekranda" else "arka planda"}"
+            else "[mic] mikrofon tekrar acik ($why)")
+        _state.update { it.copy(micSilenced = silenced) }
+    }
+
     private fun stopPipeline() {
         SessionLog.d(TAG, "Pipeline durduruluyor")
         pipelineJob?.cancel()
@@ -413,6 +463,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         resetEzan()
         _state.update { it.copy(
             isListening = false,
+            micSilenced = false,
             simFile = null,
             statusText = "Durduruldu",
             audioLevel = 0f,
@@ -445,6 +496,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         resetEzan()
         _state.update { it.copy(
             isListening = false,
+            micSilenced = false,
             simFile = null,
             statusText = if (sim) "Simülasyon bitti" else "Mikrofon kapandı",
             audioLevel = 0f,
@@ -1075,6 +1127,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             noteReading = noteReading,
             noteTurkish = noteTurkish,
         )
+        // Mikrofon susturuldu: gozlukte uyari karti (namazda kullanicinin baktigi yer gozluk; telefon cepte)
+        if (s.micSilenced && s.isListening) {
+            return base.copy(noteTitle = "MİKROFON SUSTURULDU", noteReading = "",
+                noteTurkish = "Mikrofon kapandı. Telefonda Tilavet Takip'i açın.")
+        }
         // Ses kesildi: ayet metni yok, gozlukte bos ekran / ust satirda rekat (zikir / ezan karti varsa o gosterilir)
         if (s.textHidden && s.isListening) return base.copy(blank = true)
         val m = s.mushaf ?: return base

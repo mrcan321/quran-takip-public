@@ -1470,6 +1470,26 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   parça 6 / 8 / 3 / 5 sn, ikisinde de 0 yanlış; genel ilk kilit 19/0/0 (medyan 10 sn), takip 82 bölümün 82'si (iki zincir), yanlış
   kilitli parça rnnt 0 / hibrit 1 (akşam 22.10'un 206 sn 15:61'i), ekranda yanlış aday 0.
 
+### 25. Yatsı 23.10 (APK #116): gözlükte neredeyse hiçbir şey yok — Android mikrofonu susturdu (APK #117+)
+- Kullanıcı: "gözlük neredeyse hiçbir şeyi göstermedi". Telefon log'u + oturum WAV'ı: kayıt **2.0-16.1 sn ve 32.5-523.1 sn tam sıfır**
+  (RMS=0,0000; 8 dk), sadece 16-32 sn'de ses vardı (21:101 kilidi). Ses 20:03'te uygulamaya dönünce geri geldi. Tilavet Takip
+  ekranda değilken Android kayda sıfır veriyordu → ASR boş → metin kalktı → gözlük boş. Kod değişikliği sebep değil (APK #114 →
+  #116 arası sadece state machine), aynı OS sürümü (BP4A.251205.006).
+- Kök neden: ön plan servisi (`ListenService`) `startPipeline`'da ASR modeli yüklendikten **sonra** başlatılıyordu. Uygulama açılır
+  açılmaz mikrofona basılıp Even uygulamasına geçildi (eklentinin ilk isteği 19:54:42.9, model 19:54:43.4'te hazır) → servis
+  uygulama arka plandayken istendi → Android reddetti (hata `ListenService` etiketiyle sadece logcat'te, log dışa aktarımında ve
+  oturum log'unda yoktu) → servis yok → ekran dışında mikrofon susturuldu. Dün (22.10) mikrofona model yüklendikten sonra
+  basılmıştı → servis açıldı, sorun yoktu.
+- Düzeltme: servis **mikrofona dokunulduğu anda** başlar (uygulama ekranda); açılamadıysa uygulama her öne geldiğinde
+  (`MainActivity.onStart` → `onAppForeground`) yeniden denenir. `ListenService.active` (startForeground başarılı). Servis
+  satırları `SessionLog` ile oturum log'unda + `ListenService` etiketi log dışa aktarımında. **Susturma algılama**
+  (`AudioRecorder.onSilenced`): `AudioRecordingConfiguration.isClientSilenced` (API 29+, başka uygulama mikrofonu alınca da) ve
+  2 sn tam sıfır ses (`SILENCED_ZERO_FRAMES`; gerçek mikrofon hiç tam sıfır vermiyor) → durum satırı "MİKROFON SUSTURULDU",
+  gözlükte kart "MİKROFON SUSTURULDU · Mikrofon kapandı. Telefonda Tilavet Takip'i açın.", log `[mic] MIKROFON SUSTURULDU (...) —
+  on plan servisi acik/KAPALI, uygulama ekranda/arka planda`, `[mic] mikrofon tekrar acik`, `[mic] uygulama arka planda, on plan
+  servisi ...`. Android kuralı (developer.android.com "Sharing audio input"): başka uygulama mikrofonu ekranda öndeyken alırsa
+  ön plan servisi olsa da biz sıfır alırız — log artık hangisi olduğunu ayırır.
+
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)
