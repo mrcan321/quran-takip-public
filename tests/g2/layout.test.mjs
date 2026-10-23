@@ -397,6 +397,58 @@ test('tek ekran alt siniri (onePageMinPx): altinda kalacaksa sayfalar — en az 
   assert.equal(L.buildScreen({ ...st, onePageMinPx: 40, progress: 1 }, { connected: true, fitBig }).page, buyuk.pages - 1);
 });
 
+test('demo (Ayarlar → G2 DEMO): cerceve, numarali satirlar, demo 4 ekrani doldurur, her seyin onunde', () => {
+  const demoBig = (lv, px) => L.demoLayout(lv, px, approxMeasure);
+  const ui = { connected: true, fitBig, demoBig };
+  // kapali / gecersiz deger → normal ekran
+  for (const d of [0, 5, -1, 'x', undefined]) {
+    assert.ok(!L.buildScreen({ ...ST, bigText: true, demo: d }, ui).layout.startsWith('demo'), String(d));
+  }
+  // her seyin onunde: dinleme kapali, not karti, bos ekran, durum gizli, basliksiz, Arapca acik
+  for (const extra of [{}, { listening: false }, { noteTitle: 'TEKBİR', noteTurkish: 'Allah en büyüktür' },
+    { blank: true }, { hideStatus: true, surah: 0 }, { bigHeader: false }, { showArabic: true }]) {
+    const s = L.buildScreen({ ...ST, bigText: true, demo: 4, ...extra }, ui);
+    assert.equal(s.layout, 'demob', JSON.stringify(extra));
+    assert.equal(s.demoLevel, 4);
+    assert.equal(s.pages, 1);
+  }
+  const maxW = L.SCREEN_W - L.DEMO.numW - L.DEMO.padR;
+  for (const px of [30, 36, 48, 64, 80]) {
+    const d = [1, 2, 3, 4].map((lv) => demoBig(lv, px));
+    // G2 YAZI BOYUTU'nda; demo 4 satir kapasitesinin tamami, blok cercevenin icinde
+    assert.ok(d.every((x) => x.px === px));
+    assert.equal(d[3].lines.length, d[3].perPage, `${px} px`);
+    assert.ok(d[3].y0 >= L.DEMO.frame && d[3].y0 + d[3].perPage * d[3].lineH <= L.SCREEN_H - L.DEMO.frame, `${px} px`);
+    // satirlar sigar, artan doluluk
+    for (const x of d) for (const line of x.lines) assert.ok(approxMeasure(line, px) <= maxW, `${px} px: ${line}`);
+    assert.ok(d[1].lines.length <= d[2].lines.length && d[2].lines.length <= d[3].lines.length, `${px} px`);
+  }
+  // demo 1 kisa (48 px'te tek satir); boyut buyudukce demo 4'te satir azalir
+  assert.equal(demoBig(1, 48).lines.length, 1);
+  assert.ok(demoBig(4, 30).lines.length > demoBig(4, 80).lines.length);
+  // ekran yerlesimi ayardaki punto ile (yazi boyutu degisince degisir)
+  assert.equal(L.buildScreen({ ...ST, bigText: true, demo: 4, textPx: 64 }, ui).demo.px, 64);
+  // gozlugun kendi yazisi (NORMAL ya da buyuk yazi fontu yuklenmedi): 1 / 3 / 6 / 10 numarali satir, cerceveli kutu
+  const D = L.LAYOUTS.demo;
+  assert.ok(D.bodyLines * L.LINE_H + 2 * (D.padding + D.border.width) <= D.body.h);
+  assert.ok(D.border.width >= 1 && D.border.width <= 5 && D.border.color >= 0 && D.border.color <= 16);
+  for (const [lv, n] of [[1, 1], [2, 3], [3, 6], [4, 10]]) {
+    for (const [st, u] of [[{ ...ST, bigText: false, demo: lv }, ui], [{ ...ST, bigText: true, demo: lv }, { connected: true }]]) {
+      const s = L.buildScreen(st, u);
+      assert.equal(s.layout, 'demo');
+      const ls = lines(s.body);
+      assert.equal(ls.length, n, `demo ${lv}`);
+      ls.forEach((l, i) => {
+        assert.ok(l.startsWith(`${i + 1}  `), l);
+        assert.ok(L.textWidth(l) <= L.SCREEN_W - 2 * (D.padding + D.border.width), l);
+      });
+      assert.ok(L.utf8Bytes(s.body) <= L.TEXT_MAX_BYTES);
+    }
+  }
+  // baglanti yoksa tani ekrani (demo bilinmiyor)
+  assert.match(L.buildScreen({ ...ST, demo: 3 }, { connected: false }).body, /bağlanılamıyor/);
+});
+
 test('zikir / ezan karti: sadece Turkce anlami (okunus yok), yoksa okunus', () => {
   const note = { noteTitle: 'TEKBİR', noteReading: 'Allâhu ekber', noteTurkish: 'Allah en büyüktür' };
   for (const extra of [{ bigText: true }, { bigText: true, bigHeader: false }, { bigText: false }]) {

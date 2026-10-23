@@ -49,6 +49,8 @@ data class AppSettings(
     val glassesHideStatus: Boolean = false,
     // Ses kesildikten sonra okunan ayet metni bu kadar (onda bir sn, 0-100) ekranda kalir — bkz. audio/TextHold
     val textHoldTenths: Int = TextHold.DEFAULT_TENTHS,
+    // Ayarlar → MUTE ON RECORDING: mikrofonla dinlerken telefon sessizde (bitince eski haline) — bkz. util/PhoneControl
+    val muteOnRecording: Boolean = false,
     // === TUNER (debug) ===
     val minConfidence: Int = 50,           // 0-100, normal match esik (kilitli iken)
     val minConfidenceFirstLock: Int = 70,  // 0-100, ilk kilit / kilit-terk esik
@@ -82,6 +84,7 @@ class SettingsRepository(private val context: Context) {
         val GLASSES_HIDE_BLANK_HEADER = booleanPreferencesKey("glasses_hide_blank_header")
         val GLASSES_HIDE_STATUS = booleanPreferencesKey("glasses_hide_status")
         val TEXT_HOLD_TENTHS = intPreferencesKey("text_hold_tenths")
+        val MUTE_ON_RECORDING = booleanPreferencesKey("mute_on_recording")
         val MIN_CONFIDENCE = intPreferencesKey("min_confidence")
         val MIN_CONFIDENCE_FIRST_LOCK = intPreferencesKey("min_confidence_first_lock")
         val WINDOW_SLACK = intPreferencesKey("window_slack")
@@ -112,6 +115,7 @@ class SettingsRepository(private val context: Context) {
             glassesHideBlankHeader = prefs[Keys.GLASSES_HIDE_BLANK_HEADER] ?: true,
             glassesHideStatus = prefs[Keys.GLASSES_HIDE_STATUS] ?: false,
             textHoldTenths = prefs[Keys.TEXT_HOLD_TENTHS] ?: TextHold.DEFAULT_TENTHS,
+            muteOnRecording = prefs[Keys.MUTE_ON_RECORDING] ?: false,
             minConfidence = prefs[Keys.MIN_CONFIDENCE] ?: 50,
             minConfidenceFirstLock = prefs[Keys.MIN_CONFIDENCE_FIRST_LOCK] ?: 70,
             windowSlack = prefs[Keys.WINDOW_SLACK] ?: 2,
@@ -201,6 +205,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGlassesHideStatus(value: Boolean) {
         context.dataStore.edit { it[Keys.GLASSES_HIDE_STATUS] = value }
+    }
+
+    suspend fun setMuteOnRecording(value: Boolean) {
+        context.dataStore.edit { it[Keys.MUTE_ON_RECORDING] = value }
     }
 
     suspend fun setTextHoldTenths(value: Int) {

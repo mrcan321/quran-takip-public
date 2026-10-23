@@ -69,6 +69,8 @@ fun glassesTests(): Int {
         JSONObject(GlassesState(textPx = 64).toJson(0)).getInt("textPx") == 64)
     ck.ok("json sure / ayet satiri", JSONObject(GlassesState().toJson(0)).getBoolean("bigHeader") &&
         !JSONObject(GlassesState(bigHeader = false).toJson(0)).getBoolean("bigHeader"))
+    ck.ok("json demo", JSONObject(GlassesState().toJson(0)).getInt("demo") == 0 &&
+        JSONObject(GlassesState(demo = 4).toJson(0)).getInt("demo") == 4)
     ck.ok("json rekat bilgisi gizli", !JSONObject(GlassesState().toJson(0)).getBoolean("hideRakat") &&
         JSONObject(GlassesState(hideRakat = true).toJson(0)).getBoolean("hideRakat"))
     ck.ok("json yazi tipi / kalinlik", JSONObject(GlassesState().toJson(0)).let {
@@ -275,6 +277,7 @@ fun glassesServe(dir: File, fontDir: File, port: Int): Int {
             blankHeader = s.optBoolean("blankHeader"), hideStatus = s.optBoolean("hideStatus"),
             rakat = s.optString("rakat"),
             noteTitle = s.optString("noteTitle"), noteReading = s.optString("noteReading"), noteTurkish = s.optString("noteTurkish"),
+            demo = s.optInt("demo", 0),
         ))
         println("durum ${b.current().first}")
         System.out.flush()

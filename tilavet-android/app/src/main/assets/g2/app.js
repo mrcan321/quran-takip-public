@@ -42,7 +42,7 @@ const AR = { fontPx: 32, stroke: 0.8, gamma: 0.5, maxW: 556, right: 566, baselin
 // (veri ~%20 az) ama topluluk olcumune gore gonderim suresinin cogu cagri basina sabit (~104 ms, + ~4 ms/KB gray4;
 // even-g2-notes performance.md) → hiz farki ihmal edilebilir, kenar kalitesi geri alindi (APK #51).
 const BIG = { gamma: 0.7, dim: 0.6, color: '#ffffff', barW: 3, barDim: '#3a3a3a' };
-const BIG_LAYOUTS = new Set(['big', 'bigh']);
+const BIG_LAYOUTS = new Set(['big', 'bigh', 'demob']);
 
 // sans: eski kopru (APK #105 ve oncesi, /g2font-* yok) icin Manrope 700 — secilen buyuk yazi fontu yuklenemezse
 const FONTS = { quran: { family: 'TTQuran', file: 'kfgqpc.ttf' }, sans: { family: 'TTSans', file: 'manrope.ttf' } };
@@ -301,6 +301,47 @@ function fitBig(text, textPx, areaH, fixed, onePage, onePageMinPx) {
   return f;
 }
 
+/** Demo yerlesimi (Ayarlar → G2 DEMO; layout.demoLayout, secilen yazi tipi / kalinlik / G2 YAZI BOYUTU), onbellekli. */
+function demoBig(level, textPx) {
+  const key = 'demo/' + bigFont(S.bigFace, '') + '/' + level + '/' + textPx;
+  let d = S.fitCache.get(key);
+  if (!d) {
+    d = L.demoLayout(level, textPx, measureBig);
+    if (S.fitCache.size > 64) S.fitCache.clear();
+    S.fitCache.set(key, d);
+  }
+  return d;
+}
+
+/** Demo → 576x288 canvas: ekranin en dis piksellerinde cerceve, numarali satirlar (numaralar solda kucuk). */
+function demoCanvas(screen) {
+  const d = screen.demo;
+  const { c, ctx } = canvas2d(L.SCREEN_W, L.SCREEN_H);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, L.SCREEN_W, L.SCREEN_H);
+  const fw = L.DEMO.frame;
+  ctx.strokeStyle = BIG.color;
+  ctx.lineWidth = fw;
+  ctx.strokeRect(fw / 2, fw / 2, L.SCREEN_W - fw, L.SCREEN_H - fw);
+  ctx.font = bigFont(screen.bigFace, d.px);
+  ctx.textBaseline = 'alphabetic';
+  const m = ctx.measureText('ÇĞİÜŞÂgjpy');
+  const asc = m.fontBoundingBoxAscent || d.px * 0.95;
+  const desc = m.fontBoundingBoxDescent || d.px * 0.25;
+  const inner = Math.round((d.lineH - (asc + desc)) / 2 + asc);
+  ctx.fillStyle = BIG.color;
+  d.lines.forEach((line, i) => {
+    const y = d.y0 + i * d.lineH + inner;
+    ctx.font = bigFont(screen.bigFace, d.px);
+    ctx.textAlign = 'left';
+    ctx.fillText(line, L.DEMO.numW, y);
+    ctx.font = `${screen.bigFace.weight} ${L.demoNumPx(d.px)}px ${screen.bigFace.family}`;
+    ctx.textAlign = 'right';
+    ctx.fillText(String(i + 1), L.DEMO.numW - 8, y);
+  });
+  return c;
+}
+
 /** Buyuk yazi sayfasi → 576 x alan canvas'i (baslikli duzende 256, degilse 288): satirlar soldan, blok dikeyde ortada;
  * birden cok sayfa varsa (basliksiz duzende) sag kenarda sayfa cubugu — baslikli duzende sayfa baslikta ("1/3"). */
 function bigCanvas(screen) {
@@ -415,7 +456,7 @@ function digest(bytes) {
 
 // ------------------------------------------------------------------ gozluk
 
-const TILE_BASE = { arabic: 3, arabicn: 3, big: 10, bigh: 10 };
+const TILE_BASE = { arabic: 3, arabicn: 3, big: 10, bigh: 10, demob: 10 };
 
 function pageDef(screen) {
   const Ld = L.LAYOUTS[screen.layout];
@@ -435,11 +476,13 @@ function pageDef(screen) {
     return { containerTotalNum: textObject.length + imageObject.length, textObject, imageObject };
   }
   // basliksiz duzende (textn / arabicn; Ayarlar → G2 ÜST BİLGİ: KAPALI) sadece govde
+  // demo: cerceveli kutu (kenarlik ekranin dort kenarinda)
+  const border = Ld.border ? { borderWidth: Ld.border.width, borderColor: Ld.border.color, borderRadius: Ld.border.radius } : {};
   const textObject = [
     ...(Ld.header ? [{ containerID: 1, containerName: 'hdr', ...box(Ld.header), paddingLength: L.PADDING,
       content: screen.header, textColor: screen.headerColor, isEventCapture: 0 }] : []),
-    { containerID: 2, containerName: 'body', ...box(Ld.body), paddingLength: L.PADDING, content: screen.body,
-      textColor: screen.bodyColor, isEventCapture: 1 },
+    { containerID: 2, containerName: 'body', ...box(Ld.body), paddingLength: Ld.padding ?? L.PADDING, content: screen.body,
+      textColor: screen.bodyColor, isEventCapture: 1, ...border },
   ];
   const def = { containerTotalNum: textObject.length + imageObject.length, textObject };
   if (imageObject.length) def.imageObject = imageObject;
@@ -450,6 +493,9 @@ function pageDef(screen) {
 function imageKey(screen) {
   if (screen.layout === 'arabic' || screen.layout === 'arabicn') {
     return screen.arabicPage < 0 ? 'bos' : `${S.arabic.text.length}:${L.ayahKey(S.st)}:${screen.arabicPage}`;
+  }
+  if (screen.layout === 'demob') {
+    return `demo|${bigFont(screen.bigFace, screen.demo.px)}|` + screen.demo.lines.join('\n');
   }
   if (BIG_LAYOUTS.has(screen.layout)) {
     const fit = screen.big;
@@ -484,6 +530,11 @@ function reportScreen() {
 /** Kopruye bildirilen gozluk duzeni (uygulamada Ayarlar → G2 GÖZLÜK satirinda gorunur): "buyuk 48px", "normal", "arapca". */
 function screenDesc(screen) {
   if (screen.blank) return S.screenDesc || 'bos';   // ses kesildi (bos ekran): ayardaki duzen degismedi
+  if (screen.layout === 'demob') {
+    return `demo${screen.demoLevel} buyuk ${screen.demo.px}px sabit` +
+      (screen.bigFace ? ` ${screen.bigFace.id} ${screen.bigFace.weight}` : '') + ` ${screen.demo.lines.length}satir`;
+  }
+  if (screen.layout === 'demo') return `demo${screen.demoLevel} normal`;
   if (BIG_LAYOUTS.has(screen.layout)) {
     return `buyuk ${screen.big.px}px` + (screen.bigFixed ? ' sabit' : '') + (S.st && S.st.onePage ? ' tek' : '') +
       (screen.bigFace ? ` ${screen.bigFace.id} ${screen.bigFace.weight}` : '');
@@ -506,6 +557,7 @@ async function flush() {
         arabicLineCount: S.arabic.text === (S.st && S.st.arabic) ? S.arabic.lines.length : 0,
         manual: S.manual,
         fitBig: S.bigFace ? fitBig : null,
+        demoBig: S.bigFace ? demoBig : null,
         diag: S.connected ? '' : S.diag.lastError,
       });
       screen.bigFace = S.bigFace;   // yerlesim bu fontla olculdu; cizim ve karo anahtari da bununla
@@ -561,7 +613,7 @@ async function apply(screen) {
     const Ld = L.LAYOUTS[screen.layout];
     let tiles;
     if (BIG_LAYOUTS.has(screen.layout)) {
-      const c = bigCanvas(screen);
+      const c = screen.layout === 'demob' ? demoCanvas(screen) : bigCanvas(screen);
       drawPhoneCanvas('pv-big', c);
       tiles = tilesFrom(c, Ld.tiles, 0, Ld.tiles[0].y, bigTileLut(screen.bigDim));
     } else {
@@ -673,7 +725,8 @@ function drawPhonePreview(screen) {
       `sayfa: ${location.origin || location.protocol} · köprü: ${S.diag.base} · deneme ${S.diag.attempts}` +
       (S.diag.lastError ? ` · son hata: ${S.diag.lastError}` : '') +
       (!SAME_ORIGIN && !S.connected && S.diag.probe ? ` · köprü yoklaması: ${S.diag.probe}` : '') +
-      (BIG_LAYOUTS.has(screen.layout) ? ` · gözlükte ${screen.big.px} px` +
+      (screen.layout === 'demob' ? ` · demo ${screen.demoLevel}, ${screen.demo.px} px, ${screen.demo.lines.length} satır` : '') +
+      (BIG_LAYOUTS.has(screen.layout) && screen.big ? ` · gözlükte ${screen.big.px} px` +
         (screen.pages > 1 ? `, sayfa ${screen.page + 1}/${screen.pages}` : '') : '') +
       (S.diag.transfer ? ` · son aktarım ${S.diag.transfer}` : '');
   }
@@ -690,7 +743,8 @@ function drawPhonePreview(screen) {
   show('pv-ar', screen.layout.startsWith('arabic'));
   show('pv-big', big);
   if (big) {
-    if (!S.bridge) drawPhoneCanvas('pv-big', bigCanvas(screen));   // gozluk yokken de onizleme
+    // gozluk yokken de onizleme
+    if (!S.bridge) drawPhoneCanvas('pv-big', screen.layout === 'demob' ? demoCanvas(screen) : bigCanvas(screen));
     const hb = $('pv-hdr');
     if (hb && screen.layout === 'bigh') hb.textContent = screen.header;
     return;

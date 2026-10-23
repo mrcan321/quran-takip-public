@@ -1,6 +1,8 @@
 package com.tilavet.takip
 
 import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,7 +14,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -20,15 +24,38 @@ import com.tilavet.takip.ui.components.SettingsSheet
 import com.tilavet.takip.ui.screens.MainScreen
 import com.tilavet.takip.ui.theme.LocalAppPalette
 import com.tilavet.takip.ui.theme.TilavetTheme
+import com.tilavet.takip.util.PhoneControl
 
 class MainActivity : ComponentActivity() {
     // Compose'taki viewModel() ile ayni ornek (ayni ViewModelStore)
     private val vm: MainViewModel by viewModels()
 
+    // On plan servisi bildirimi (Android 13+); ardindan arka plan izni (iki pencere ust uste acilmasin)
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        if (!PhoneControl.isBackgroundUnrestricted(this)) PhoneControl.requestBackgroundUnrestricted(this)
+    }
+
+    companion object {
+        /** Arka plan / bildirim izni bu surec icinde bir kez istenir (reddedilirse Ayarlar → ARKA PLANDA ÇALIŞMA uyarir). */
+        private var askedPermissions = false
+    }
+
     override fun onStart() {
         super.onStart()
         // Dinlerken on plan servisi arka planda baslatilamadiysa simdi ac (bkz. MainViewModel.onAppForeground)
         vm.onAppForeground()
+        // Kullanici: "telefondaki app arka planda surekli acik kalabilsin; gerekirse izin istesin, arka plan izni istesin
+        // yoksa uyarsin" → pil kisitlamasi muafiyeti (Android'in izin penceresi) + bildirim izni, acilista bir kez
+        if (!askedPermissions) {
+            askedPermissions = true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else if (!PhoneControl.isBackgroundUnrestricted(this)) {
+                PhoneControl.requestBackgroundUnrestricted(this)
+            }
+        }
     }
 
     override fun onStop() {
@@ -103,6 +130,7 @@ private fun AppRoot(viewModel: MainViewModel) {
         )
 
         if (state.showSettingsSheet) {
+            val context = LocalContext.current
             SettingsSheet(
                 settings = state.settings,
                 onDismiss = { viewModel.closeSettings() },
@@ -115,6 +143,17 @@ private fun AppRoot(viewModel: MainViewModel) {
                 onIdleOpacity = { viewModel.setIdleOpacity(it) },
                 onSkippedAyahTenths = { viewModel.setSkippedAyahTenths(it) },
                 onTextHoldTenths = { viewModel.setTextHoldTenths(it) },
+                bgUnrestricted = state.bgUnrestricted,
+                onRequestBackground = { PhoneControl.requestBackgroundUnrestricted(context) },
+                dndAccess = state.dndAccess,
+                onMuteOnRecording = {
+                    viewModel.setMuteOnRecording(it)
+                    // tam sessiz icin Rahatsiz Etmeyin erisimi: acilirken yoksa sistem ayarina gotur
+                    if (it && !state.dndAccess) PhoneControl.requestDndAccess(context)
+                },
+                onRequestDnd = { PhoneControl.requestDndAccess(context) },
+                glassesDemo = state.glassesDemo,
+                onGlassesDemo = { viewModel.setGlassesDemo(it) },
                 glassesLink = state.glassesLink,
                 onGlassesEnabled = { viewModel.setGlassesEnabled(it) },
                 onGlassesArabic = { viewModel.setGlassesArabic(it) },

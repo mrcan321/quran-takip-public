@@ -47,6 +47,7 @@ import com.tilavet.takip.ui.theme.AppTheme
 import com.tilavet.takip.util.AssetSync
 import com.tilavet.takip.util.ListenService
 import com.tilavet.takip.util.LogExporter
+import com.tilavet.takip.util.PhoneControl
 import com.tilavet.takip.util.PublicRecordings
 import com.tilavet.takip.util.SessionAudioWriter
 import com.tilavet.takip.util.SessionLog
@@ -121,6 +122,12 @@ data class UiState(
      * uygulama mikrofonu aldi. Telefonda durum satirinda, G2'de kart olarak uyari. Bkz. AudioRecorder.onSilenced.
      */
     val micSilenced: Boolean = false,
+    /** Ayarlar → G2 DEMO (0 = kapali, 1-4): gozlukte cerceveli deneme yazisi; ayarlar kapaninca / dinleme baslayinca 0. */
+    val glassesDemo: Int = 0,
+    /** Pil kisitlamasindan muaf (arka planda surekli calisabilir) — Ayarlar → ARKA PLANDA ÇALIŞMA. */
+    val bgUnrestricted: Boolean = true,
+    /** Rahatsiz Etmeyin erisimi (MUTE ON RECORDING tam sessiz icin). */
+    val dndAccess: Boolean = false,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -197,6 +204,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         recorder.onSilenced = { silenced, why -> onMicSilenced(silenced, why) }
+        // Uygulama dinlerken kapandiysa (MUTE ON RECORDING) telefon sessizde kalmasin
+        PhoneControl.restore(application)?.let { SessionLog.d(TAG, "[ses] acilis: $it") }
+        refreshPhoneState()
         // Onceki oturumlardan disari kopyalanmamis kayit kaldiysa (uygulama oturum ortasinda kapandi) simdi kopyala
         viewModelScope.launch(Dispatchers.IO) { PublicRecordings.publishPending(getApplication()) }
 
@@ -316,10 +326,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // On plan servisi HEMEN (kullanici dokundu, uygulama ekranda): model yuklenirken Even uygulamasina gecilirse servis
         // arka planda baslatilamiyor ve mikrofon susuyordu (yatsi 23.10, APK #116 — 8 dk tam sifir ses). Bkz. ListenService.
         ListenService.start(getApplication(), listenText(simFile))
+        // Ayarlar → MUTE ON RECORDING: mikrofonla dinlerken telefon sessizde (simulasyonda degil)
+        val muteNote = if (simFile == null && _state.value.settings.muteOnRecording) PhoneControl.mute(getApplication()) else null
 
         _state.update { it.copy(
             isListening = true,
             micSilenced = false,
+            glassesDemo = 0,
             simFile = simFile,
             simPositionSec = 0,
             simDurationSec = simDurationSec,
@@ -350,6 +363,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 if (asrEngine.state.value !is AsrState.Ready) {
                     ListenService.stop(getApplication())
+                    restorePhone()
                     _state.update { it.copy(
                         isListening = false,
                         statusText = "ASR yüklenemedi",
@@ -405,11 +419,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Ekran kilitlenince / baska uygulamaya (G2 icin Even) gecince de dinleme sursun: servis dokunma aninda
                 // acildi; acilamadiysa uygulama ekrandaysa simdi tekrar dene (arka plandaysa one gelince — onAppForeground)
                 SessionLog.d(TAG, "[mic] on plan servisi: ${if (ListenService.active) "acik" else "KAPALI"}")
+                muteNote?.let { SessionLog.d(TAG, "[ses] mute on recording: $it") }
                 if (!ListenService.active && appInForeground) ListenService.start(app, listenText(simFile))
 
             } catch (e: Throwable) {
                 SessionLog.e(TAG, "Pipeline baslat hatasi", e)
                 ListenService.stop(getApplication())
+                restorePhone()
                 _state.update { it.copy(
                     isListening = false,
                     statusText = "Hata: ${e.message}",
@@ -430,6 +446,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun onAppForeground() {
         appInForeground = true
+        refreshPhoneState()
+        // G2 koprusu acikken servis (arka planda canli kalsin); arka planda baslatilamadiysa simdi
+        if (_state.value.settings.glassesEnabled) ListenService.setGlasses(getApplication(), true)
         val s = _state.value
         if (s.isListening && !ListenService.active) {
             SessionLog.w(TAG, "[mic] on plan servisi kapali — yeniden baslatiliyor")
@@ -443,6 +462,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (s.isListening && s.simFile == null) {
             SessionLog.d(TAG, "[mic] uygulama arka planda, on plan servisi ${if (ListenService.active) "acik" else "KAPALI — mikrofon susabilir"}")
         }
+    }
+
+    /** Pil izni / Rahatsiz Etmeyin erisimi (kullanici sistem ayarlarindan donunce de). */
+    fun refreshPhoneState() {
+        val app = getApplication<Application>()
+        val bg = PhoneControl.isBackgroundUnrestricted(app)
+        val dnd = PhoneControl.hasDndAccess(app)
+        if (bg != _state.value.bgUnrestricted || dnd != _state.value.dndAccess) {
+            _state.update { it.copy(bgUnrestricted = bg, dndAccess = dnd) }
+        }
+    }
+
+    /** MUTE ON RECORDING: telefonu eski zil moduna dondur (sessize biz aldiysak). */
+    private fun restorePhone() {
+        PhoneControl.restore(getApplication())?.let { SessionLog.d(TAG, "[ses] mute on recording: $it") }
     }
 
     /** AudioRecorder: Android kayda sifir veriyor / tekrar ses geldi. */
@@ -460,6 +494,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         pipeline?.stop()
         pipeline = null
         ListenService.stop(getApplication())
+        restorePhone()
         resetEzan()
         _state.update { it.copy(
             isListening = false,
@@ -493,6 +528,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         pipeline?.stop()
         pipeline = null
         ListenService.stop(getApplication())
+        restorePhone()
         resetEzan()
         _state.update { it.copy(
             isListening = false,
@@ -953,7 +989,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun openSettings() { _state.update { it.copy(showSettingsSheet = true) } }
-    fun closeSettings() { _state.update { it.copy(showSettingsSheet = false) } }
+    // demo ayarlarla birlikte kapanir: namazda gozlukte unutulmasin
+    fun closeSettings() { _state.update { it.copy(showSettingsSheet = false, glassesDemo = 0) } }
+    fun setGlassesDemo(level: Int) { _state.update { it.copy(glassesDemo = level.coerceIn(0, 4)) } }
+    fun setMuteOnRecording(value: Boolean) {
+        viewModelScope.launch { settingsRepo.setMuteOnRecording(value) }
+        val s = _state.value
+        if (s.isListening && s.simFile == null) {
+            if (value) SessionLog.d(TAG, "[ses] mute on recording: ${PhoneControl.mute(getApplication())}") else restorePhone()
+        }
+    }
     fun setTheme(theme: AppTheme) { viewModelScope.launch { settingsRepo.setTheme(theme) } }
     fun setArabicSize(size: Int) { viewModelScope.launch { settingsRepo.setArabicSize(size) } }
     fun setMealSize(size: Int) { viewModelScope.launch { settingsRepo.setMealSize(size) } }
@@ -1018,6 +1063,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             b.update(glassesStateOf(_state.value))
             glasses = b
+            // uygulama arka planda da canli kalsin: eklenti mikrofona basilmasini beklemeden baglanir
+            ListenService.setGlasses(getApplication(), true)
             glassesLinkJob?.cancel()
             glassesLinkJob = viewModelScope.launch {
                 var was = false
@@ -1044,6 +1091,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             glassesLinkJob?.cancel()
             glasses?.stop()
             glasses = null
+            ListenService.setGlasses(getApplication(), false)
             _state.update { it.copy(glassesLink = null) }
         } else if (!enabled && _state.value.glassesLink != null) {
             _state.update { it.copy(glassesLink = null) }
@@ -1053,6 +1101,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Eklentinin bildirdigi duzen → ayarlardaki baglanti satirina ek: " · büyük yazı 48 px" (bilinmiyorsa bos). */
     private fun screenLabel(desc: String): String {
         val parts = desc.split(' ')
+        // demo (Ayarlar → G2 DEMO): "demo4 buyuk 48px sabit manrope 700 4satir" / "demo2 normal"
+        if (parts[0].startsWith("demo")) {
+            val lines = parts.firstOrNull { it.endsWith("satir") }?.removeSuffix("satir")
+            return " · demo ${parts[0].removePrefix("demo")}" +
+                screenLabel(parts.drop(1).filterNot { it.endsWith("satir") }.joinToString(" ")) +
+                (lines?.let { " · $it satır" } ?: "")
+        }
         return when (parts[0]) {
             "buyuk" -> " · büyük yazı" + (parts.getOrNull(1)?.removeSuffix("px")?.toIntOrNull()?.let { " $it px" } ?: "") +
                 (if ("sabit" in parts.drop(2)) " sabit" else "") + (if ("tek" in parts.drop(2)) " tek sayfa" else "") +
@@ -1126,6 +1181,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             noteTitle = noteTitle,
             noteReading = noteReading,
             noteTurkish = noteTurkish,
+            demo = s.glassesDemo,
         )
         // Mikrofon susturuldu: gozlukte uyari karti (namazda kullanicinin baktigi yer gozluk; telefon cepte)
         if (s.micSilenced && s.isListening) {
@@ -1157,6 +1213,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         glassesLinkJob?.cancel()
         glasses?.stop()
         glasses = null
+        ListenService.setGlasses(getApplication(), false)
         stopPipeline()
         recorder.stop()
         asrEngine.close()

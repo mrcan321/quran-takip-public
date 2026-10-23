@@ -190,6 +190,26 @@ export const LAYOUTS = {
       { x: 0, y: 144, w: 288, h: 144 }, { x: 288, y: 144, w: 288, h: 144 },
     ],
   },
+  // Demo (Ayarlar → G2 DEMO, /state demo): gozlugun kendi yazisi, tum ekran tek kutu, kutu cercevesi ekranin dort
+  // kenarinda (SDK metin kutusu kenarligi: kalinlik 0-5, gri ton 0-16 — even-g2-notes display.md), satirlar numarali
+  demo: {
+    header: null,
+    body: { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H },
+    bodyLines: 10,
+    tiles: [],
+    padding: 6,
+    border: { width: 2, color: 13, radius: 0 },
+  },
+  // Demo, buyuk yazi: tum ekran 4 karo (cerceve + numarali satirlar telefonda cizilir, secilen yazi tipi / kalinlik / boyut)
+  demob: {
+    header: null,
+    body: { x: 0, y: 0, w: SCREEN_W, h: SCREEN_H },
+    bodyLines: 0,
+    tiles: [
+      { x: 0, y: 0, w: 288, h: 144 }, { x: 288, y: 0, w: 288, h: 144 },
+      { x: 0, y: 144, w: 288, h: 144 }, { x: 288, y: 144, w: 288, h: 144 },
+    ],
+  },
 };
 /** Arapca bandinda sayfa basina satir. */
 export const ARABIC_LINES = 2;
@@ -343,6 +363,102 @@ export function fitBigText(text, measure, opt = BIG) {
   return { px, lineH: Math.round(px * opt.lineH), perPage: per, pages };
 }
 
+/**
+ * Demo (Ayarlar → G2 DEMO 1-4, /state demo; kullanici: "gozlugu denettirecegim kisiler icin demo yazisi; demo1'de az
+ * kelime, demo4'te tum ekrani kaplayacak kadar; en ust ve en alt satiri goruyor mu anlamam lazim; cerceve yap ki dort
+ * kenari da gorebiliyor mu anlayalim; yazi tipi / boyutu degisince yazi da degissin"). Ekranin dort kenarinda cerceve,
+ * satirlar numarali (en ust / en alt satirin numarasi sorulur). Buyuk yazida (G2 YAZI: BÜYÜK) secilen yazi tipi,
+ * kalinlik ve G2 YAZI BOYUTU'nda (sabit — demo 4 o puntoda ekrani tam doldurur, boyut degisince satir sayisi degisir);
+ * normal yazida gozlugun kendi yazisiyla 1 / 3 / 6 / 10 satir. Demo baslik ayarlarina bakmaz (tum ekran).
+ */
+export const DEMO_SHORT = 'Allah birdir.';
+export const DEMO_TEXT = "Rahmân ve Rahîm olan Allah'ın adıyla. Hamd, âlemlerin Rabbi Allah'a mahsustur. O, Rahmân'dır, " +
+  'Rahîm\'dir. Din gününün sahibidir. Yalnız sana ibadet eder, yalnız senden yardım dileriz. Bizi doğru yola ilet; ' +
+  'nimet verdiklerinin yoluna, gazaba uğrayanların ve sapıtanların yoluna değil. De ki: O Allah birdir. Allah ' +
+  "sameddir; her şey O'na muhtaçtır. O doğurmamış ve doğurulmamıştır. Hiçbir şey O'na denk değildir. Pijamalı hasta " +
+  'yağız şoföre çabucak güvendi.';
+/** Demo 2 / 3 ekranin (satir kapasitesinin) bu kadari; demo 4 tam ekran. */
+export const DEMO_FILL = [0, 0, 1 / 3, 2 / 3, 1];
+/**
+ * Demo buyuk yazi geometrisi (576x288 goruntu): frame cerceve kalinligi (ekranin en dis pikselleri), numW satir
+ * numarasi sutunu (yazi bunun sagindan baslar), padR sag bosluk, padY ust / alt bosluk; numara puntosu yazinin
+ * numScale'i (numMin..numMax px — gozlukte okunsun, sutuna sigsin: 30 px'te en fazla 7 satir, tek hane).
+ */
+export const DEMO = { frame: 2, numW: 34, padR: 10, padY: 6, numScale: 0.45, numMin: 16, numMax: 26 };
+
+/** Demo satir numarasi puntosu (yazi puntosuna gore). */
+export function demoNumPx(px) {
+  return Math.min(DEMO.numMax, Math.max(DEMO.numMin, Math.round(px * DEMO.numScale)));
+}
+
+/** /state demo → 1-4 (0 = kapali). */
+export function demoLevel(st) {
+  const n = Math.round(Number(st && st.demo));
+  return Number.isFinite(n) && n >= 1 && n <= 4 ? n : 0;
+}
+
+/** Demo metni sonsuz kelime akisi (DEMO_TEXT tekrar eder). */
+function demoWords(i) {
+  const w = DEMO_TEXT.split(' ');
+  return w[i % w.length];
+}
+
+/**
+ * Demo, buyuk yazi: {px, lineH, perPage, y0, lines}. measure(metin, px) → piksel (eklentide canvas, testte yaklasik).
+ * Punto = G2 YAZI BOYUTU (bigOptions sabit); demo 1 kisa cumle, demo 2-4 satir kapasitesinin 1/3, 2/3'u ve tamami (her
+ * satir dolu, kelime bolunmez). Blok ust bosluk esit dagilacak sekilde (demo 4 dikeyde ortada; digerleri ayni yerden).
+ */
+export function demoLayout(level, textPx, measure) {
+  const px = bigOptions(textPx, SCREEN_H, true).minPx;
+  const lineH = Math.round(px * BIG.lineH);
+  const maxW = SCREEN_W - DEMO.numW - DEMO.padR;
+  const perPage = Math.max(1, Math.floor((SCREEN_H - 2 * DEMO.padY) / lineH));
+  const y0 = Math.round((SCREEN_H - perPage * lineH) / 2);
+  const lines = [];
+  if (level <= 1) {
+    let cur = '';
+    for (const word of DEMO_SHORT.split(' ')) {
+      const cand = cur ? cur + ' ' + word : word;
+      if (!cur || measure(cand, px) <= maxW) { cur = cand; continue; }
+      lines.push(cur);
+      cur = word;
+    }
+    if (cur) lines.push(cur);
+    return { px, lineH, perPage, y0, lines: lines.slice(0, perPage) };
+  }
+  const target = level >= 4 ? perPage : Math.max(1, Math.round(perPage * DEMO_FILL[level]));
+  let cur = '';
+  for (let i = 0; lines.length < target && i < 5000; i++) {
+    const word = demoWords(i);
+    const cand = cur ? cur + ' ' + word : word;
+    if (!cur || measure(cand, px) <= maxW) { cur = cand; continue; }
+    lines.push(cur);
+    cur = word;
+  }
+  return { px, lineH, perPage, y0, lines };
+}
+
+/** Demo, gozlugun kendi yazisi: 1 / 3 / 6 / 10 numarali satir ("1  Hamd ..."), cerceveli kutuya sigar. */
+export function demoTextLines(level) {
+  const L = LAYOUTS.demo;
+  const n = level >= 4 ? L.bodyLines : [0, 1, 3, 6][level];
+  // ic genislik: kutu - 2 * (ic bosluk + kenarlik) - guvenlik payi (genislik tablosu ~%4 genis olcuyor)
+  const inner = SCREEN_W - 2 * (L.padding + L.border.width) - 20;
+  if (level <= 1) return ['1  ' + fitLine(DEMO_SHORT, inner - textWidth('1  '))];
+  const out = [];
+  let cur = '';
+  const prefix = (k) => `${k}  `;
+  for (let i = 0; out.length < n && i < 5000; i++) {
+    const word = sanitize(demoWords(i));
+    const maxW = inner - textWidth(prefix(out.length + 1));
+    const cand = cur ? cur + ' ' + word : word;
+    if (!cur || textWidth(cand) <= maxW) { cur = cand; continue; }
+    out.push(prefix(out.length + 1) + cur);
+    cur = word;
+  }
+  return out;
+}
+
 export const BRIGHT = { header: 3, body: 4, dim: 3 };
 
 const APP = 'Tilavet Takip';
@@ -402,6 +518,17 @@ function pickPage(st, pages, manual) {
  * "hide yaparsa sadece sure adi: ayet no cikacak").
  */
 export function buildScreen(st, ui = {}) {
+  // Demo (Ayarlar → G2 DEMO 1-4): her seyin onunde (dinleme, not karti, bos ekran); buyuk yazi fontu hazirsa
+  // (ui.demoBig: (seviye, textPx) → demoLayout) secilen yazi tipiyle goruntu, degilse gozlugun kendi yazisi
+  const demo = ui.connected && st ? demoLevel(st) : 0;
+  if (demo) {
+    const base = {
+      header: ' ', headerColor: BRIGHT.header, body: ' ', bodyColor: BRIGHT.body, page: 0, pages: 1, autoPage: 0,
+      arabicPage: -1, arabicPages: 0, big: null, bigDim: false, bigFixed: true, demo: null, demoLevel: demo,
+    };
+    if (st.bigText && ui.demoBig) return { ...base, layout: 'demob', demo: ui.demoBig(demo, st.textPx) };
+    return { ...base, layout: 'demo', body: joinLines(demoTextLines(demo)) };
+  }
   const noHeader = !!st && st.bigHeader === false;
   const layoutName = !(ui.connected && st) ? 'text'
     : st.showArabic ? (noHeader ? 'arabicn' : 'arabic')

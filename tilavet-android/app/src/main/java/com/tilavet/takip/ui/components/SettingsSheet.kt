@@ -50,6 +50,13 @@ fun SettingsSheet(
     onIdleOpacity: (Int) -> Unit,
     onSkippedAyahTenths: (Int) -> Unit = {},
     onTextHoldTenths: (Int) -> Unit = {},
+    bgUnrestricted: Boolean = true,
+    onRequestBackground: () -> Unit = {},
+    dndAccess: Boolean = false,
+    onMuteOnRecording: (Boolean) -> Unit = {},
+    onRequestDnd: () -> Unit = {},
+    glassesDemo: Int = 0,
+    onGlassesDemo: (Int) -> Unit = {},
     glassesLink: String? = null,
     onGlassesEnabled: (Boolean) -> Unit = {},
     onGlassesArabic: (Boolean) -> Unit = {},
@@ -223,6 +230,40 @@ fun SettingsSheet(
                 )
             }
 
+            // === Mute on recording: mikrofonla dinlerken telefon sessizde (bkz. util/PhoneControl) ===
+            SettingGroup(
+                label = "MUTE ON RECORDING",
+                trailing = if (settings.muteOnRecording) (if (dndAccess) "SESSİZ" else "TİTREŞİM") else null,
+                hint = "Açıkken mikrofonla dinleme başlayınca telefon sessize alınır, dinleme bitince eski haline döner " +
+                    "(siz bu arada elle değiştirdiyseniz dokunulmaz). Tam sessiz için Android'in Rahatsız Etmeyin " +
+                    "erişimi gerekir; verilmezse titreşime alınır.",
+            ) {
+                OnOffRow(current = settings.muteOnRecording, onSelect = onMuteOnRecording)
+                if (settings.muteOnRecording && !dndAccess) {
+                    Spacer(Modifier.height(8.dp))
+                    ActionButton(label = "RAHATSIZ ETMEYİN ERİŞİMİ VER", onClick = onRequestDnd)
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+
+            // === Arka planda calisma: pil kisitlamasi (bkz. util/PhoneControl, util/ListenService) ===
+            SettingGroup(
+                label = "ARKA PLANDA ÇALIŞMA",
+                trailing = if (bgUnrestricted) "İZİN VAR" else "KISITLI",
+                hint = if (bgUnrestricted) {
+                    "Android uygulamayı arka planda kısıtlamıyor: telefon cepteyken ve ekran kapalıyken dinleme ve G2 " +
+                        "bağlantısı sürer."
+                } else {
+                    "Android uygulamayı arka planda kısıtlıyor: telefon cepteyken dinleme ya da G2 bağlantısı kesilebilir. " +
+                        "İZİN VER'e basın (Samsung'da ayrıca: Ayarlar → Uygulamalar → Tilavet Takip → Pil → Kısıtlanmamış)."
+                },
+            ) {
+                if (!bgUnrestricted) {
+                    ActionButton(label = "İZİN VER", onClick = onRequestBackground)
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
+
             // === Even Realities G2 gozluk: okunan ayet + meal gozlukte (bkz. glasses/GlassesBridge, assets/g2) ===
             SettingGroup(
                 label = "G2 GÖZLÜK",
@@ -234,6 +275,23 @@ fun SettingsSheet(
                 OnOffRow(current = settings.glassesEnabled, onSelect = onGlassesEnabled)
             }
             if (settings.glassesEnabled) {
+                // Gozlugu deneyecek kisi icin (layout.js demoLayout): cerceve + numarali satirlar
+                SettingGroup(
+                    label = "G2 DEMO (GÖZLÜK TESTİ)",
+                    trailing = if (glassesDemo > 0) "DEMO $glassesDemo" else null,
+                    hint = "Gözlüğü deneyen kişi için: ekranın dört kenarında çerçeve, satırlar numaralı — dört kenarı ve en " +
+                        "üst / en alt satırın numarasını görüp görmediğini sorun. DEMO 1 kısa bir satır, DEMO 4 ekranı " +
+                        "tamamen doldurur. Açıkken aşağıdaki yazı tipi, kalınlık ve boyut değişince gözlükte hemen değişir. " +
+                        "Ayarlar kapanınca demo kapanır.",
+                ) {
+                    ChoiceGrid(
+                        options = listOf("KAPALI" to 0, "1" to 1, "2" to 2, "3" to 3, "4" to 4),
+                        current = glassesDemo,
+                        onSelect = onGlassesDemo,
+                        columns = 5,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
                 SettingGroup(
                     label = "G2 YAZI",
                     hint = "BÜYÜK: gözlükte meal, sığan en büyük yazıyla ve ekranın ortasında (uzun meal sayfalara " +
@@ -769,6 +827,35 @@ private fun <T> ChoiceGrid(
                 repeat(columns - row.size) { Box(modifier = Modifier.weight(1f)) }
             }
         }
+    }
+}
+
+/** Tek dugme (izin iste vb.): secili kutu gorunumunde, tam genislik. */
+@Composable
+private fun ActionButton(label: String, onClick: () -> Unit) {
+    val palette = LocalAppPalette.current
+    val style = LocalAppStyle.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(width = 1.dp, color = palette.accent, shape = RoundedCornerShape(10.dp))
+            .background(color = palette.accentDim, shape = RoundedCornerShape(10.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { onClick() }
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontFamily = style.label,
+            fontWeight = if (style.ornate) FontWeight.Bold else null,
+            fontSize = 11.sp,
+            color = palette.accent,
+            letterSpacing = style.tracking(0.8f).sp,
+            maxLines = 1,
+        )
     }
 }
 

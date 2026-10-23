@@ -8,6 +8,14 @@
     <!-- Dinlerken on plan servisi (ekran kilitliyken / G2 icin Even uygulamasina gecince mikrofon susmasin) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- G2 gozluk koprusu acikken uygulama arka planda da canli kalsin (mikrofonsuz on plan servisi, Android 14+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- On plan servisi bildirimi (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Ayarlar → ARKA PLANDA ÇALIŞMA: pil kisitlamasindan muafiyet (Android'in izin penceresi) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Ayarlar → MUTE ON RECORDING: dinlerken telefonu sessize almak icin (Rahatsiz Etmeyin erisimi kullanici verir) -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <!-- Sadece G2 gozluk koprusu: 127.0.0.1'de yerel sunucu (soket icin gerekli; uygulama internete cikmaz) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -42,7 +50,11 @@
     <service
         android:name=".util.ListenService"
         android:exported="false"
-        android:foregroundServiceType="microphone" />
+        android:foregroundServiceType="microphone|specialUse">
+        <property
+            android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+            android:value="Even Realities G2 gozluk icin yerel kopru (127.0.0.1): gozluk eklentisi okunan ayeti uygulamadan alir" />
+    </service>
     <provider
     android:name="androidx.core.content.FileProvider"
     android:authorities="${applicationId}.fileprovider"

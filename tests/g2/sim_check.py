@@ -79,7 +79,9 @@ MAX_TILES = {
 }
 # yazi tipi / kalinlik degisince (ayni ayet) gozluge en az bu kadar karo gitmeli: ekran aninda yeni fontla cizilir
 MIN_TILES = {"font_atkinson_ince": 1, "font_atkinson_cok_kalin": 1, "font_lexend_kalin": 1, "font_inter_normal": 1,
-             "font_manrope_geri": 1}
+             "font_manrope_geri": 1,
+             # demo: cerceve 4 karonun hepsinde → ilk demo ekrani 4 karo; yazi tipi / boyutu degisince yeniden cizilir
+             "demo_4_buyuk": 4, "demo_4_atkinson_64": 1, "demo_4_inter_30": 1}
 # bilerek bombos ekran (ust bilgi / durum yazisi gizli): gozluk goruntusunde cizili piksel OLMAMALI
 EXPECT_EMPTY = {"bos_ustsuz", "durum_gizli_bosta", "durum_gizli_dinleniyor"}
 
@@ -148,6 +150,14 @@ def scenario(arabic):
         ("durum_gizli_ayet", dict(BIG, surah=108, ayah=2, surahName="Kevser", surahAyahCount=3, progress=1.0,
                                   meal="Şu halde Rabbin için namaz kıl ve kurban kes.", hideStatus=True), [], 2.5),
 
+        # Ayarlar → G2 DEMO: cerceve + numarali satirlar (dinleme kapaliyken de); yazi tipi / boyutu degisince aninda
+        ("demo_4_buyuk", dict(BIG, listening=False, status="Hazır", demo=4), [], 3.0),
+        ("demo_1_buyuk", dict(BIG, listening=False, status="Hazır", demo=1), [], 2.5),
+        ("demo_4_atkinson_64", dict(BIG, listening=False, status="Hazır", demo=4, bigFont="atkinson", textPx=64), [], 3.0),
+        ("demo_4_inter_30", dict(BIG, listening=False, status="Hazır", demo=4, bigFont="inter", bigWeight=500, textPx=30),
+         [], 3.0),
+        ("demo_kapat", dict(BIG, listening=False, status="Hazır"), [], 2.5),
+
         ("bosta", dict(listening=False, status="Hazır", bigText=False), [], 2.5),
         ("dinleniyor", dict(BASE, rakat=""), [], 2.0),
         ("kamet", dict(BASE, rakat="", status="Kamet · Fatiha bekleniyor", noteTitle="KAMET",
@@ -168,6 +178,8 @@ def scenario(arabic):
         ("normal_basliksiz_uzun", dict(BASE, surah=2, ayah=282, surahName="Bakara", surahAyahCount=286, progress=0.1,
                                        meal=LONG_TR, bigHeader=False), [], 2.0),
         # Ayarlar → G2 REKÂT BİLGİSİNİ GİZLE: baslikta sadece "Fâtiha: 2"
+        ("demo_4_normal", dict(BASE, listening=False, status="Hazır", demo=4), [], 2.5),
+        ("demo_2_normal", dict(BASE, listening=False, status="Hazır", demo=2), [], 2.0),
         ("normal_rekat_gizli", dict(BASE, surah=1, ayah=2, surahName="Fâtiha", surahAyahCount=7, progress=1.0,
                                     meal="Hamd, alemlerin Rabbi olan Allah'a aittir.", hideRakat=True), [], 2.0),
     ]

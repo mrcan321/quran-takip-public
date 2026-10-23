@@ -80,6 +80,12 @@ data class GlassesState(
     val noteTitle: String = "",
     val noteReading: String = "",
     val noteTurkish: String = "",
+    /**
+     * Ayarlar → G2 DEMO (0 = kapali, 1-4): gozlugu deneyecek kisi icin cerceveli, numarali satirli deneme yazisi (demo 1
+     * kisa, demo 4 tum ekran); her seyin onunde. Yazi tipi / kalinlik / boyut ayarlari degisince gozlukte hemen degisir
+     * (layout.js demoLayout). Kalici degil: ayarlar kapaninca ya da dinleme baslayinca kapanir.
+     */
+    val demo: Int = 0,
 ) {
     /** /state yaniti. [seq]: durum her degistiginde artar (eklenti uzun yoklamada `since` olarak geri yollar). */
     fun toJson(seq: Long): String {
@@ -114,6 +120,7 @@ data class GlassesState(
         sb.append(",\"noteTitle\":").append(quote(noteTitle))
         sb.append(",\"noteReading\":").append(quote(noteReading))
         sb.append(",\"noteTurkish\":").append(quote(noteTurkish))
+        sb.append(",\"demo\":").append(demo)
         sb.append('}')
         return sb.toString()
     }

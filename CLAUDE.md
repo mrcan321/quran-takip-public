@@ -109,7 +109,9 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
     ├── SessionAudioWriter.kt  — pipeline sesini WAV'a yazar (cacheDir/sessions, son 3 oturum) + yaninda .txt oturum log'u
     ├── SessionLog.kt          — pipeline / ViewModel log satirlari logcat'e + oturum .txt'sine (logcat tamponu silinmesin)
     ├── PublicRecordings.kt    — oturum bitince WAV + .txt → Download/Tilavet Takip (dosya yoneticisinden alinir, silinmez)
-    ├── ListenService.kt       — dinlerken ön plan servisi (mikrofon): ekran kilitli / Even uygulamasına geçince de dinler
+    ├── ListenService.kt       — ön plan servisi: dinlerken (mikrofon) ekran kilitli / Even'e geçince de dinler; G2 açıkken
+    │                            (specialUse) uygulama arka planda canlı kalır — gözlük mikrofonu beklemeden bağlanır
+    ├── PhoneControl.kt        — arka planda çalışma izni (pil kısıtlaması) + MUTE ON RECORDING (zil modu sessiz / geri)
     └── LogExporter.kt         — logcat'i dosyaya yaz, log + son WAV share intent (FileProvider)
 ```
 **G2 eklentisi** (Even Hub web uygulaması, `app/src/main/assets/g2/` — APK'dan da sunulur, `.ehpk` de aynı dosyalar):
@@ -1515,6 +1517,36 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   gürültüsü (hibrit) yeniden karıştı: yanlış kilitli 30 → 15, ekranda yanlış aday 9 → 13, kilitli bölüm 399 → 398 (rastgele gürültü
   dizisi kaydı; kod değişmedi).
 
+
+### 27. G2 demo (gözlük testi), arka planda G2 bağlantısı, arka plan izni, MUTE ON RECORDING (APK #118+)
+- Kullanıcı: "gözlüğü denettireceğim kişiler için demo yazısı; demo1 az kelime, demo4 tüm ekranı kaplasın; en üst ve en alt satırı
+  görüyor mu anlamam lazım; çerçeve yap ki dört kenarı da görebiliyor mu anlayalım; demo seçiliyken font seçimleri değişince yazı
+  da değişsin"; "G2 ile iletişim için mikrofon tuşuna basmamı beklemesin; app arka planda sürekli açık kalabilsin, arka plan izni
+  istesin yoksa uyarsın"; "mikrofon tuşuna basınca telefonu sessize alsın, dinleme yoksa yine sesliye; ayarlarda on/off, adı mute
+  on recording".
+- **Ayarlar → G2 DEMO (GÖZLÜK TESTİ): KAPALI / 1 / 2 / 3 / 4** (`UiState.glassesDemo` → `GlassesState.demo` → /state `demo`; kalıcı
+  değil — ayarlar kapanınca ve dinleme başlayınca 0). Eklentide her şeyin önünde (dinleme, not kartı, boş ekran, durum gizli,
+  başlık ayarı). Büyük yazıda (`layout.demoLayout`, düzen `demob`, 4 karo): ekranın en dış piksellerinde 2 px çerçeve, satırlar
+  numaralı (numara yazının 0.45'i, 16-26 px, solda 34 px sütun), **G2 YAZI BOYUTU'nda sabit** — demo 1 "Allah birdir.", demo 2 / 3
+  satır kapasitesinin 1/3 / 2/3'ü, demo 4 tamamı (48 px 4, 30 px 7, 64 px 3, 80 px 2 satır); yazı tipi / kalınlık / boyut
+  değişince gözlükte hemen yeniden çizilir. Gözlüğün kendi yazısında (NORMAL ya da font yüklenmediyse, düzen `demo`): tek tam
+  ekran kutu, SDK kutu kenarlığı (kalınlık 2, gri 13; even-g2-notes display.md: kalınlık 0-5, gri 0-16), 1 / 3 / 6 / 10 numaralı
+  satır. Ayarlardaki bağlantı satırı "BAĞLI · DEMO 4 · BÜYÜK YAZI 48 PX … · 4 SATIR". Testler: node `demo` (her boyutta demo 4
+  dolu ve çerçeve içinde, satırlar sığar, normal yazıda 1/3/6/10 satır ve bayt sınırı), JVM `json demo`, simülatör 7 demo adımı
+  (`demo_4_buyuk` 4 karo, font / boyut değişince yeniden çizim).
+- **G2 açıkken ön plan servisi** (`ListenService.setGlasses`, specialUse — Android 14+, manifest `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`):
+  köprü açılınca servis başlar (mikrofonsuz; bildirim "G2 gözlük bağlantısı açık"), dinlerken mikrofon türü eklenir, dinleme
+  bitince mikrofonsuz devam eder; G2 kapanınca / uygulama kapanınca durur. Servis yokken Android arka plandaki süreci
+  dondurabiliyordu → eklenti mikrofona basılana kadar bağlanamıyordu. `ListenService.active` = mikrofonlu, `running` = açık.
+- **Arka planda çalışma** (`PhoneControl`): açılışta bir kez bildirim izni (Android 13+) ve pil kısıtlaması muafiyeti penceresi
+  (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`); Ayarlar → ARKA PLANDA ÇALIŞMA: İZİN VAR / KISITLI + İZİN VER düğmesi (Samsung için
+  Pil → Kısıtlanmamış ipucu). Durum uygulama her öne geldiğinde yenilenir.
+- **Ayarlar → MUTE ON RECORDING** (`AppSettings.muteOnRecording`, varsayılan KAPALI): mikrofonla dinleme başlayınca (dokunma anı,
+  simülasyonda değil) zil modu sessize, dinleme bitince (durdur / mikrofon kapandı / hata) önceki moda döner — telefon hâlâ bizim
+  ayarladığımız moddaysa (kullanıcı elle değiştirdiyse dokunulmaz). Önceki mod SharedPreferences'ta (uygulama dinlerken kapanırsa
+  bir sonraki açılışta geri alınır). Tam sessiz için Rahatsız Etmeyin erişimi (`ACCESS_NOTIFICATION_POLICY`; açarken yoksa sistem
+  ayarı açılır, ayarlarda "RAHATSIZ ETMEYİN ERİŞİMİ VER"); erişim yoksa titreşime alınır. Log `[ses] mute on recording: telefon
+  sessiz (onceki: sesli)` / `telefon tekrar sesli`.
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)
