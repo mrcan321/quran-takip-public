@@ -497,6 +497,53 @@ test('mealde ayet adi (mealLabel): basta / sonda / kapali; satir artiracaksa sad
   assert.ok(!L.buildScreen({ ...kev, mealLabel: 'start', noteTitle: 'TEKBİR', noteTurkish: 'Allah en büyüktür' }, ui).body.includes('Kevser'));
 });
 
+test('headerAutoHide: ust bilgi yaziyi kucultecekse / sayfa ekleyecekse gizlenir (big), sigarsa kalir (bigh)', () => {
+  const ui = { connected: true, fitBig };
+  const words = LONG.split(' ');
+  const H = { ...ST, bigText: true, bigHeader: true, headerAutoHide: true };
+  const N = { ...H, bigHeader: false };
+  // degisken boyut: ust bilgiyle punto kuculen ve kuculmeyen meal
+  let keep = null, hide = null;
+  for (let n = 1; n < words.length && !(keep && hide); n++) {
+    const meal = words.slice(0, n).join(' ');
+    const a = L.buildScreen({ ...H, meal, headerAutoHide: false }, ui);
+    const b = L.buildScreen({ ...N, meal }, ui);
+    if (a.big.px === b.big.px && a.pages === b.pages && !keep) keep = meal;
+    if (a.big.px < b.big.px && !hide) hide = meal;
+  }
+  assert.ok(keep && hide, 'ornek meal bulunamadi');
+  const k = L.buildScreen({ ...H, meal: keep }, ui);
+  assert.equal(k.layout, 'bigh');
+  assert.match(k.header, /^Kevser: 2/);
+  assert.ok(!k.headerAutoHidden);
+  const h = L.buildScreen({ ...H, meal: hide }, ui);
+  assert.equal(h.layout, 'big');
+  assert.equal(h.header, ' ');
+  assert.ok(h.headerAutoHidden);
+  assert.equal(h.big.px, L.buildScreen({ ...N, meal: hide }, ui).big.px);
+  // ayar kapali: ust bilgi hep kalir
+  assert.equal(L.buildScreen({ ...H, meal: hide, headerAutoHide: false }, ui).layout, 'bigh');
+  // aday: ust bilgi gizlenince ADAY sonuk yaziyla
+  assert.ok(L.buildScreen({ ...H, meal: hide, tentative: true }, ui).bigDim);
+  // sabit boyut: punto ayni, ust bilgi bir sayfa daha ekliyorsa gizlenir
+  const F = { ...H, fixedSize: true, textPx: 48 };
+  let more = null;
+  for (let n = 1; n < words.length && !more; n++) {
+    const meal = words.slice(0, n).join(' ');
+    const a = L.buildScreen({ ...F, meal, headerAutoHide: false }, ui);
+    const b = L.buildScreen({ ...F, meal, bigHeader: false }, ui);
+    if (a.pages > b.pages) more = meal;
+  }
+  assert.ok(more);
+  const f = L.buildScreen({ ...F, meal: more }, ui);
+  assert.equal(f.layout, 'big');
+  assert.equal(f.pages, L.buildScreen({ ...F, meal: more, bigHeader: false }, ui).pages);
+  // not karti / durum: ust bilgi degismez
+  const note = L.buildScreen({ ...H, meal: hide, noteTitle: 'TEKBİR', noteTurkish: 'Allah en büyüktür' }, ui);
+  assert.equal(note.layout, 'bigh');
+  assert.match(note.header, /TEKBİR/);
+});
+
 test('zikir / ezan karti: sadece Turkce anlami (okunus yok), yoksa okunus', () => {
   const note = { noteTitle: 'TEKBİR', noteReading: 'Allâhu ekber', noteTurkish: 'Allah en büyüktür' };
   for (const extra of [{ bigText: true }, { bigText: true, bigHeader: false }, { bigText: false }]) {

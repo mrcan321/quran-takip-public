@@ -1562,6 +1562,19 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
 - Testler: node `mealLabel` (başta / sonda / kapalı; gözlüğün yazısında satırı dolu meal, sabit büyük yazıda sığan / sığmayan, değişken
   boyutta punto küçülmesi, not kartında yok), JVM `json mealLabel` + `glasses-serve`, simülatör 3 adım (`ayet_adi_basta` / `_sonda`,
   `normal_ayet_adi_sonda`).
+
+### 29. Yazı küçülecekse üst bilgiyi gizle (APK #121+)
+- Kullanıcı: "ayet okunurken üst bilgi açık ayarı aktifse bir opsiyon sun: yazıların ekrana sığmayacak olmasından dolayı font
+  küçültülecekse üst bilgiyi gizle; bunu seçerse üst bilgiyi gösterme".
+- **Ayarlar → YAZI KÜÇÜLECEKSE ÜST BİLGİYİ GİZLE** (G2 ÜST BİLGİ açık + BÜYÜK yazı + Arapça kapalıyken görünür; `AppSettings.
+  glassesHeaderAutoHide`, anahtar `glasses_header_auto_hide`, varsayılan KAPALI → /state `headerAutoHide`). Üst bilgi alanı büyük
+  yazıyı 576×288'den 576×256'ya indiriyor; açıkken `buildScreen` meali iki alanda da yerleştirir: üst bilgiyle punto daha küçükse
+  (değişken boyut, tek ekran) ya da sayfa daha çoksa (sabit boyut) o ekran `big` düzeninde (üst bilgi yok, aday sönük yazı,
+  birden çok sayfada sağda sayfa çubuğu; `headerAutoHidden`), değilse `bigh`. Sadece okunan ayet; not kartı / durum ekranı değişmez.
+  Mealde ayet adı kararı (açık sorun 28) her alan için ayrı. Bedel: `bigh` ↔ `big` geçişi düzen değişikliği → gözlükte
+  `rebuildPageContainer` (kısa titreme) + 4 karo.
+- Testler: node `headerAutoHide` (değişken boyutta küçülen / küçülmeyen meal, sabit boyutta fazladan sayfa, aday sönük, not kartı),
+  JVM `json headerAutoHide` + `glasses-serve`, simülatör `ust_oto_kursi` / `ust_oto_kevser`.
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)

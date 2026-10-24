@@ -77,6 +77,8 @@ fun glassesTests(): Int {
         ck.ok("json mealLabel", d.getString("mealLabel") == "off" && !d.getBoolean("mealLabelGrow") &&
             e.getString("mealLabel") == "end" && e.getBoolean("mealLabelGrow") &&
             GlassesState.MEAL_LABELS.keys.toList() == listOf("off", "start", "end"))
+        ck.ok("json headerAutoHide", !d.getBoolean("headerAutoHide") &&
+            JSONObject(GlassesState(headerAutoHide = true).toJson(0)).getBoolean("headerAutoHide"))
     }
     ck.ok("json rekat bilgisi gizli", !JSONObject(GlassesState().toJson(0)).getBoolean("hideRakat") &&
         JSONObject(GlassesState(hideRakat = true).toJson(0)).getBoolean("hideRakat"))
@@ -287,6 +289,7 @@ fun glassesServe(dir: File, fontDir: File, port: Int): Int {
             demo = s.optInt("demo", 0),
             mealLabel = s.optString("mealLabel", GlassesState.MEAL_LABEL_OFF),
             mealLabelGrow = s.optBoolean("mealLabelGrow", false),
+            headerAutoHide = s.optBoolean("headerAutoHide", false),
         ))
         println("durum ${b.current().first}")
         System.out.flush()

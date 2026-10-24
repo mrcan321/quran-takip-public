@@ -38,6 +38,12 @@ data class GlassesState(
      * (NORMAL) ve Arapcada da (APK #105 sonrasi; kullanici: "G2'nin kendi fontunu secince bu ayar kayboluyor").
      */
     val bigHeader: Boolean = true,
+    /**
+     * Ayarlar → YAZI KÜÇÜLECEKSE ÜST BİLGİYİ GİZLE (bigHeader acikken, buyuk yazida): ust bilgi yuzunden meal daha kucuk
+     * puntoda cizilecekse ya da bir sayfa daha bolunecekse o ekranda ust bilgi gosterilmez (layout.js buildScreen).
+     * Kullanici: "yazilar ekrana sigmayacagi icin font kucultulecekse ust bilgiyi gizle".
+     */
+    val headerAutoHide: Boolean = false,
     /** Ayarlar → G2 REKÂT BİLGİSİNİ GİZLE: baslikta (ve bos ekranin ust satirinda) rekat / durus yok — sadece "Sure: ayet". */
     val hideRakat: Boolean = false,
     /** Ayarlar → G2 SABİT YAZI BOYUTU: buyuk yazi her metinde textPx (kisa metin buyutulmez, uzun meal kucultulmez). */
@@ -118,6 +124,7 @@ data class GlassesState(
         sb.append(",\"bigText\":").append(bigText)
         sb.append(",\"textPx\":").append(textPx)
         sb.append(",\"bigHeader\":").append(bigHeader)
+        sb.append(",\"headerAutoHide\":").append(headerAutoHide)
         sb.append(",\"hideRakat\":").append(hideRakat)
         sb.append(",\"fixedSize\":").append(fixedSize)
         sb.append(",\"bigFont\":").append(quote(bigFont))

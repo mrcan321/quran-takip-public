@@ -599,20 +599,36 @@ export function buildScreen(st, ui = {}) {
     // Ayarlar → G2 MEALDE AYET ADI: ayet adi mealin basinda / sonunda. SATIR ARTSA DA EKLE kapaliyken (mealLabelGrow)
     // ayet adi satir / sayfa ekleyecekse ya da yaziyi kucultecekse (degisken boyutta satir yerine punto kuculur) eklenmez
     const meal = st.meal || '(meal yok)';
-    out.big = fit(meal);
     const labeled = mealWithLabel(st, meal);
-    if (labeled) {
-      const withLabel = fit(labeled);
-      if (st.mealLabelGrow === true || !bigGrows(out.big, withLabel)) {
-        out.big = withLabel;
-        out.mealLabeled = true;
+    const mealFit = (lay) => {
+      const fitIn = (t) => ui.fitBig(sanitizeBig(t), st.textPx, bigAreaHeight(lay), st.fixedSize === true,
+        st.onePage === true, st.onePageMinPx);
+      const base = fitIn(meal);
+      if (labeled) {
+        const withLabel = fitIn(labeled);
+        if (st.mealLabelGrow === true || !bigGrows(base, withLabel)) return { big: withLabel, labeled: true };
+      }
+      return { big: base, labeled: false };
+    };
+    let m = mealFit(layoutName);
+    // Ayarlar → YAZI KÜÇÜLECEKSE ÜST BİLGİYİ GİZLE (/state headerAutoHide): ust bilgi yuzunden (alan 288 → 256 px) yazi
+    // kuculecekse ya da meal bir sayfa daha bolunecekse o ekranda ust bilgi yok, ekranin tamami meal (duzen big; aday
+    // sonuk yazi, sayfa cubugu). Kullanici: "yazilar ekrana sigmayacagi icin font kucultulecekse ust bilgiyi gosterme".
+    if (withHeader && st.headerAutoHide === true) {
+      const full = mealFit('big');
+      if (m.big.px < full.big.px || m.big.pages.length > full.big.pages.length) {
+        m = full;
+        out.layout = 'big';
+        out.headerAutoHidden = true;
       }
     }
+    out.big = m.big;
+    if (m.labeled) out.mealLabeled = true;
     out.pages = out.big.pages.length;
     const { page, auto } = pickPage(st, out.pages, ui.manual);
     out.page = page;
     out.autoPage = auto;
-    if (withHeader) {
+    if (out.layout === 'bigh') {
       // ADAY baslikta (soluk baslik); buyuk yazi parlak kalir → kilit dogrulaninca karolar yeniden gonderilmez
       const main = ayahLabel(st) + (st.tentative ? ' · ADAY' : '');
       out.header = headerLine(main, rakat, out.pages > 1 ? `${page + 1}/${out.pages}` : '');

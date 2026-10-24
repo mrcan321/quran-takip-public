@@ -170,6 +170,7 @@ private fun AppRoot(viewModel: MainViewModel) {
                 onGlassesHideStatus = { viewModel.setGlassesHideStatus(it) },
                 onGlassesMealLabel = { viewModel.setGlassesMealLabel(it) },
                 onGlassesMealLabelGrow = { viewModel.setGlassesMealLabelGrow(it) },
+                onGlassesHeaderAutoHide = { viewModel.setGlassesHeaderAutoHide(it) },
                 onMinConfidence = { viewModel.setMinConfidence(it) },
                 onMinConfidenceFirstLock = { viewModel.setMinConfidenceFirstLock(it) },
                 onWindowSlack = { viewModel.setWindowSlack(it) },

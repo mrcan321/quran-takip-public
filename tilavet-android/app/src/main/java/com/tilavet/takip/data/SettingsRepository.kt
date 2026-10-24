@@ -31,6 +31,8 @@ data class AppSettings(
     val glassesTextPx: Int = GlassesState.DEFAULT_TEXT_PX,
     // Gozlukte ustte sure / ayet adi + rekat (gozlugun kendi yazisiyla, aninda degisir) — butun yazi duzenlerinde
     val glassesBigHeader: Boolean = true,
+    // Ust bilgi yuzunden buyuk yazi kuculecekse / sayfa artacaksa o ekranda ust bilgi yok (GlassesState.headerAutoHide)
+    val glassesHeaderAutoHide: Boolean = false,
     // Ust bilgide rekat / durus gizli: sadece "Sure: ayet"
     val glassesHideRakat: Boolean = false,
     // Buyuk yazida sabit punto (glassesTextPx): kisa metin buyutulmez, uzun meal kucultulmez — sayfalara bolunur
@@ -79,6 +81,7 @@ class SettingsRepository(private val context: Context) {
         val GLASSES_BIG_TEXT = booleanPreferencesKey("glasses_big_text")
         val GLASSES_TEXT_PX = intPreferencesKey("glasses_text_px")
         val GLASSES_BIG_HEADER = booleanPreferencesKey("glasses_big_header")
+        val GLASSES_HEADER_AUTO_HIDE = booleanPreferencesKey("glasses_header_auto_hide")
         val GLASSES_FIXED_SIZE = booleanPreferencesKey("glasses_fixed_size")
         val GLASSES_FONT = stringPreferencesKey("glasses_font")
         val GLASSES_FONT_WEIGHT = intPreferencesKey("glasses_font_weight")
@@ -111,6 +114,7 @@ class SettingsRepository(private val context: Context) {
             glassesBigText = prefs[Keys.GLASSES_BIG_TEXT] ?: true,
             glassesTextPx = prefs[Keys.GLASSES_TEXT_PX] ?: GlassesState.DEFAULT_TEXT_PX,
             glassesBigHeader = prefs[Keys.GLASSES_BIG_HEADER] ?: true,
+            glassesHeaderAutoHide = prefs[Keys.GLASSES_HEADER_AUTO_HIDE] ?: false,
             glassesFixedSize = prefs[Keys.GLASSES_FIXED_SIZE] ?: false,
             glassesFont = prefs[Keys.GLASSES_FONT]?.takeIf { it in GlassesState.FONTS } ?: GlassesState.DEFAULT_FONT,
             glassesFontWeight = prefs[Keys.GLASSES_FONT_WEIGHT]?.takeIf { it in GlassesState.WEIGHTS }
@@ -220,6 +224,10 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit {
             it[Keys.GLASSES_MEAL_LABEL] = value.takeIf { v -> v in GlassesState.MEAL_LABELS } ?: GlassesState.MEAL_LABEL_OFF
         }
+    }
+
+    suspend fun setGlassesHeaderAutoHide(value: Boolean) {
+        context.dataStore.edit { it[Keys.GLASSES_HEADER_AUTO_HIDE] = value }
     }
 
     suspend fun setGlassesMealLabelGrow(value: Boolean) {

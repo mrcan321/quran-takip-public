@@ -73,6 +73,7 @@ fun SettingsSheet(
     onGlassesHideStatus: (Boolean) -> Unit = {},
     onGlassesMealLabel: (String) -> Unit = {},
     onGlassesMealLabelGrow: (Boolean) -> Unit = {},
+    onGlassesHeaderAutoHide: (Boolean) -> Unit = {},
     onMinConfidence: (Int) -> Unit = {},
     onMinConfidenceFirstLock: (Int) -> Unit = {},
     onWindowSlack: (Int) -> Unit = {},
@@ -391,6 +392,18 @@ fun SettingsSheet(
                         "bilgi hiç çıkmaz, ekranın tamamı meal (büyük yazıda da, gözlüğün kendi yazısında ve Arapçada da).",
                 ) {
                     OnOffRow(current = settings.glassesBigHeader, onSelect = onGlassesBigHeader)
+                }
+                if (settings.glassesBigHeader && settings.glassesBigText && !settings.glassesArabic) {
+                    // Ust bilgi buyuk yaziyi kucultecekse o ayette gizle (layout.js buildScreen headerAutoHide)
+                    SettingGroup(
+                        label = "YAZI KÜÇÜLECEKSE ÜST BİLGİYİ GİZLE",
+                        hint = "Üst bilgi ekranın üstünden bir satırlık yer alır. Açıkken, ayet meali bu yüzden daha küçük " +
+                            "yazıyla çizilecekse ya da bir sayfa daha bölünecekse o ayette üst bilgi gösterilmez, ekranın tamamı " +
+                            "meal olur (aday ayet sönük yazıyla). Sığan mealde üst bilgi yine görünür. Üst bilgi gelip giderken " +
+                            "gözlük ekranı bir kez yeniden kurulur (kısa titreme olabilir).",
+                    ) {
+                        OnOffRow(current = settings.glassesHeaderAutoHide, onSelect = onGlassesHeaderAutoHide)
+                    }
                 }
                 if (settings.glassesBigHeader) {
                     SettingGroup(

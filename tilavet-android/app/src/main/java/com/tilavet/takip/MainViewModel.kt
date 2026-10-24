@@ -1021,6 +1021,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setGlassesHideStatus(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHideStatus(value) } }
     fun setGlassesMealLabel(value: String) { viewModelScope.launch { settingsRepo.setGlassesMealLabel(value) } }
     fun setGlassesMealLabelGrow(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesMealLabelGrow(value) } }
+    fun setGlassesHeaderAutoHide(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHeaderAutoHide(value) } }
     fun setTextHoldTenths(value: Int) { viewModelScope.launch { settingsRepo.setTextHoldTenths(value) } }
     fun setMinConfidence(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidence(value) } }
     fun setMinConfidenceFirstLock(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidenceFirstLock(value) } }
@@ -1171,6 +1172,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             bigText = s.settings.glassesBigText,
             textPx = s.settings.glassesTextPx,
             bigHeader = s.settings.glassesBigHeader,
+            headerAutoHide = s.settings.glassesHeaderAutoHide,
             hideRakat = s.settings.glassesHideRakat,
             fixedSize = s.settings.glassesFixedSize,
             bigFont = s.settings.glassesFont,

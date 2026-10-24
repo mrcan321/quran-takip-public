@@ -104,6 +104,10 @@ def scenario(arabic):
         ("buyuk_tekbir", dict(BIG, noteTitle="TEKBİR", noteReading="Allâhu ekber", noteTurkish="Allah en büyüktür"),
          [], 2.5),
         ("buyuk_rekat_gizli", dict(BIG, **KURSI, progress=0.1, hideRakat=True), [], 2.5),
+        # Ayarlar → YAZI KÜÇÜLECEKSE ÜST BİLGİYİ GİZLE: ust bilgi yaziyi kucultuyorsa ekranin tamami meal (duzen big)
+        ("ust_oto_kursi", dict(BIG, **KURSI, progress=0.1, headerAutoHide=True), [], 3.0),
+        ("ust_oto_kevser", dict(BIG, surah=108, ayah=2, surahName="Kevser", surahAyahCount=3, progress=1.0,
+                                meal="Şu halde Rabbin için namaz kıl ve kurban kes.", headerAutoHide=True), [], 3.0),
         # Ayarlar → G2 MEALDE AYET ADI: BAŞTA / SONDA (SATIR ARTSA DA EKLE acik → her durumda eklenir)
         ("ayet_adi_basta", dict(BIG, surah=108, ayah=2, surahName="Kevser", surahAyahCount=3, progress=1.0,
                                 meal="Şu halde Rabbin için namaz kıl ve kurban kes.", mealLabel="start",
