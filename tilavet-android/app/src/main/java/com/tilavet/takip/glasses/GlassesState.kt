@@ -86,6 +86,17 @@ data class GlassesState(
      * (layout.js demoLayout). Kalici degil: ayarlar kapaninca ya da dinleme baslayinca kapanir.
      */
     val demo: Int = 0,
+    /**
+     * Ayarlar → G2 MEALDE AYET ADI: "off" (KAPALI, varsayilan) / "start" (BAŞTA: "Bakara: 33 — meal…") / "end" (SONDA:
+     * "meal… — Bakara: 33"). Kullanici: "meali verirken hangi ayete ait oldugunu gosterme ozelligi ekle" (layout.js
+     * mealWithLabel).
+     */
+    val mealLabel: String = MEAL_LABEL_OFF,
+    /**
+     * Ayarlar → SATIR ARTSA DA EKLE: KAPALI (varsayilan) iken ayet adi meale satir / sayfa ekleyecekse (degisken boyutta
+     * yaziyi kucultecekse) eklenmez; AÇIK iken her durumda eklenir.
+     */
+    val mealLabelGrow: Boolean = false,
 ) {
     /** /state yaniti. [seq]: durum her degistiginde artar (eklenti uzun yoklamada `since` olarak geri yollar). */
     fun toJson(seq: Long): String {
@@ -121,6 +132,8 @@ data class GlassesState(
         sb.append(",\"noteReading\":").append(quote(noteReading))
         sb.append(",\"noteTurkish\":").append(quote(noteTurkish))
         sb.append(",\"demo\":").append(demo)
+        sb.append(",\"mealLabel\":").append(quote(mealLabel))
+        sb.append(",\"mealLabelGrow\":").append(mealLabelGrow)
         sb.append('}')
         return sb.toString()
     }
@@ -150,6 +163,10 @@ data class GlassesState(
         /** Kalinlik → ayarlardaki ad (layout.js BIG_WEIGHTS ile ayni); varsayilan 700 = APK #44'ten beri Manrope 700. */
         val WEIGHTS = linkedMapOf(300 to "İNCE", 500 to "NORMAL", 700 to "KALIN", 800 to "ÇOK KALIN")
         const val DEFAULT_WEIGHT = 700
+
+        /** Mealde ayet adi (layout.js mealWithLabel ile ayni degerler) → ayarlardaki ad. */
+        const val MEAL_LABEL_OFF = "off"
+        val MEAL_LABELS = linkedMapOf(MEAL_LABEL_OFF to "KAPALI", "start" to "BAŞTA", "end" to "SONDA")
 
         /** JSON string: ", \, kontrol karakterleri ve satir ayiricilari (U+2028/2029) kacirilir; digerleri UTF-8 aynen. */
         fun quote(s: String): String {

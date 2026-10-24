@@ -81,7 +81,9 @@ MAX_TILES = {
 MIN_TILES = {"font_atkinson_ince": 1, "font_atkinson_cok_kalin": 1, "font_lexend_kalin": 1, "font_inter_normal": 1,
              "font_manrope_geri": 1,
              # demo: cerceve 4 karonun hepsinde → ilk demo ekrani 4 karo; yazi tipi / boyutu degisince yeniden cizilir
-             "demo_4_buyuk": 4, "demo_4_atkinson_64": 1, "demo_4_inter_30": 1}
+             "demo_4_buyuk": 4, "demo_4_atkinson_64": 1, "demo_4_inter_30": 1,
+             # mealde ayet adi: ayni ayet, yazi degisti → yeniden cizilir
+             "ayet_adi_basta": 1, "ayet_adi_sonda": 1}
 # bilerek bombos ekran (ust bilgi / durum yazisi gizli): gozluk goruntusunde cizili piksel OLMAMALI
 EXPECT_EMPTY = {"bos_ustsuz", "durum_gizli_bosta", "durum_gizli_dinleniyor"}
 
@@ -102,6 +104,13 @@ def scenario(arabic):
         ("buyuk_tekbir", dict(BIG, noteTitle="TEKBİR", noteReading="Allâhu ekber", noteTurkish="Allah en büyüktür"),
          [], 2.5),
         ("buyuk_rekat_gizli", dict(BIG, **KURSI, progress=0.1, hideRakat=True), [], 2.5),
+        # Ayarlar → G2 MEALDE AYET ADI: BAŞTA / SONDA (SATIR ARTSA DA EKLE acik → her durumda eklenir)
+        ("ayet_adi_basta", dict(BIG, surah=108, ayah=2, surahName="Kevser", surahAyahCount=3, progress=1.0,
+                                meal="Şu halde Rabbin için namaz kıl ve kurban kes.", mealLabel="start",
+                                mealLabelGrow=True), [], 2.5),
+        ("ayet_adi_sonda", dict(BIG, surah=108, ayah=2, surahName="Kevser", surahAyahCount=3, progress=1.0,
+                                meal="Şu halde Rabbin için namaz kıl ve kurban kes.", mealLabel="end",
+                                mealLabelGrow=True), [], 2.5),
         # Ayarlar → G2 YAZI TİPİ / KALINLIĞI (sadece gozluk): her degisimde ekran yeni fontla yeniden cizilmeli (karo gider)
         ("font_atkinson_ince", dict(BIG, **KURSI, progress=0.1, bigFont="atkinson", bigWeight=300), [], 3.0),
         ("font_atkinson_cok_kalin", dict(BIG, **KURSI, progress=0.1, bigFont="atkinson", bigWeight=800), [], 2.5),
@@ -182,6 +191,8 @@ def scenario(arabic):
         ("demo_2_normal", dict(BASE, listening=False, status="Hazır", demo=2), [], 2.0),
         ("normal_rekat_gizli", dict(BASE, surah=1, ayah=2, surahName="Fâtiha", surahAyahCount=7, progress=1.0,
                                     meal="Hamd, alemlerin Rabbi olan Allah'a aittir.", hideRakat=True), [], 2.0),
+        ("normal_ayet_adi_sonda", dict(BASE, surah=1, ayah=2, surahName="Fâtiha", surahAyahCount=7, progress=1.0,
+                                       meal="Hamd, alemlerin Rabbi olan Allah'a aittir.", mealLabel="end"), [], 2.0),
     ]
     if arabic:
         s += [

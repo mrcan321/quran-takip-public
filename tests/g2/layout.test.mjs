@@ -449,6 +449,54 @@ test('demo (Ayarlar → G2 DEMO): cerceve, numarali satirlar, demo 4 ekrani dold
   assert.match(L.buildScreen({ ...ST, demo: 3 }, { connected: false }).body, /bağlanılamıyor/);
 });
 
+test('mealde ayet adi (mealLabel): basta / sonda / kapali; satir artiracaksa sadece mealLabelGrow ile', () => {
+  const ui = { connected: true };
+  // gozlugun kendi yazisi: kisa meal, ayet adi sigar → eklenir
+  const kev = { ...ST, bigText: false };
+  const base = L.buildScreen(kev, ui);
+  assert.ok(L.buildScreen({ ...kev, mealLabel: 'start' }, ui).body.startsWith('Kevser: 2 — Şu halde'));
+  assert.ok(L.buildScreen({ ...kev, mealLabel: 'end' }, ui).body.endsWith('kurban kes. — Kevser: 2'));
+  for (const v of ['off', undefined, 'x']) assert.equal(L.buildScreen({ ...kev, mealLabel: v }, ui).body, base.body);
+  // satiri dolu meal: ayet adi yeni satir acacaksa eklenmez; mealLabelGrow ile eklenir
+  const words = LONG.split(' ');
+  let full = null;
+  for (let n = 4; n < words.length && !full; n++) {
+    const m = words.slice(0, n).join(' ');
+    if (L.wrap(m + ' — Kevser: 2').length > L.wrap(m).length && L.wrap(m).length <= 8) full = m;
+  }
+  assert.ok(full, 'satiri dolu meal bulunamadi');
+  const st = { ...kev, meal: full, mealLabel: 'end' };
+  assert.equal(L.buildScreen(st, ui).body, L.buildScreen({ ...st, mealLabel: 'off' }, ui).body);
+  assert.ok(L.buildScreen({ ...st, mealLabelGrow: true }, ui).body.endsWith('— Kevser: 2'));
+  // buyuk yazi, sabit boyut: satir eklemiyorsa eklenir, ekliyorsa sadece mealLabelGrow ile
+  const big = { ...ST, bigText: true, bigHeader: false, fixedSize: true, textPx: 48 };
+  const bl = (s) => s.big.pages.flat();
+  const bigLines = (m, extra) => bl(L.buildScreen({ ...big, meal: m, ...extra }, { connected: true, fitBig }));
+  let bigFits = null, bigFull = null;
+  for (let n = 1; n < words.length && !(bigFits && bigFull); n++) {
+    const m = words.slice(0, n).join(' ');
+    const a = bigLines(m).length;
+    const b = bigLines(m, { mealLabel: 'end', mealLabelGrow: true }).length;
+    if (b === a && !bigFits) bigFits = m;
+    if (b > a && !bigFull) bigFull = m;
+  }
+  assert.ok(bigFits && bigFull, 'sabit boyutta sigan / sigmayan meal bulunamadi');
+  assert.match(bigLines(bigFits, { mealLabel: 'start' }).join(' '), /^Kevser: 2 — /);
+  assert.ok(bigLines(bigFits, { mealLabel: 'end' }).join(' ').endsWith('Kevser: 2'));
+  assert.ok(!bigLines(bigFull, { mealLabel: 'end' }).join(' ').includes('Kevser: 2'));
+  assert.ok(bigLines(bigFull, { mealLabel: 'end', mealLabelGrow: true }).join(' ').endsWith('Kevser: 2'));
+  // degisken boyut: ayet adi yaziyi kucultecekse eklenmez (satir yerine punto kuculur), mealLabelGrow ile eklenir
+  const vb = { ...big, fixedSize: false, meal: 'Allah birdir.', mealLabel: 'start' };
+  const v0 = L.buildScreen({ ...vb, mealLabel: 'off' }, { connected: true, fitBig });
+  const v1 = L.buildScreen(vb, { connected: true, fitBig });
+  const v2 = L.buildScreen({ ...vb, mealLabelGrow: true }, { connected: true, fitBig });
+  assert.equal(v1.big.px, v0.big.px);
+  assert.ok(!bl(v1).join(' ').includes('Kevser'));
+  assert.ok(bl(v2).join(' ').startsWith('Kevser: 2 —') && v2.big.px <= v0.big.px);
+  // not karti / bos ekran: ayet adi yok
+  assert.ok(!L.buildScreen({ ...kev, mealLabel: 'start', noteTitle: 'TEKBİR', noteTurkish: 'Allah en büyüktür' }, ui).body.includes('Kevser'));
+});
+
 test('zikir / ezan karti: sadece Turkce anlami (okunus yok), yoksa okunus', () => {
   const note = { noteTitle: 'TEKBİR', noteReading: 'Allâhu ekber', noteTurkish: 'Allah en büyüktür' };
   for (const extra of [{ bigText: true }, { bigText: true, bigHeader: false }, { bigText: false }]) {

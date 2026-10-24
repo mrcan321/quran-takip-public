@@ -491,6 +491,23 @@ export function noteText(st) {
   return st.noteTurkish || st.noteReading || st.noteTitle || ' ';
 }
 
+/**
+ * Ayarlar → G2 MEALDE AYET ADI (/state mealLabel: "off" | "start" | "end"; kullanici: "meali verirken hangi ayete ait
+ * oldugunu goster: ya metinden once (Bakara:33 ...) ya metnin sonunda (... - Bakara:33) ya da hic"). Etiket uygulamadaki
+ * gibi "Bakara: 33" (ayahLabel). Kapali / bilinmeyen deger → null.
+ */
+export function mealWithLabel(st, meal) {
+  if (st.mealLabel === 'start') return `${ayahLabel(st)} — ${meal}`;
+  if (st.mealLabel === 'end') return `${meal} — ${ayahLabel(st)}`;
+  return null;
+}
+
+/** Buyuk yazi yerlesimi ayet adiyla "buyudu mu": daha cok sayfa, daha cok satir ya da daha kucuk punto. */
+function bigGrows(base, withLabel) {
+  const lines = (f) => f.pages.reduce((n, p) => n + p.length, 0);
+  return withLabel.pages.length > base.pages.length || lines(withLabel) > lines(base) || withLabel.px < base.px;
+}
+
 export function ayahKey(st) {
   return st && st.surah ? st.surah + ':' + st.ayah : '';
 }
@@ -579,7 +596,18 @@ export function buildScreen(st, ui = {}) {
       out.pages = out.big.pages.length;
       return out;
     }
-    out.big = fit(st.meal || '(meal yok)');
+    // Ayarlar → G2 MEALDE AYET ADI: ayet adi mealin basinda / sonunda. SATIR ARTSA DA EKLE kapaliyken (mealLabelGrow)
+    // ayet adi satir / sayfa ekleyecekse ya da yaziyi kucultecekse (degisken boyutta satir yerine punto kuculur) eklenmez
+    const meal = st.meal || '(meal yok)';
+    out.big = fit(meal);
+    const labeled = mealWithLabel(st, meal);
+    if (labeled) {
+      const withLabel = fit(labeled);
+      if (st.mealLabelGrow === true || !bigGrows(out.big, withLabel)) {
+        out.big = withLabel;
+        out.mealLabeled = true;
+      }
+    }
     out.pages = out.big.pages.length;
     const { page, auto } = pickPage(st, out.pages, ui.manual);
     out.page = page;
@@ -623,8 +651,16 @@ export function buildScreen(st, ui = {}) {
     return done();
   }
 
-  // Okunan ayet
-  const mealLines = wrap(st.meal || '(meal yok)');
+  // Okunan ayet (Ayarlar → G2 MEALDE AYET ADI: satir ekleyecekse sadece SATIR ARTSA DA EKLE aciksa)
+  let mealLines = wrap(st.meal || '(meal yok)');
+  const labeled = mealWithLabel(st, st.meal || '(meal yok)');
+  if (labeled) {
+    const withLabel = wrap(labeled);
+    if (st.mealLabelGrow === true || withLabel.length <= mealLines.length) {
+      mealLines = withLabel;
+      out.mealLabeled = true;
+    }
+  }
   const mealPages = Math.max(1, Math.ceil(mealLines.length / L.bodyLines));
   const arabicLines = L.tiles.length ? Math.max(0, ui.arabicLineCount | 0) : 0;
   const arabicPages = arabicLines > 0 ? Math.ceil(arabicLines / ARABIC_LINES) : 0;

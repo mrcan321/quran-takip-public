@@ -1019,6 +1019,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setGlassesOnePageMinPx(value: Int) { viewModelScope.launch { settingsRepo.setGlassesOnePageMinPx(value) } }
     fun setGlassesHideBlankHeader(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHideBlankHeader(value) } }
     fun setGlassesHideStatus(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHideStatus(value) } }
+    fun setGlassesMealLabel(value: String) { viewModelScope.launch { settingsRepo.setGlassesMealLabel(value) } }
+    fun setGlassesMealLabelGrow(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesMealLabelGrow(value) } }
     fun setTextHoldTenths(value: Int) { viewModelScope.launch { settingsRepo.setTextHoldTenths(value) } }
     fun setMinConfidence(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidence(value) } }
     fun setMinConfidenceFirstLock(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidenceFirstLock(value) } }
@@ -1182,6 +1184,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             noteReading = noteReading,
             noteTurkish = noteTurkish,
             demo = s.glassesDemo,
+            mealLabel = s.settings.glassesMealLabel,
+            mealLabelGrow = s.settings.glassesMealLabelGrow,
         )
         // Mikrofon susturuldu: gozlukte uyari karti (namazda kullanicinin baktigi yer gozluk; telefon cepte)
         if (s.micSilenced && s.isListening) {

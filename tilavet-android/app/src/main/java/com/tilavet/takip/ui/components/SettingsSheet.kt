@@ -71,6 +71,8 @@ fun SettingsSheet(
     onGlassesOnePageMinPx: (Int) -> Unit = {},
     onGlassesHideBlankHeader: (Boolean) -> Unit = {},
     onGlassesHideStatus: (Boolean) -> Unit = {},
+    onGlassesMealLabel: (String) -> Unit = {},
+    onGlassesMealLabelGrow: (Boolean) -> Unit = {},
     onMinConfidence: (Int) -> Unit = {},
     onMinConfidenceFirstLock: (Int) -> Unit = {},
     onWindowSlack: (Int) -> Unit = {},
@@ -397,6 +399,30 @@ fun SettingsSheet(
                             "(ör. Bakara: 255); boş ekranın üst satırında da rekât yazmaz.",
                     ) {
                         OnOffRow(current = settings.glassesHideRakat, onSelect = onGlassesHideRakat)
+                    }
+                }
+                // Mealin basinda / sonunda ayet adi (layout.js mealWithLabel)
+                SettingGroup(
+                    label = "G2 MEALDE AYET ADI",
+                    hint = "Gözlükte mealin hangi ayete ait olduğu: BAŞTA \"Bakara: 33 — meal…\", SONDA \"meal… — Bakara: 33\". " +
+                        "Telefonda ayet adı her ayetin üstünde zaten yazıyor." +
+                        (if (settings.glassesBigHeader) " Üst bilgi açıkken ayet adı üstte de yazar." else ""),
+                ) {
+                    ChoiceGrid(
+                        options = GlassesState.MEAL_LABELS.map { (id, name) -> name to id },
+                        current = settings.glassesMealLabel,
+                        onSelect = onGlassesMealLabel,
+                        columns = 3,
+                    )
+                }
+                if (settings.glassesMealLabel != GlassesState.MEAL_LABEL_OFF) {
+                    SettingGroup(
+                        label = "SATIR ARTSA DA EKLE",
+                        hint = "Kapalıyken ayet adı meale yeni satır ya da sayfa ekleyecekse eklenmez (sabit olmayan büyük " +
+                            "yazıda yazıyı küçültecekse de eklenmez) — meal eskisi gibi görünür. Açıkken satır artsa da her " +
+                            "mealde eklenir.",
+                    ) {
+                        OnOffRow(current = settings.glassesMealLabelGrow, onSelect = onGlassesMealLabelGrow)
                     }
                 }
                 SettingGroup(

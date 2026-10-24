@@ -71,6 +71,13 @@ fun glassesTests(): Int {
         !JSONObject(GlassesState(bigHeader = false).toJson(0)).getBoolean("bigHeader"))
     ck.ok("json demo", JSONObject(GlassesState().toJson(0)).getInt("demo") == 0 &&
         JSONObject(GlassesState(demo = 4).toJson(0)).getInt("demo") == 4)
+    run {
+        val d = JSONObject(GlassesState().toJson(0))
+        val e = JSONObject(GlassesState(mealLabel = "end", mealLabelGrow = true).toJson(0))
+        ck.ok("json mealLabel", d.getString("mealLabel") == "off" && !d.getBoolean("mealLabelGrow") &&
+            e.getString("mealLabel") == "end" && e.getBoolean("mealLabelGrow") &&
+            GlassesState.MEAL_LABELS.keys.toList() == listOf("off", "start", "end"))
+    }
     ck.ok("json rekat bilgisi gizli", !JSONObject(GlassesState().toJson(0)).getBoolean("hideRakat") &&
         JSONObject(GlassesState(hideRakat = true).toJson(0)).getBoolean("hideRakat"))
     ck.ok("json yazi tipi / kalinlik", JSONObject(GlassesState().toJson(0)).let {
@@ -278,6 +285,8 @@ fun glassesServe(dir: File, fontDir: File, port: Int): Int {
             rakat = s.optString("rakat"),
             noteTitle = s.optString("noteTitle"), noteReading = s.optString("noteReading"), noteTurkish = s.optString("noteTurkish"),
             demo = s.optInt("demo", 0),
+            mealLabel = s.optString("mealLabel", GlassesState.MEAL_LABEL_OFF),
+            mealLabelGrow = s.optBoolean("mealLabelGrow", false),
         ))
         println("durum ${b.current().first}")
         System.out.flush()

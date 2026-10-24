@@ -1547,6 +1547,21 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   bir sonraki açılışta geri alınır). Tam sessiz için Rahatsız Etmeyin erişimi (`ACCESS_NOTIFICATION_POLICY`; açarken yoksa sistem
   ayarı açılır, ayarlarda "RAHATSIZ ETMEYİN ERİŞİMİ VER"); erişim yoksa titreşime alınır. Log `[ses] mute on recording: telefon
   sessiz (onceki: sesli)` / `telefon tekrar sesli`.
+
+### 28. G2'de mealin hangi ayete ait olduğu (APK #120+)
+- Kullanıcı: "meali verirken hangi ayete ait olduğunu gösterme özelliği ekle: ya metinden önce (Bakara:33 ayet meali …) ya metnin
+  sonunda (ayet meali — Bakara:33) ya da hiç; bir opsiyon daha: ekleme satır sayısını artıracaksa eklemesin, ama kullanıcı ok
+  diyorsa satır artsa bile eklesin". Telefonda ayet adı her ayetin üstünde zaten var → sadece gözlük.
+- **Ayarlar → G2 MEALDE AYET ADI: KAPALI / BAŞTA / SONDA** (`AppSettings.glassesMealLabel`, anahtar `glasses_meal_label`, değerler
+  `off` / `start` / `end` = `GlassesState.MEAL_LABELS` → /state `mealLabel`): BAŞTA `Bakara: 33 — meal…`, SONDA `meal… — Bakara: 33`
+  (`layout.mealWithLabel`, etiket `ayahLabel` ile aynı). Sadece okunan ayetin mealinde (not kartı, durum, boş ekran, demo değil);
+  bütün düzenlerde (büyük yazı, gözlüğün kendi yazısı, Arapça). Üst bilgi açıkken ayet adı üstte de yazar.
+- **SATIR ARTSA DA EKLE** (`glassesMealLabelGrow` → `mealLabelGrow`, varsayılan KAPALI, sadece ayet adı açıkken görünür): kapalıyken
+  ayet adı meale satır ya da sayfa ekleyecekse eklenmez; değişken boyutlu büyük yazıda yazıyı küçültecekse de eklenmez
+  (`layout.bigGrows`: sayfa ↑, satır ↑ ya da punto ↓). Açıkken her mealde eklenir. Eklenince `buildScreen` → `mealLabeled`.
+- Testler: node `mealLabel` (başta / sonda / kapalı; gözlüğün yazısında satırı dolu meal, sabit büyük yazıda sığan / sığmayan, değişken
+  boyutta punto küçülmesi, not kartında yok), JVM `json mealLabel` + `glasses-serve`, simülatör 3 adım (`ayet_adi_basta` / `_sonda`,
+  `normal_ayet_adi_sonda`).
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)

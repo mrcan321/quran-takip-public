@@ -47,6 +47,10 @@ data class AppSettings(
     val glassesHideBlankHeader: Boolean = true,
     // Gozlukte "Dinleme kapalı" / "Dinleniyor" gibi durum yazilari yerine bos ekran (GlassesState.hideStatus)
     val glassesHideStatus: Boolean = false,
+    // Gozlukte mealin basinda / sonunda ayet adi ("Bakara: 33"): GlassesState.MEAL_LABELS ("off" / "start" / "end")
+    val glassesMealLabel: String = GlassesState.MEAL_LABEL_OFF,
+    // Ayet adi satir / sayfa ekleyecekse de ekle (KAPALI: o zaman eklenmez)
+    val glassesMealLabelGrow: Boolean = false,
     // Ses kesildikten sonra okunan ayet metni bu kadar (onda bir sn, 0-100) ekranda kalir — bkz. audio/TextHold
     val textHoldTenths: Int = TextHold.DEFAULT_TENTHS,
     // Ayarlar → MUTE ON RECORDING: mikrofonla dinlerken telefon sessizde (bitince eski haline) — bkz. util/PhoneControl
@@ -83,6 +87,8 @@ class SettingsRepository(private val context: Context) {
         val GLASSES_ONE_PAGE_MIN_PX = intPreferencesKey("glasses_one_page_min_px")
         val GLASSES_HIDE_BLANK_HEADER = booleanPreferencesKey("glasses_hide_blank_header")
         val GLASSES_HIDE_STATUS = booleanPreferencesKey("glasses_hide_status")
+        val GLASSES_MEAL_LABEL = stringPreferencesKey("glasses_meal_label")
+        val GLASSES_MEAL_LABEL_GROW = booleanPreferencesKey("glasses_meal_label_grow")
         val TEXT_HOLD_TENTHS = intPreferencesKey("text_hold_tenths")
         val MUTE_ON_RECORDING = booleanPreferencesKey("mute_on_recording")
         val MIN_CONFIDENCE = intPreferencesKey("min_confidence")
@@ -114,6 +120,9 @@ class SettingsRepository(private val context: Context) {
             glassesOnePageMinPx = prefs[Keys.GLASSES_ONE_PAGE_MIN_PX] ?: GlassesState.DEFAULT_ONE_PAGE_PX,
             glassesHideBlankHeader = prefs[Keys.GLASSES_HIDE_BLANK_HEADER] ?: true,
             glassesHideStatus = prefs[Keys.GLASSES_HIDE_STATUS] ?: false,
+            glassesMealLabel = prefs[Keys.GLASSES_MEAL_LABEL]?.takeIf { it in GlassesState.MEAL_LABELS }
+                ?: GlassesState.MEAL_LABEL_OFF,
+            glassesMealLabelGrow = prefs[Keys.GLASSES_MEAL_LABEL_GROW] ?: false,
             textHoldTenths = prefs[Keys.TEXT_HOLD_TENTHS] ?: TextHold.DEFAULT_TENTHS,
             muteOnRecording = prefs[Keys.MUTE_ON_RECORDING] ?: false,
             minConfidence = prefs[Keys.MIN_CONFIDENCE] ?: 50,
@@ -205,6 +214,16 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGlassesHideStatus(value: Boolean) {
         context.dataStore.edit { it[Keys.GLASSES_HIDE_STATUS] = value }
+    }
+
+    suspend fun setGlassesMealLabel(value: String) {
+        context.dataStore.edit {
+            it[Keys.GLASSES_MEAL_LABEL] = value.takeIf { v -> v in GlassesState.MEAL_LABELS } ?: GlassesState.MEAL_LABEL_OFF
+        }
+    }
+
+    suspend fun setGlassesMealLabelGrow(value: Boolean) {
+        context.dataStore.edit { it[Keys.GLASSES_MEAL_LABEL_GROW] = value }
     }
 
     suspend fun setMuteOnRecording(value: Boolean) {
