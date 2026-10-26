@@ -370,13 +370,14 @@ export function fitBigText(text, measure, opt = BIG) {
  * satirlar numarali (en ust / en alt satirin numarasi sorulur). Buyuk yazida (G2 YAZI: BÜYÜK) secilen yazi tipi,
  * kalinlik ve G2 YAZI BOYUTU'nda (sabit — demo 4 o puntoda ekrani tam doldurur, boyut degisince satir sayisi degisir);
  * normal yazida gozlugun kendi yazisiyla 1 / 3 / 6 / 10 satir. Demo baslik ayarlarina bakmaz (tum ekran).
+ * Metin genel Turkce (kullanici: "demo yazisinin icerigi Kuran veya dini icerik olmasin"); Turkce harflerin hepsi
+ * gecsin diye sonda "Pijamalı hasta..." cumlesi.
  */
-export const DEMO_SHORT = 'Allah birdir.';
-export const DEMO_TEXT = "Rahmân ve Rahîm olan Allah'ın adıyla. Hamd, âlemlerin Rabbi Allah'a mahsustur. O, Rahmân'dır, " +
-  'Rahîm\'dir. Din gününün sahibidir. Yalnız sana ibadet eder, yalnız senden yardım dileriz. Bizi doğru yola ilet; ' +
-  'nimet verdiklerinin yoluna, gazaba uğrayanların ve sapıtanların yoluna değil. De ki: O Allah birdir. Allah ' +
-  "sameddir; her şey O'na muhtaçtır. O doğurmamış ve doğurulmamıştır. Hiçbir şey O'na denk değildir. Pijamalı hasta " +
-  'yağız şoföre çabucak güvendi.';
+export const DEMO_SHORT = 'Bugün hava güzel.';
+export const DEMO_TEXT = 'Sabah erkenden kalkıp sahil boyunca yürüyüşe çıktık. Deniz sakindi, martılar iskelenin üstünde ' +
+  'dönüp duruyordu. Küçük bir kafede oturup sıcak çay içtik ve gazeteye göz attık. Öğleden sonra pazara uğrayıp taze ' +
+  'sebze, meyve ve ekmek aldık. Akşam olunca hava serinledi; balkonda oturup günün nasıl geçtiğini konuştuk. Yarın ' +
+  'için plan basit: kitap okumak, biraz dinlenmek ve arkadaşlarla buluşmak. Pijamalı hasta yağız şoföre çabucak güvendi.';
 /** Demo 2 / 3 ekranin (satir kapasitesinin) bu kadari; demo 4 tam ekran. */
 export const DEMO_FILL = [0, 0, 1 / 3, 2 / 3, 1];
 /**
@@ -438,7 +439,7 @@ export function demoLayout(level, textPx, measure) {
   return { px, lineH, perPage, y0, lines };
 }
 
-/** Demo, gozlugun kendi yazisi: 1 / 3 / 6 / 10 numarali satir ("1  Hamd ..."), cerceveli kutuya sigar. */
+/** Demo, gozlugun kendi yazisi: 1 / 3 / 6 / 10 numarali satir ("1  Sabah ..."), cerceveli kutuya sigar. */
 export function demoTextLines(level) {
   const L = LAYOUTS.demo;
   const n = level >= 4 ? L.bodyLines : [0, 1, 3, 6][level];

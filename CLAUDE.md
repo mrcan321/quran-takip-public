@@ -1527,7 +1527,7 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
 - **Ayarlar → G2 DEMO (GÖZLÜK TESTİ): KAPALI / 1 / 2 / 3 / 4** (`UiState.glassesDemo` → `GlassesState.demo` → /state `demo`; kalıcı
   değil — ayarlar kapanınca ve dinleme başlayınca 0). Eklentide her şeyin önünde (dinleme, not kartı, boş ekran, durum gizli,
   başlık ayarı). Büyük yazıda (`layout.demoLayout`, düzen `demob`, 4 karo): ekranın en dış piksellerinde 2 px çerçeve, satırlar
-  numaralı (numara yazının 0.45'i, 16-26 px, solda 34 px sütun), **G2 YAZI BOYUTU'nda sabit** — demo 1 "Allah birdir.", demo 2 / 3
+  numaralı (numara yazının 0.45'i, 16-26 px, solda 34 px sütun), **G2 YAZI BOYUTU'nda sabit** — demo 1 "Bugün hava güzel." (APK #122+ genel Türkçe metin; kullanıcı: "demo yazısı Kuran veya dini içerik olmasın"), demo 2 / 3
   satır kapasitesinin 1/3 / 2/3'ü, demo 4 tamamı (48 px 4, 30 px 7, 64 px 3, 80 px 2 satır); yazı tipi / kalınlık / boyut
   değişince gözlükte hemen yeniden çizilir. Gözlüğün kendi yazısında (NORMAL ya da font yüklenmediyse, düzen `demo`): tek tam
   ekran kutu, SDK kutu kenarlığı (kalınlık 2, gri 13; even-g2-notes display.md: kalınlık 0-5, gri 0-16), 1 / 3 / 6 / 10 numaralı
