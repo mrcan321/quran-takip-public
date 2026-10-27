@@ -671,7 +671,12 @@ class StateMachine(
             if (kametWord || (0 until toks.size - 1).any { (toks[it] to toks[it + 1]) in KAMET_PAIRS }) {
                 return "kamet"
             }
-            if ((0 until toks.size - 1).any { toks[it] == "السلام" && (toks[it + 1] == "عليكم" || toks[it + 1] == "عليك") }) {
+            // Bolunmus / bozuk selam: "عليكم ورحمة الله" ("السلام" onceki parcada; yatsi 27.10), "ساء عليكم ورحمة" —
+            // "عليكم/عليك + (و)رحمه" Kuran'da yok (stripNamazPhrases ile ayni kural)
+            if ((0 until toks.size - 1).any {
+                    (toks[it] == "السلام" && (toks[it + 1] == "عليكم" || toks[it + 1] == "عليك")) ||
+                        ((toks[it] == "عليكم" || toks[it] == "عليك") && (toks[it + 1] == "ورحمه" || toks[it + 1] == "رحمه"))
+                }) {
                 return "selam"
             }
             if (toks.any { it in SEMIALLAH_TAIL } || (0 until toks.size - 1).any { toks[it] == "لمن" && toks[it + 1].startsWith("حم") }) {

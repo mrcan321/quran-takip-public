@@ -197,6 +197,12 @@ fun glassesTests(): Int {
     ck.ok("kod kaynagi + logu", b.clientCode == "kopru-3" &&
         synchronized(logs) { logs.count { it == "eklenti kodu: kopru-3" } == 1 }) { "${b.clientCode} ${synchronized(logs) { logs }}" }
     ck.ok("host logu", synchronized(logs) { logs.any { it.contains(" host=127.0.0.1:") } }) { synchronized(logs) { logs.toString() } }
+    // gozlukte cizilen durum (AyahStepper ara ayet suresini gozlukte cizildigi andan sayar): en buyuk seq tutulur
+    ck.ok("cizim bildirimi yok", b.drawnSeq == -1L && !b.reportsDrawing())
+    http(port, "/state?since=-1&wait=0&surum=3&cizildi=5")
+    http(port, "/state?since=-1&wait=0&surum=3&cizildi=3")
+    http(port, "/state?since=-1&wait=0&surum=3&cizildi=x")
+    ck.ok("cizim bildirimi", b.drawnSeq == 5L && b.reportsDrawing()) { "${b.drawnSeq}" }
     // gozluge aktarim suresi (tani): gecerli deger log'a, bozuk deger yok sayilir
     http(port, "/state?since=-1&wait=0&surum=3&aktarim=4x820")
     http(port, "/state?since=-1&wait=0&surum=3&aktarim=4x820;rm")

@@ -40,6 +40,11 @@ class GlassesBridge(
         const val MAX_WAIT_SEC = 25
         /** Bu kadar ms /state istegi gelmezse eklenti bagli sayilmaz (uzun yoklama en fazla 25 sn bekler). */
         const val CLIENT_TIMEOUT_MS = 35_000L
+        /**
+         * Son `cizildi` bu kadar ms icindeyse eklenti cizim bildiriyor sayilir (rukû / sessiz rekatlarda ekran dakikalarca
+         * degismeyebilir; eklenti kapaninca zaten [CLIENT_TIMEOUT_MS] icinde bagli sayilmaz).
+         */
+        const val DRAWN_FRESH_MS = 600_000L
         private const val MAX_CONNECTIONS = 8
         private const val MAX_HEADER_BYTES = 8192
         private val FILE_NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
@@ -89,6 +94,15 @@ class GlassesBridge(
     /** Even'da acik .ehpk paketinin surumu (`paket`, CI: 0.<build>.0), "" = bilinmiyor. */
     @Volatile var clientPackage = ""
         private set
+    /**
+     * Gozlukte tamamen cizilen son durumun seq'i (/state `cizildi`; eklenti her ekranin son karosu gidince bildirir) ve
+     * zamani. AyahStepper ara ayetin suresini gozlukte cizildigi andan sayar (yatsi 27.10: 1 sn'lik ara ayetin 1023 ms'si
+     * gozluge aktarimda gecti, okunamadi).
+     */
+    @Volatile var drawnSeq = -1L
+        private set
+    @Volatile var lastDrawnMs = 0L
+        private set
     // Her yeni (yontem, kaynak) bir kez log'a yazilir — .ehpk'nin hangi kaynaktan calistigi buradan gorulur
     private val seenKinds = java.util.Collections.synchronizedSet(HashSet<String>())
 
@@ -97,6 +111,13 @@ class GlassesBridge(
 
     fun clientConnected(nowMs: Long = System.currentTimeMillis()): Boolean =
         lastPollMs > 0 && nowMs - lastPollMs < CLIENT_TIMEOUT_MS
+
+    /**
+     * Eklenti cizim bildiriyor mu (bagli ve son [DRAWN_FRESH_MS] icinde `cizildi` geldi): degilse (eski eklenti kodu, gozluk
+     * ekrani baska uygulamada) beklemeye gerek yok.
+     */
+    fun reportsDrawing(nowMs: Long = System.currentTimeMillis()): Boolean =
+        clientConnected(nowMs) && lastDrawnMs > 0 && nowMs - lastDrawnMs < DRAWN_FRESH_MS
 
     /** Sunucuyu ac (zaten aciksa bir sey yapmaz). false: port kullanimda / acilamadi. */
     @Synchronized
@@ -130,6 +151,8 @@ class GlassesBridge(
         clientVersion = -1
         clientCode = ""
         clientPackage = ""
+        drawnSeq = -1L
+        lastDrawnMs = 0L
         seenKinds.clear()
         log("kopru kapandi")
     }
@@ -215,6 +238,10 @@ class GlassesBridge(
                     query["kod"]?.let { noteCode(it) }
                     query["paket"]?.let { notePackage(it) }
                     query["aktarim"]?.let { noteTransfer(it) }
+                    query["cizildi"]?.toLongOrNull()?.let { s ->
+                        lastDrawnMs = System.currentTimeMillis()
+                        if (s > drawnSeq) drawnSeq = s
+                    }
                     val body = stateBody(query["since"]?.toLongOrNull(), query["wait"]?.toIntOrNull() ?: 0)
                     respond(out, 200, "application/json; charset=utf-8", body, head, noStore = true)
                     return

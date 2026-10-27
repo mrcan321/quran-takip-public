@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.InputStream
 
@@ -144,6 +145,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val ZIKIR_STEP_MS = 2500L
         /** G2 eklentisinin bagli olup olmadigina bu aralikla bakilir (ayarlardaki durum + log). */
         private const val GLASSES_LINK_POLL_MS = 3000L
+        /** Ara ayet gozlukte en fazla bu kadar beklenir (4 karo aktarimi telefonda 0.4-1.9 sn, yatsi 27.10). */
+        private const val G2_DRAWN_TIMEOUT_MS = 3000L
+        private const val G2_PUBLISH_TIMEOUT_MS = 500L
 
         /** Ayet sonu numarasi: KFGQPC fontu Arapca rakami susle cerceveli ayet isareti olarak ciziyor. */
         private fun arabicDigits(n: Int): String = n.toString().map { '٠' + (it - '0') }.joinToString("")
@@ -767,6 +771,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ) }
             },
             showTarget = { _state.update(atTarget) },
+            awaitShown = { awaitGlassesDrawn(m) },
         )
         if (!skipped.isEmpty()) {
             SessionLog.d(TAG, "ara ayetler: ${m.label(skipped.first)} .. ${m.label(skipped.last)} → ${m.label(ayah)} " +
@@ -1051,6 +1056,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ============================================================
     // G2 GOZLUK — bkz. glasses/GlassesBridge, assets/g2 (Even Hub eklentisi)
     // ============================================================
+
+    /**
+     * Ekrandaki ayet gozlukte cizilene kadar bekle (en cok [G2_DRAWN_TIMEOUT_MS]): AyahStepper ara ayetin suresini
+     * gozlukte gorundugu andan sayar. Gozluk bagli degilse / eklenti cizim bildirmiyorsa hemen doner. Durum gozluge ayri
+     * bir akista (Default) gider: once bu ayetin durumunun yayinlanmasi (seq), sonra eklentinin o seq'i cizmesi beklenir.
+     */
+    private suspend fun awaitGlassesDrawn(m: MushafData) {
+        val b = glasses ?: return
+        if (!_state.value.settings.glassesEnabled || !b.reportsDrawing()) return
+        val a = _state.value.currentAyah ?: return
+        val surah = m.surahOf(a)
+        val ayah = m.ayahNumber(a)
+        // gozlukte bu ayet degil baska bir sey (zikir karti, uyari) gosteriliyorsa durum hic gelmez → beklenmez
+        val seq = withTimeoutOrNull(G2_PUBLISH_TIMEOUT_MS) {
+            var s = -1L
+            while (s < 0) {
+                val (q, st) = b.current()
+                if (st.surah == surah && st.ayah == ayah) s = q else delay(20)
+            }
+            s
+        } ?: return
+        withTimeoutOrNull(G2_DRAWN_TIMEOUT_MS) {
+            while (b.drawnSeq < seq) delay(30)
+        } ?: SessionLog.d(TAG, "[g2] ara ayet ${m.label(a)} gozlukte ${G2_DRAWN_TIMEOUT_MS} ms'de cizilmedi")
+    }
 
     /** Ayardaki G2 anahtari: kopruyu ac / kapat (ayni durumdaysa bir sey yapmaz). Soket isi ana thread'de olmasin. */
     private fun applyGlasses(enabled: Boolean) {

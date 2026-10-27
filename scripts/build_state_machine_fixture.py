@@ -725,7 +725,10 @@ def namaz_signal(text):
         return "ruku"
     if any(is_kamet_word(toks, i) for i in range(len(toks))) or any(p in KAMET_PAIRS for p in zip(toks, toks[1:])):
         return "kamet"
-    if any(a == "السلام" and b in ("عليكم", "عليك") for a, b in zip(toks, toks[1:])):
+    # Bolunmus / bozuk selam: "عليكم ورحمة الله" ("السلام" onceki parcada; yatsi 27.10, cuma #2), "ساء عليكم ورحمة",
+    # "سلام عليكم ورحمة" — "عليكم/عليك + (و)رحمه" Kuran'da yok (strip_namaz_phrases ile ayni kural)
+    if any((a == "السلام" and b in ("عليكم", "عليك")) or (a in ("عليكم", "عليك") and b in ("ورحمه", "رحمه"))
+           for a, b in zip(toks, toks[1:])):
         return "selam"
     if any(t in SEMIALLAH_TAIL for t in toks) or any(a == "لمن" and b.startswith("حم") for a, b in zip(toks, toks[1:])):
         return "ruku"

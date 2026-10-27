@@ -520,6 +520,13 @@ function reportTransfer(tiles, ms) {
   fetch(`${BASE}/state?since=-1&wait=0${clientQuery()}&aktarim=${tiles}x${ms}`, { cache: 'no-store' }).catch(() => {});
 }
 
+/** Durum [seq] gozlukte tamamen cizildi (koprunun AyahStepper beklemesi icin); yanit kullanilmaz. */
+function reportDrawn(seq) {
+  if (!S.connected || seq === undefined || seq === S.drawnSeq) return;
+  S.drawnSeq = seq;
+  fetch(`${BASE}/state?since=-1&wait=0${clientQuery()}&cizildi=${seq}`, { cache: 'no-store' }).catch(() => {});
+}
+
 /** Duzen degisince hemen bildir (uzun yoklama 20 sn bekleyebilir); yanit kullanilmaz. */
 function reportScreen() {
   if (!S.connected || S.screenDesc === S.reportedDesc) return;
@@ -565,7 +572,10 @@ async function flush() {
       S.screenDesc = S.connected && S.st && S.bridge ? screenDesc(screen) : '';
       reportScreen();
       drawPhonePreview(screen);
-      if (S.bridge && S.active) await apply(screen);
+      // Ekran gozlukte tamamen cizildiyse kopruye bildir: uygulama ara ayetin suresini gozlukte gorundugu andan sayar
+      // (yatsi 27.10: 1 sn'lik ara ayet 4 karo 1023 ms'de cizildi, hemen ardindan sonraki ayet geldi — okunamadi)
+      const seq = S.st ? S.st.seq : undefined;   // apply surerken yeni durum gelirse S.st degisir
+      if (S.bridge && S.active && await apply(screen)) reportDrawn(seq);
     }
   } catch (e) {
     log('gozluk yazma hatasi:', String(e && e.message || e));
@@ -575,6 +585,7 @@ async function flush() {
   }
 }
 
+/** Ekrani gozluge yaz. true: tamamen cizildi; false: yeni durum geldigi icin yarida birakildi. */
 async function apply(screen) {
   const b = S.bridge;
   const prev = S.shown;
@@ -631,7 +642,7 @@ async function apply(screen) {
       // degisimlerde gozluk eski ekrani bitirmeye ugrasmasin). imageKey yazilmaz → yeni ekran farkli karolari gonderir.
       if (sent > 0 && S.dirty) {
         log('eski ekran yarida birakildi:', sent, 'karo gonderilmisti');
-        return;
+        return false;
       }
       const r = await b.updateImageRawData({ containerID: id, containerName: screen.layout + i, imageData: tiles[i] });
       if (r !== 'success' && r !== 0 && r !== true) log('goruntu gonderilemedi:', id, r);
@@ -641,6 +652,7 @@ async function apply(screen) {
     S.shown.imageKey = key;
     if (sent) reportTransfer(sent, Date.now() - t0);
   }
+  return true;
 }
 
 function eventType(ev) {

@@ -20,6 +20,9 @@ import kotlinx.coroutines.launch
  *   suresini doldurur (yarida kesilmez). Geri gidis adimlamayi keser, hedef hemen gosterilir; baska sureye
  *   gecis keser ve (basina yakinsa) yeni surenin basindan baslar.
  *
+ * - G2 gozluk: ara ayetin suresi gozlukte cizildigi andan sayilir ([awaitShown]; yatsi 27.10: 1 sn'lik ara ayetin 1023
+ *   ms'si gozluge aktarimda gecti — telefonda 1 sn gorundu, gozlukte cizilir cizilmez sonraki ayet geldi).
+ *
  * Android'e bagli degil (masaustu Compose duzeneginde test edilir); zaman kaynagi monoton.
  */
 class AyahStepper(
@@ -36,7 +39,8 @@ class AyahStepper(
     }
 
     private var job: Job? = null
-    private var shownAtMs = 0L   // ekrandaki ara ayetin gosterildigi an
+    private var shownAtMs = 0L   // ekrandaki ara ayetin gosterildigi an (gozlukte cizildigi an)
+    private var awaitingShown = false   // ekrandaki ara ayet gozlukte henuz cizilmedi
 
     /** Adimlama suruyor mu (ekranda ara ayet var). */
     val isStepping: Boolean get() = job?.isActive == true
@@ -47,6 +51,14 @@ class AyahStepper(
         job = null
     }
 
+    /** Gozlukte cizilmesini bekle; yarida kesilirse (yeni konum) [awaitingShown] acik kalir, yeni adimlama da bekler. */
+    private suspend fun waitShown(awaitShown: suspend () -> Unit) {
+        awaitingShown = true
+        awaitShown()
+        awaitingShown = false
+        shownAtMs = nowMs()
+    }
+
     /**
      * Yeni okunan ayet.
      * @param shown ekrandaki ayet (adimlama surerken ekrandaki ara ayet; null = yok)
@@ -55,6 +67,7 @@ class AyahStepper(
      * @param stepMs ara ayet suresi (0 = kapali)
      * @param showSkipped ara ayeti ekrana koy
      * @param showTarget hedefi ekrana koy (adimlama yoksa hemen, varsa en sonda cagrilir)
+     * @param awaitShown ara ayet ekrana konduktan sonra gozlukte cizilene kadar bekle (gozluk yoksa hemen doner)
      * @return gosterilecek ara ayetler (bos = yok)
      */
     fun moveTo(
@@ -65,24 +78,31 @@ class AyahStepper(
         stepMs: Long,
         showSkipped: (Int) -> Unit,
         showTarget: () -> Unit,
+        awaitShown: suspend () -> Unit = {},
     ): IntRange {
         val wasStepping = isStepping
+        val pending = wasStepping && awaitingShown
         cancel()
         val skipped = if (locked && shown != null && stepMs > 0) mushaf.skippedAyahs(shown, target, maxSkipped, maxOpening)
         else IntRange.EMPTY
         // Adimlama surerken ayni yone devam: ekrandaki ara ayet suresini doldursun
         val forward = shown != null && target > shown && mushaf.surahOf(shown) == mushaf.surahOf(target)
         val firstWait = if (wasStepping && forward && stepMs > 0)
-            (shownAtMs + stepMs - nowMs()).coerceIn(0L, stepMs) else 0L
+            (if (pending) stepMs else (shownAtMs + stepMs - nowMs()).coerceIn(0L, stepMs)) else 0L
         if (skipped.isEmpty() && firstWait == 0L) {
             showTarget()
             return skipped
         }
         job = scope.launch {
-            if (firstWait > 0) delay(firstWait)
+            if (firstWait > 0) {
+                // ekrandaki ara ayet gozlukte henuz cizilmediyse once cizilsin, suresi ondan sonra dolsun
+                if (pending) waitShown(awaitShown)
+                delay(firstWait)
+            }
             for (a in skipped) {
                 showSkipped(a)
                 shownAtMs = nowMs()
+                waitShown(awaitShown)
                 delay(stepMs)
             }
             showTarget()
