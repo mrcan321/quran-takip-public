@@ -72,7 +72,7 @@ MIN_WORD_COUNT_HOT = 2
 # eval: 4 → 3 ile yavas okunan chunk'lar (tertil: 5 sn'de 3 kelime) kilit verir, yanlis kilit yok
 MIN_WORD_COUNT_FIRST_LOCK = 3
 
-MIN_CONFIDENCE = 50
+MIN_CONFIDENCE = 55  # ayar denemesi 27.10 (tuning/run-10, K6): 50 → 55, zorlamada yanlis kilitli parca azaliyor
 MIN_CONFIDENCE_FIRST_LOCK = 90
 
 PREFERRED_AYAH_WINDOW_BASE = 2
@@ -94,12 +94,12 @@ SURAH_END_THRESHOLD = 2
 # Fatiha'nin bu ayetinden sonra (6-7) pencere disi guclu eslesme = zamm suresine gecis (hemen)
 FATIHA_END_AYAH = 6
 # Kilitliyken pencere skoru bunun altindaysa tum Kuran'da da ara (sure gecisi / pencere cop eslesmesi)
-JUMP_SEARCH_BELOW = 80
+JUMP_SEARCH_BELOW = 75  # ayar denemesi 27.10 (tuning/run-10, K6): 80 → 75
 # Pencere disindaki eslesme pencereden en az bu kadar iyi olmali
 JUMP_MARGIN = 15
 # Namazda sesli okunan ilk sey Fatiha: BEKLEME'de Fatiha basina (1:1-3) bu kadar guclu eslesme
 # (skor ve kelime) dogrulama beklemeden kilit verir (~5 sn erken). 3 kelime → ilahi yanlis kilit.
-FATIHA_FAST_LOCK_MIN_SCORE = 90
+FATIHA_FAST_LOCK_MIN_SCORE = 85  # ayar denemesi 27.10 (tuning/run-10, K6): 90 → 85 (Rifai Tevbe Fatiha 5 sn erken)
 FATIHA_FAST_LOCK_MIN_WORDS = 4
 # Kilit kaybolduktan sonra (rukû/secde/sessiz rekat) yeniden kilit ilk kilit gibi dogrulamali; istisnalar:
 # rekat basi Fatiha (herhangi bir ayet, skor >= FATIHA_FAST_LOCK_MIN_SCORE, >= MIN_WORD_COUNT_FIRST_LOCK kelime)
@@ -161,7 +161,7 @@ RUKU_HOLD_CHUNKS = 24
 # eslesmenin disindaki en iyi yer >= UNIQUE_LOCK_MARGIN geride → dogrulamasiz kilit (scripts/build_state_machine_fixture.py)
 UNIQUE_LOCK_MIN_SCORE = 90
 UNIQUE_LOCK_MIN_WORDS = 3
-UNIQUE_LOCK_MARGIN = 12
+UNIQUE_LOCK_MARGIN = 8  # ayar denemesi 27.10 (tuning/run-10, K6): 12 → 8 (Celil / Collak Ihlas 5 sn erken)
 # Ayirt edici kelime: fark >= EXCLUSIVE_LOCK_MARGIN ve parcada en iyi yerin ayetlerinde birebir gecip ikinci yerin
 # ayetlerinde gecmeyen besmele disi bir kelime ("قل أعوذ برب الفلق": 113:1 / 114:1 farki 8.6, "الفلق") → tek parcada kilit
 EXCLUSIVE_LOCK_MARGIN = 5

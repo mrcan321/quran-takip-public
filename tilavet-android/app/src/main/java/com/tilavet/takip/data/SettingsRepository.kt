@@ -58,7 +58,7 @@ data class AppSettings(
     // Ayarlar → MUTE ON RECORDING: mikrofonla dinlerken telefon sessizde (bitince eski haline) — bkz. util/PhoneControl
     val muteOnRecording: Boolean = false,
     // === TUNER (debug) ===
-    val minConfidence: Int = 50,           // 0-100, normal match esik (kilitli iken)
+    val minConfidence: Int = 55,           // 0-100, normal match esik (kilitli iken); 27.10 ayar denemesi 50 → 55
     val minConfidenceFirstLock: Int = 70,  // 0-100, ilk kilit / kilit-terk esik
     val windowSlack: Int = 2,              // 0-5, aligner pencere genisligi (yukseldikce yavas)
     val asrDecoder: String = "RNNT",       // "RNNT" | "CTC" — AsrDecoder.fromKey
@@ -94,7 +94,8 @@ class SettingsRepository(private val context: Context) {
         val GLASSES_MEAL_LABEL_GROW = booleanPreferencesKey("glasses_meal_label_grow")
         val TEXT_HOLD_TENTHS = intPreferencesKey("text_hold_tenths")
         val MUTE_ON_RECORDING = booleanPreferencesKey("mute_on_recording")
-        val MIN_CONFIDENCE = intPreferencesKey("min_confidence")
+        // _v2: eski kurulumlarda kayitli 50 bir kez birakilsin, yeni varsayilan (55) gelsin (theme_v2 gibi)
+        val MIN_CONFIDENCE = intPreferencesKey("min_confidence_v2")
         val MIN_CONFIDENCE_FIRST_LOCK = intPreferencesKey("min_confidence_first_lock")
         val WINDOW_SLACK = intPreferencesKey("window_slack")
         val ASR_DECODER = stringPreferencesKey("asr_decoder")
@@ -129,7 +130,7 @@ class SettingsRepository(private val context: Context) {
             glassesMealLabelGrow = prefs[Keys.GLASSES_MEAL_LABEL_GROW] ?: false,
             textHoldTenths = prefs[Keys.TEXT_HOLD_TENTHS] ?: TextHold.DEFAULT_TENTHS,
             muteOnRecording = prefs[Keys.MUTE_ON_RECORDING] ?: false,
-            minConfidence = prefs[Keys.MIN_CONFIDENCE] ?: 50,
+            minConfidence = prefs[Keys.MIN_CONFIDENCE] ?: 55,
             minConfidenceFirstLock = prefs[Keys.MIN_CONFIDENCE_FIRST_LOCK] ?: 70,
             windowSlack = prefs[Keys.WINDOW_SLACK] ?: 2,
             asrDecoder = prefs[Keys.ASR_DECODER] ?: "RNNT",

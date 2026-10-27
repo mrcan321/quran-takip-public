@@ -121,7 +121,7 @@ class StateMachine(
 
     /** Runtime'da degistirilebilen tuner ayarlari. Default: orta seviye. */
     @Volatile
-    var minConfidence: Double = 50.0
+    var minConfidence: Double = 55.0   // ayar denemesi 27.10 (tuning/run-10, K6): 50 → 55
     @Volatile
     var minConfidenceFirstLock: Double = 70.0
 
@@ -151,12 +151,12 @@ class StateMachine(
         // Fatiha'nin bu ayetinden sonra (6-7) pencere disi guclu eslesme = zamm suresine gecis (hemen)
         const val FATIHA_END_AYAH = 6
         // Kilitliyken pencere skoru bunun altindaysa tum Kuran'da da ara (sure gecisi / pencere cop eslesmesi)
-        const val JUMP_SEARCH_BELOW = 80.0
+        const val JUMP_SEARCH_BELOW = 75.0   // ayar denemesi 27.10 (tuning/run-10, K6): 80 → 75
         // Pencere disindaki eslesme pencereden en az bu kadar iyi olmali
         const val JUMP_MARGIN = 15.0
         // Namazda sesli okunan ilk sey Fatiha: BEKLEME'de Fatiha basina (1:1-3) bu kadar guclu eslesme
         // (skor ve kelime) dogrulama beklemeden kilit verir (~5 sn erken). 3 kelime → ilahi yanlis kilit.
-        const val FATIHA_FAST_LOCK_MIN_SCORE = 90.0
+        const val FATIHA_FAST_LOCK_MIN_SCORE = 85.0   // ayar denemesi 27.10 (tuning/run-10, K6): 90 → 85
         const val FATIHA_FAST_LOCK_MIN_WORDS = 4
         // Kilit kaybolduktan sonra (rukû/secde/sessiz rekat) yeniden kilit ilk kilit gibi dogrulamali; istisnalar:
         // rekat basi Fatiha (herhangi bir ayet, skor >= FATIHA_FAST_LOCK_MIN_SCORE, >= MIN_WORD_COUNT_FIRST_LOCK
@@ -308,7 +308,7 @@ class StateMachine(
         // 17/0/2 → 19/0/0, takip 43/46 → 46/46, yanlis kilit 0; zorlama testlerinde yanlis kilit / aday artmadi.
         const val UNIQUE_LOCK_MIN_SCORE = 90.0
         const val UNIQUE_LOCK_MIN_WORDS = 3
-        const val UNIQUE_LOCK_MARGIN = 12.0
+        const val UNIQUE_LOCK_MARGIN = 8.0   // ayar denemesi 27.10 (tuning/run-10, K6): 12 → 8
         // Ayirt edici kelime (taraweeh-companion-g2'nin "prefix-ambiguity guard"inin tersi): harf benzerligi ikinci yeri
         // yaklastirabiliyor — "قل أعوذ برب الفلق" 113:1'e 100, 114:1 "...الناس"e 91.4 (fark 8.6). Fark >=
         // EXCLUSIVE_LOCK_MARGIN ve parcada en iyi yerin ayetlerinde birebir gecip ikinci yerin ayetlerinde gecmeyen,

@@ -201,7 +201,7 @@ telefona geçmiyordu.
 - UI'da placeholder yerine gerçek metin
 
 ### Runtime tuner (settings paneli TUNER (DEBUG) bölümü)
-- `GUVEN ESIGI (KILITLI)` — normal match eşiği (default 50)
+- `GUVEN ESIGI (KILITLI)` — normal match eşiği (default 55; 27.10 ayar denemesiyle 50 → 55, DataStore anahtarı `min_confidence_v2`)
 - `GUVEN ESIGI (ILK KILIT)` — ilk kilit eşiği (default 70, prod'da düşürmeye ihtiyaç var)
 - `ALIGNER PENCERE GENISLIGI` — windowSlack (default ±2)
 - DataStore ile persist, canlı reload (pipeline durmadan bir sonraki chunk'ta uygulanır)
@@ -1645,6 +1645,13 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     gecikme +0.01-0.02 sn) → komşu değerler + kombinasyonlar K1-K3 (`tune.py`).
   - Raporlama hataları düzeltildi: artifact alt klasörü (`tools/tune_rapor.sh`), B senaryoları sadece hibrit zincirle
     (`TILAVET_CONFIGS`), eski run'ların raporu `rapor_runs` ile yeniden üretilir.
+  - Yeni ölçü **ekranda ilk görünme** (`show_delay_*`; kilit ya da görünen aday): belirsiz aday farkı 5 / 7 / 10 gürültüde
+    yanlış adayı azaltıyor ama doğru adayı da gizliyor (asr.wav 103: 20 → 30 sn, Celil Felak, Hâkka, Cin) → 3 kaldı. Bileşik
+    namazda güvenlik kötüleşmesi de eler (güven 57 / 60: teravihte ekranda yanlış aday 0 → 1).
+  - **Kazanan K6** (run 10): güven eşiği 50 → 55, tek parçada kilit farkı 12 → 8, Fatiha hızlı kilit 90 → 85, sure geçişi
+    arama eşiği 80 → 75. Kayıt kayıt 0 kötü / 7 iyi (Celil / Çollak İhlâs ilk kilit 10 → 5 / 15 → 10 sn, Rifai Tevbe Fatiha
+    10 → 5 sn, sentetik hatim Fatiha 6.1 → 1.1 sn), güvenlik toplamı 106 → 95 (zorlama yanlış kilitli parça S4 41 → 36 /
+    29 → 24), ekranda görünme aynı; bedel: S4 gürültüde ort. gecikme +0.01 sn. Python ref + app.py + Kotlin'e taşındı.
 
 ---
 
@@ -1662,13 +1669,13 @@ if vocab_coverage < 0.3: score *= 0.5  # dusuk vocab cezası
 SAMPLE_RATE=16000, CHUNK_DURATION=5.0, OVERLAP=1.0
 MIN_RMS_ENERGY=0.005
 MIN_WORD_COUNT_COLD/HOT/FIRST_LOCK = 3/2/3   ← FIRST_LOCK 4'tu (eval ile 3'e indi)
-MIN_CONFIDENCE/FIRST_LOCK = 50/90  ← Kotlin'de FIRST_LOCK 70'e düşürüldü, tuner ile değişir
+MIN_CONFIDENCE/FIRST_LOCK = 55/90  ← Kotlin'de FIRST_LOCK 70'e düşürüldü, tuner ile değişir; MIN_CONFIDENCE 50 → 55 (ayar denemesi 27.10, bkz. 32)
 PREFERRED_AYAH_WINDOW_BASE/MAX/ARA = 2/6/3
 ABANDON_LOCK_AFTER_LOST=6, PENDING_VERIFY_AYAH_WINDOW=4
 ARA_AFTER_LOST_CHUNKS=12, MAX_GAP_FILL=3, PREFERRED_BONUS=30
 FATIHA_WORD_RANGE=(0,30), SURAH_END_THRESHOLD=2
-FATIHA_END_AYAH=6, JUMP_SEARCH_BELOW=80, JUMP_MARGIN=15   ← sure geçişi (bkz. açık sorun 5)
-FATIHA_FAST_LOCK_MIN_SCORE/WORDS = 90/4                  ← BEKLEME'de Fatiha başı doğrulamasız kilit; zamm sonundan Fatiha'ya doğal
+FATIHA_END_AYAH=6, JUMP_SEARCH_BELOW=75, JUMP_MARGIN=15   ← sure geçişi (bkz. açık sorun 5); arama eşiği 80 → 75 (bkz. 32)
+FATIHA_FAST_LOCK_MIN_SCORE/WORDS = 85/4                  ← BEKLEME'de Fatiha başı doğrulamasız kilit; zamm sonundan Fatiha'ya doğal
   geçiş de ≥4 kelime (bkz. 21)
 RESUME_BACK=2   ← yeniden kilit: aynı surede son ayetin -2..+3'ü doğrulamasız (bkz. açık sorun 7)
 FATIHA_BACK_WORDS=3   ← FATIHA penceresi son eşleşmenin 3 kelime gerisinden başlar (bkz. açık sorun 8)
@@ -1677,7 +1684,7 @@ NATURAL_MIN_SCORE=77   ← doğal geçiş bunun altında sadece aday (bkz. açı
 OPENING_MIN_FUZZY=75, OPENING_START_SLACK=1   ← geçiş noktasında sure açılışına oturan eşleşme ham hizalama skoruyla
   (sözlük cezasız) doğal geçiş (bkz. açık sorun 11)
 KAMET_HOLD_CHUNKS/RUKU_HOLD_CHUNKS = 12/24, HOLD_RESUME_MIN_SCORE=80   ← kamet/semiallah/selam sonrası "sadece Fatiha"
-UNIQUE_LOCK_MIN_SCORE/MIN_WORDS/MARGIN = 90/3/12   ← en iyi ile ikinci yer (aralığa değmeyen) arası ≥12 → BEKLEME'de tek
+UNIQUE_LOCK_MIN_SCORE/MIN_WORDS/MARGIN = 90/3/8   ← (fark 12 → 8, Fatiha hızlı kilit 90 → 85: ayar denemesi 27.10) en iyi ile ikinci yer (aralığa değmeyen) arası ≥8 → BEKLEME'de tek
   parçada kilit, kilitliyken sure geçişi doğrulanmış (bkz. açık sorun 12)
 EXCLUSIVE_LOCK_MARGIN/MIN_LETTERS = 5/3   ← fark ≥5 + ikinci yerde olmayan besmele dışı birebir kelime de tek parçada kilit
 SEARCH_CONCAT_CHUNKS/MAX_OVERLAP = 2/4    ← BEKLEME'de son 2 parçanın metni birleştirilip tek parçada kilit denenir (bkz. 13)
