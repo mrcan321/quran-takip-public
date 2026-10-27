@@ -433,6 +433,23 @@ class StateMachine(
         // silindi, Fatiha beklemesinde Felak hic kilitlenmedi (sabit parca). "(ب)رب الفلاح" kamette yok (hayya → "حي على
         // الفلاح"); tum transkriptlerde "الفلاح" 4 kez: 3 "ايها الفلاح" (hayya), 1 bu Felak.
         val FALAQ_PREV = setOf("برب", "رب")
+        // Aksam 26.10: rukûdan kalkista tek basina "محمدا" ("ربنا لك الحمد حمدا…" ASR'de) kamet sayildi → rekat sayaci
+        // "kamet: yeni namaz". Kamet / ezanda "محمدا" hep "ان" ile (tum transkriptlerde 38 kez): kamet kelimesi sadece
+        // onunde "ان / انه / اشهد" ya da arkasinda "رسول… / عبد…" varsa.
+        val MUHAMMAD_PREV = setOf("ان", "وان", "انه", "اشهد", "واشهد")
+        val MUHAMMAD_NEXT_PREFIXES = listOf("رسول", "ورسول", "عبد", "وعبد")
+
+        /** toks[i] kamet kelimesi mi ("الفلاح" Felak'ta degil, "محمدا" sadece sehadet baglaminda). */
+        fun isKametWord(toks: List<String>, i: Int): Boolean {
+            val t = toks[i]
+            if (t !in KAMET_WORDS) return false
+            if (t == "الفلاح") return !(i > 0 && toks[i - 1] in FALAQ_PREV)
+            if (t == "محمدا") {
+                return (i > 0 && toks[i - 1] in MUHAMMAD_PREV) ||
+                    (i + 1 < toks.size && MUHAMMAD_NEXT_PREFIXES.any { toks[i + 1].startsWith(it) })
+            }
+            return true
+        }
         private val NON_LETTER = Regex("[^\\u0621-\\u064A]")
 
         /** normalize + harf olmayan karakterleri (nokta vb.) at. */
@@ -650,9 +667,7 @@ class StateMachine(
             }
             // "استمع الله" (ASR: semiallah, aksam 22.10): Kuran'da "استمع" sadece 72:1'de ("استمع نفر")
             if ((0 until toks.size - 1).any { toks[it] == "استمع" && toks[it + 1] == "الله" }) return "ruku"
-            val kametWord = toks.indices.any { i ->
-                toks[i] in KAMET_WORDS && !(toks[i] == "الفلاح" && i > 0 && toks[i - 1] in FALAQ_PREV)
-            }
+            val kametWord = toks.indices.any { isKametWord(toks, it) }
             if (kametWord || (0 until toks.size - 1).any { (toks[it] to toks[it + 1]) in KAMET_PAIRS }) {
                 return "kamet"
             }

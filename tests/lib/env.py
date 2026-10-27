@@ -64,9 +64,25 @@ def save_cache():
         os.replace(tmp, _cache_path)
 
 
+# Ayar denemesi (tests/tune.py): TILAVET_SM_PARAMS='{"MIN_CONFIDENCE": 45, "WINDOW_SLACK": 3}' — referans state machine'in
+# modul sabitleri ve telefon varsayilanlari (eval_pipeline WINDOW_SLACK / FIRST_LOCK_THRESHOLD) bu degerlerle. Sadece Python
+# kumeleri icin (app / kotlin birebirligi bilerek bozulur).
+SM_PARAMS = json.loads(os.environ.get("TILAVET_SM_PARAMS") or "{}")
+EV_PARAMS = ("WINDOW_SLACK", "FIRST_LOCK_THRESHOLD")
+for _k in EV_PARAMS:
+    if _k in SM_PARAMS:
+        setattr(ev, _k, SM_PARAMS[_k])
+
+
 def configure_sm(mod):
     """Referans state machine'i telefon varsayilanlarina ayarla (ilk kilit 70, pencere +-2) + onbellek."""
     mod.MIN_CONFIDENCE_FIRST_LOCK = ev.FIRST_LOCK_THRESHOLD
+    for k, v in SM_PARAMS.items():
+        if k in EV_PARAMS:
+            continue
+        if not hasattr(mod, k):
+            raise KeyError(f"TILAVET_SM_PARAMS: state machine'de {k} yok")
+        setattr(mod, k, v)
     mod.align_transcription = phone_align
     return mod
 

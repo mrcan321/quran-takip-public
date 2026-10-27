@@ -16,6 +16,9 @@ package com.tilavet.takip.session
  * sonra: oturus ya da sessiz rekat — hangisi bilinmiyor, rekat "N. REKÂT SONRASI" yazilir) / selam.
  *
  * Kayit basladiginda rekat bilinmiyorsa (namazin ortasi; Fatiha'siz ilk kilit) sayi gosterilmez, ilk Fatiha'dan baslar.
+ * Okunan zammin hemen ardindan semiallah geldiyse (kayit sesli bir rekatin zammi ortasinda basladi) sonraki Fatiha 2. rekat
+ * (yatsi 25.10: Bakara 2:104-107 → semiallah → Fatiha "1. rekat" sayiliyordu; sesli rekatlar 1-2, 2. rekatin rukûsundan
+ * sonra sesli Fatiha ancak selamdan sonra — yeni namaz — gelir).
  * Teravih / ardisik namazlar: selamdan sonraki Fatiha yeni namazin 1. rekati; oturum toplami ayrica tutulur.
  * Android'e bagli degil (JVM'de gercek kayitlarin transkriptleriyle test edilir).
  */
@@ -77,6 +80,8 @@ class RakatTracker {
     private var rakatStartSec = Double.NEGATIVE_INFINITY
     private var selamSec: Double? = null
     private var maxFatihaAyah = 0
+    /** Rekat bilinmezken (kayit namaz ortasinda basladi) okunan zammin ardindan semiallah: sonraki Fatiha 2. rekat. */
+    private var midRuku = false
 
     fun reset() {
         rakat = 0; posture = null; completedTotal = 0; completedNamaz = 0
@@ -86,6 +91,7 @@ class RakatTracker {
         rakatStartSec = Double.NEGATIVE_INFINITY
         selamSec = null
         maxFatihaAyah = 0
+        midRuku = false
     }
 
     /**
@@ -95,7 +101,7 @@ class RakatTracker {
     fun onChunk(r: ChunkResult, t: Double): String? {
         if (r.kamet) {
             val had = rakat > 0 || posture != null
-            rakat = 0; posture = null; rukuDone = false; maxFatihaAyah = 0
+            rakat = 0; posture = null; rukuDone = false; maxFatihaAyah = 0; midRuku = false
             rakatStartSec = Double.NEGATIVE_INFINITY
             return if (had) "kamet: yeni namaz" else null
         }
@@ -113,7 +119,7 @@ class RakatTracker {
             }
             val ended = maxOf(rakat, estimated)
             if (ended > 0) { completedTotal += ended; completedNamaz += 1 }
-            rakat = 0; posture = Posture.SELAM; selamSec = t; rukuDone = false; maxFatihaAyah = 0
+            rakat = 0; posture = Posture.SELAM; selamSec = t; rukuDone = false; maxFatihaAyah = 0; midRuku = false
             rakatStartSec = Double.NEGATIVE_INFINITY
             return "selam (namaz bitti${if (ended > 0) ", $ended rekat" else ""})"
         }
@@ -121,8 +127,12 @@ class RakatTracker {
             if (t - lastSemiallahSec < SEMIALLAH_DEDUP_SEC) return null
             lastSemiallahSec = t
             if (rakat == 0) {
-                // Rekat bilinmiyor (namazin ortasindan basladi): sadece durus
+                // Rekat bilinmiyor (namazin ortasindan basladi): sadece durus; okumanin hemen ardindansa sesli rekatin rukûsu
                 posture = Posture.RUKU_SECDE
+                if (t - lastRecitationSec <= SILENT_RAKAT_AFTER_SEC) {
+                    midRuku = true
+                    return "semiallah (rekat bilinmiyor, okumadan sonra: sonraki Fatiha 2. rekat)"
+                }
                 return "semiallah (rekat bilinmiyor)"
             }
             posture = Posture.RUKU_SECDE
@@ -150,7 +160,8 @@ class RakatTracker {
         val enter = r.stateBefore != NamazState.FATIHA
         var event: String? = null
         if ((enter || restart) && t - rakatStartSec >= MIN_RAKAT_SEC) {
-            rakat += 1
+            rakat = if (rakat == 0 && midRuku) 2 else rakat + 1
+            midRuku = false
             rukuDone = false
             rakatStartSec = t
             maxFatihaAyah = 0

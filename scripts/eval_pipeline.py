@@ -26,6 +26,7 @@ Bagimliliklar: onnxruntime sentencepiece soundfile soxr rapidfuzz numpy
 
 import argparse
 import json
+import os
 import statistics
 import sys
 import time
@@ -122,6 +123,22 @@ EXPECTED = {
     "namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav": "coklu",
     "namaz_aksam3_kamet_fatiha_kafirun_fatiha_nasr.wav": "coklu",
     "namaz_yatsi4_fatiha_enbiya_fatiha_enbiya.wav": "coklu",
+    # Aksam 26.10 (camide telefon, APK #122, 8.1 dk): kamet 0-44 → Fatiha 73.9 → Felak 124.5-150.5 → semiallah 162.6 →
+    # (rukûdan kalkista "محمدا" — eskiden kamet sayiliyordu) → secde → Fatiha 206.1 → Nas 251.4-278 → semiallah 292.6 →
+    # 3. rekat sessiz (semiallah 376) → selam 450 / 457 → dua 468-478
+    "namaz_aksam4_kamet_fatiha_felak_fatiha_nas.wav": "coklu",
+    # Yatsi 25.10 (camide telefon, APK #121, 8.9 dk): kayit 1. rekatin zammi ortasinda (Bakara 2:103 sonu 3.7, 2:104-107
+    # 8-73) → semiallah 85 → 2. rekat Fatiha 117.4 → Insan 76:1-5 (151.8-195) → semiallah 207 → 3-4. rekat sessiz (semiallah
+    # 297, 363) → selam 451 / 458
+    "namaz_yatsi5_bakara_fatiha_insan.wav": "coklu",
+    # Sabah 26.10 (camide telefon, APK #122, 9.4 dk; kamet onceki oturumda): iftitah tekbiri 7.8 → Fatiha 23.3 → Hac 22:56-69
+    # (67.3-265) → rukû / secde → Fatiha 320.8 → Hac 22:70-72 (360-435, 1. rekatin kaldigi yerden) → semiallah 448 → oturus →
+    # selam (~545) → istigfar 558
+    "namaz_sabah2_fatiha_hac_fatiha_hac.wav": "coklu",
+    # Yatsi 27.10 (camide telefon, APK #122, 11.1 dk; kamet onceki oturumda): Fatiha ~10 → Mu'minun 23:51-68 (~50-205) →
+    # rukû / secde (semiallah ASR'de yok) → Fatiha ~248 → 23:68 devam (~286) .. 23:77 (~398) → semiallah 413 → 3-4. rekat
+    # sessiz (semiallah 553) → selam 638 (bolunmus: "عليكم ورحمة الله") → dua 653-663. 2. rekatta 296-301 sn ASR bos.
+    "namaz_yatsi6_fatiha_muminun_fatiha_muminun.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -194,6 +211,17 @@ TIMELINE = {
     # 3-4. rekat sessiz (semiallah 513, 568), selam 648 / 658, istigfar + dua 667-691
     "namaz_yatsi4_fatiha_enbiya_fatiha_enbiya.wav": [(0, None), (3.6, 1), (52.4, 21), (193, None), (246.6, 1), (290.0, 21),
                                                      (417, None)],
+    # aksam 26.10 (kelime zamanli transkript): "الحمد" 73.9, Felak "أعوذ" 125.2 ("حصل" 149.9 = 113:5 sonu), 2. Fatiha "الحمد"
+    # 206.1, Nas "قل" 251.4 ("والناس" 277.1 = 114:6 sonu)
+    "namaz_aksam4_kamet_fatiha_felak_fatiha_nas.wav": [(0, None), (73.7, 1), (124.4, 113), (152, None), (205.9, 1),
+                                                       (251.2, 114), (279, None)],
+    # yatsi 25.10 (kelime zamanli transkript): "لو كانوا يعلمون" 3.7 (2:103 sonu), "يا أيها" 8.1 (2:104), "نصير" 73.3 (2:107
+    # sonu), 2. Fatiha "الحمد" 117.4, Insan "هل أتى" 151.8, "كافورا" 195.3 (76:5 sonu)
+    "namaz_yatsi5_bakara_fatiha_insan.wav": [(0, 2), (75, None), (117.2, 1), (151.6, 76), (197, None)],
+    # sabah 26.10 (kelime zamanli transkript): "الحمد" 23.3, "الملك يومئذ" 67.3 (22:56), "تختلفون" 265.2 (22:69 sonu),
+    # 2. Fatiha "الحمد" 320.8, "ألم تعلم" 360.0 (22:70), "المصير" 435.1 (22:72 sonu), "الله" 439.5
+    "namaz_sabah2_fatiha_hac_fatiha_hac.wav": [(0, None), (23.1, 1), (67.1, 22), (267, None), (320.6, 1), (359.8, 22),
+                                               (441, None)],
 }
 
 
@@ -207,7 +235,50 @@ def load_audio(path: Path) -> np.ndarray:
     if sr != SR:
         import soxr
         audio = soxr.resample(audio, sr, SR, quality="HQ")
-    return audio.astype(np.float32)
+    return asr_variant(audio.astype(np.float32))
+
+
+# Ayar denemesi (tests/tune.py, B senaryolari): TILAVET_ASR_PARAMS='{"chunk_sec": 6, "overlap_sec": 1.5, "pause_sec": 0.3,
+# "min_chunk_sec": 1.0, "tempo": 1.1, "filter": true}' — parcalayici (sabit + hibrit), ses hizi (WSOLA; parca zamanlari
+# kaydin kendi zamanina cevrilir) ve mikrofon filtresi (80 Hz yuksek geciren x2 + 6 kHz alcak geciren). Bos = telefon.
+ASR_PARAMS = json.loads(os.environ.get("TILAVET_ASR_PARAMS") or "{}")
+TEMPO = float(ASR_PARAMS.get("tempo", 1.0))
+
+
+def _apply_asr_params():
+    global CHUNK, OVERLAP, CHUNK_SEC
+    import vad_chunker as vc
+    if "chunk_sec" in ASR_PARAMS:
+        CHUNK = int(round(ASR_PARAMS["chunk_sec"] * SR))
+        CHUNK_SEC = CHUNK / SR
+        vc.MAX_CHUNK_FRAMES = int(round(ASR_PARAMS["chunk_sec"] * 10))
+    if "overlap_sec" in ASR_PARAMS:
+        OVERLAP = int(round(ASR_PARAMS["overlap_sec"] * SR))
+        vc.OVERLAP_SAMPLES = OVERLAP
+    if "pause_sec" in ASR_PARAMS:
+        vc.PAUSE_FRAMES = int(round(ASR_PARAMS["pause_sec"] * 10))
+    if "min_chunk_sec" in ASR_PARAMS:
+        vc.MIN_CHUNK_FRAMES = int(round(ASR_PARAMS["min_chunk_sec"] * 10))
+
+
+_apply_asr_params()
+
+
+def asr_variant(audio: np.ndarray) -> np.ndarray:
+    """B senaryolari: mikrofon filtresi ve / veya ses hizi (tempo > 1 hizlandirir)."""
+    if ASR_PARAMS.get("filter"):
+        from scipy.signal import butter, sosfilt
+        hp = butter(2, 80, "highpass", fs=SR, output="sos")
+        lp = butter(4, 6000, "lowpass", fs=SR, output="sos")
+        audio = sosfilt(lp, sosfilt(hp, sosfilt(hp, audio))).astype(np.float32)
+    if abs(TEMPO - 1.0) > 1e-6:
+        from audiotsm import wsola
+        from audiotsm.io.array import ArrayReader, ArrayWriter
+        reader = ArrayReader(audio.reshape(1, -1).astype(np.float32))
+        writer = ArrayWriter(channels=1)
+        wsola(channels=1, speed=TEMPO).run(reader, writer)
+        audio = writer.data.reshape(-1).astype(np.float32)
+    return audio
 
 
 def transcribe_rnnt_ctc(asr, audio: np.ndarray):
@@ -718,8 +789,9 @@ def main():
     tr_lines = []
     for name in transcripts:
         for fn, chunks in transcripts[name].items():
+            # ses hizi denemesinde parca zamanlari kaydin kendi zamanina (TIMELINE) cevrilir
             tr_lines.append("TRJSON " + json.dumps({"config": name, "file": fn, "chunks": [
-                [round(r, 5), t, round(te, 2), bool(pc), None if tl is None else round(tl, 2), ct]
+                [round(r, 5), t, round(te * TEMPO, 2), bool(pc), None if tl is None else round(tl * TEMPO, 2), ct]
                 for r, t, te, pc, tl, ct in chunks]}, ensure_ascii=False))
             print(tr_lines[-1])
     if args.trjson_out:

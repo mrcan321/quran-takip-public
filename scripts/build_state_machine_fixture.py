@@ -455,6 +455,12 @@ KAMET_PAIRS = {("اشهد", "ان"), ("اشهد", "انه"), ("اشهد", "لا"
 # 12 parca Fatiha beklemesinde Felak hic kilitlenmedi (sabit parca zinciri). "رب/برب الفلاح" kamette yok (hayya → "حي على
 # الفلاح"); tum transkriptlerde "الفلاح" 4 kez: 3 "ايها الفلاح" (hayya), 1 bu Felak.
 FALAQ_PREV = {"برب", "رب"}
+# Aksam 26.10: rukûdan kalkista (semiallahtan sonraki parca) tek basina "محمدا" ("ربنا لك الحمد حمدا…" ASR'de) kamet sayildi →
+# rekat sayaci "kamet: yeni namaz", 2. rekat "1. rekat" goruldu. Kamet / ezanda "محمدا" hep "ان" ile (أشهد أن محمدا رسول
+# الله; tum transkriptlerde 38 kez, hepsinde onunde "ان"): kamet kelimesi sadece onunde "ان / انه / اشهد" ya da arkasinda
+# "رسول… / عبد…" varsa.
+MUHAMMAD_PREV = {"ان", "وان", "انه", "اشهد", "واشهد"}
+MUHAMMAD_NEXT_PREFIXES = ("رسول", "ورسول", "عبد", "وعبد")
 _NON_LETTER = re.compile(r"[^\u0621-\u064A]")
 
 
@@ -693,6 +699,19 @@ def is_tekbir_only(words):
     return bool(kept) and any(t in TEKBIR_WORDS for t in kept) and all(t == "الله" or t in TEKBIR_WORDS for t in kept)
 
 
+def is_kamet_word(toks, i):
+    """toks[i] kamet kelimesi mi ("الفلاح" Felak'ta degil, "محمدا" sadece sehadet baglaminda)."""
+    t = toks[i]
+    if t not in KAMET_WORDS:
+        return False
+    if t == "الفلاح":
+        return not (i > 0 and toks[i - 1] in FALAQ_PREV)
+    if t == "محمدا":
+        return (i > 0 and toks[i - 1] in MUHAMMAD_PREV) or \
+            (i + 1 < len(toks) and toks[i + 1].startswith(MUHAMMAD_NEXT_PREFIXES))
+    return True
+
+
 def namaz_signal(text):
     """Namaz yapisi sinyali: "kamet" (kamet/ezan cumlesi), "selam", "ruku" (semiallah) ya da None. Semiallah, sonra kamet."""
     toks = [t for t in (bare_token(w) for w in text.split()) if t]
@@ -704,8 +723,7 @@ def namaz_signal(text):
     # "استمع الله" (ASR: semiallah, aksam 22.10): Kuran'da "استمع" sadece 72:1'de ("استمع نفر")
     if any(a == "استمع" and b == "الله" for a, b in zip(toks, toks[1:])):
         return "ruku"
-    if any(t in KAMET_WORDS and not (t == "الفلاح" and i > 0 and toks[i - 1] in FALAQ_PREV) for i, t in enumerate(toks)) \
-            or any(p in KAMET_PAIRS for p in zip(toks, toks[1:])):
+    if any(is_kamet_word(toks, i) for i in range(len(toks))) or any(p in KAMET_PAIRS for p in zip(toks, toks[1:])):
         return "kamet"
     if any(a == "السلام" and b in ("عليكم", "عليك") for a, b in zip(toks, toks[1:])):
         return "selam"

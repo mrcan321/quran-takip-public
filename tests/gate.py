@@ -118,6 +118,7 @@ def main():
     ap.add_argument("--summary", help="Markdown rapor (GITHUB_STEP_SUMMARY)")
     ap.add_argument("--results", help="Sonuclari JSON olarak yaz")
     ap.add_argument("--offline", action="store_true", help="JVM derlemesi icin gradle --offline")
+    ap.add_argument("--details", help="Kayit bazinda sonuclari JSON olarak yaz (tests/tune.py kayit kayit kiyas)")
     args = ap.parse_args()
     suites = [s for s in args.suites.split(",") if s]
 
@@ -127,12 +128,20 @@ def main():
     print(f"TRJSON: " + ", ".join(f"{cfg} {len(T[cfg])} kayit" for cfg in env.CONFIGS), flush=True)
     results, notes, hard = {}, [], []
     compositions = {}
+    details = {}
+
+    def keep(suite, cfg, per):
+        """Kayit bazinda: ilk kilit, bolum kilit gecikmeleri, yanlis kilitli parca, ekranda yanlis aday."""
+        details.setdefault(suite, {})[cfg] = {
+            fn: {"first": r["first"], "expected": r["expected"], "segs": [[su, lk] for _st, su, lk, _cd in r["segs"]],
+                 "wrong": r["wrong"], "shown_wrong": r["shown_wrong"]} for fn, r in per.items()}
 
     if "replay" in suites:
         results["replay"] = {}
         for cfg in env.CONFIGS:
             per, summ = metrics.evaluate_set(T[cfg])
             results["replay"][cfg] = summ
+            keep("replay", cfg, per)
             slow = sorted(((lk, fn, su) for fn, r in per.items() for _, su, lk, _ in r["segs"] if lk is not None),
                           reverse=True)[:5]
             notes.append(f"replay {cfg}: en yavas bolumler " + ", ".join(f"{fn} {su}: {lk:.0f} sn" for lk, fn, su in slow))
@@ -172,6 +181,7 @@ def main():
         for cfg in env.CONFIGS:
             per, summ = metrics.evaluate_set(E.get(cfg, {}))
             results["external"][cfg] = summ
+            keep("external", cfg, per)
             bad = [f"{fn} {r['trace']}" for fn, r in per.items() if r["wrong"] or r["shown_wrong"]
                    or (r["expected"] is None and r["first"] is not None)]
             notes += [f"external {cfg} yanlis kilit / aday: {b[:300]}" for b in bad[:6]]
@@ -193,6 +203,9 @@ def main():
                 per_a[fn] = ayah.score_file(ch, info)
                 per_r[fn] = metrics.evaluate_recording(fn, ch, env.ev.timeline_for(fn), "coklu")
             sa, sr = ayah.summarize(per_a), metrics.summarize(per_r)
+            keep("synth", cfg, per_r)
+            for fn, a in per_a.items():
+                details["synth"][cfg][fn]["ayah"] = [a["followed"], a["ayahs"], a["latency_median"], a["wrong_shown"]]
             results["synth"][cfg] = {**{k: sa[k] for k in ("ayahs", "ayah_followed", "ayah_follow_pct",
                                                            "ayah_latency_median", "ayah_wrong_shown")},
                                      **{k: sr[k] for k in ("sections", "sections_locked", "delay_median", "wrong_chunks")}}
@@ -454,6 +467,8 @@ def main():
             f.write(text)
     if args.results:
         Path(args.results).write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
+    if args.details:
+        Path(args.details).write_text(json.dumps(details, ensure_ascii=False), encoding="utf-8")
     return 1 if worse else 0
 
 

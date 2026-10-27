@@ -1,0 +1,232 @@
+name: Ayar denemesi
+
+# Parametre ayari denemesi (tests/tune.py; kullanici: "her degisiklik icin sifirdan testleri kos, performansi olc, hepsini
+# kiyasla, sonra en iyi kombinasyona gecelim"). Istek dosyasi tests/tune_request.json degisince (ya da elle):
+#   1. transcribe — istekteki yeni kayitlarin gercek ASR transkripti (rnnt + rnnt-hibrit) → tests/trjson/asr-model-v2.trjson'a
+#      eklenip dala commit'lenir (sonraki isler ve test kapisi bu kayitlari da olcsun)
+#   2. senaryo (matris, paralel) — her senaryo ayri isde: A (kilit kararlari) kayitli transkriptleri yeni ayarla tekrar
+#      oynatir; B (ses / ASR) once kendi kayitlarimizi (ozel repodan) yeni ses ayariyla gercek modelle yeniden tanir
+#   3. rapor — temel senaryoyla kiyas tablosu + kayit kayit kotulesen / iyilesen → run ozeti + tuning/<run>/ (dala commit)
+# Yerel oturumda Kuran metni (alquran.cloud) ve uzun kosular (konteyner yeniden baslayabiliyor) sorunlu → CI.
+
+on:
+  push:
+    paths:
+      - "tests/tune_request.json"
+  workflow_dispatch:
+    inputs:
+      group:
+        description: "Senaryo gruplari (A = kilit, B = ses / ASR)"
+        type: string
+        default: "A,B"
+      only:
+        description: "Sadece bu senaryolar (virgulle; bos = gruptakilerin hepsi)"
+        type: string
+        default: ""
+
+concurrency:
+  group: tune-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  MODEL_TAG: asr-model-v2
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.p.outputs.matrix }}
+      transcribe: ${{ steps.p.outputs.transcribe }}
+      seeds: ${{ steps.p.outputs.seeds }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Istek → matris
+        id: p
+        env:
+          IN_GROUP: ${{ inputs.group }}
+          IN_ONLY: ${{ inputs.only }}
+        run: |
+          python - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os, subprocess, sys
+          req = json.load(open("tests/tune_request.json")) if os.path.exists("tests/tune_request.json") else {}
+          group = os.environ.get("IN_GROUP") or req.get("group", "A,B")
+          only = os.environ.get("IN_ONLY") or req.get("only", "")
+          args = [sys.executable, "tests/tune.py", "list", "--group", group] + (["--only", only] if only else [])
+          lst = json.loads(subprocess.check_output(args))
+          # temel senaryolar hep var (kiyas icin)
+          ids = {s["id"] for s in lst}
+          for g, base in (("A", "base"), ("B", "B-base")):
+              if any(s["group"] == g for s in lst) and base not in ids:
+                  lst.insert(0, {"id": base, "group": g, "asr": g == "B"})
+          print("matrix=" + json.dumps({"include": lst}))
+          print("transcribe=" + " ".join(req.get("transcribe", [])))
+          print("seeds=" + str(req.get("seeds", 5)))
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+  # Yeni kayitlarin transkripti (istekte "transcribe": ["data/x.wav", ...]) → dala commit
+  transcribe:
+    name: Yeni kayit transkripti
+    needs: plan
+    if: ${{ needs.plan.outputs.transcribe != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Python bagimliliklari
+        run: pip install rapidfuzz==3.14.6 numpy onnxruntime sentencepiece soundfile soxr
+      - name: Kuran verisi cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/quran-align
+          key: quran-data-v2-${{ hashFiles('scripts/download_meal.py', 'scripts/download_surah_names.py') }}
+      - name: Kuran verisini indir
+        if: steps.quran-cache.outputs.cache-hit != 'true'
+        run: |
+          python -c "import sys; sys.path.insert(0, 'scripts'); from aligner import QuranCorpus; QuranCorpus.load()"
+          python scripts/download_meal.py
+          python scripts/download_surah_names.py
+      - name: Ses kayitlari (ozel repo)
+        env:
+          KAYIT_TOKEN: ${{ secrets.KAYIT_TOKEN }}
+        run: bash tools/kayitlari_cek.sh
+      - name: ASR modeli
+        run: |
+          gh release download "$MODEL_TAG" -R "$GITHUB_REPOSITORY" -D model \
+            -p 'fastconformer_full.onnx' -p 'fastconformer_full.onnx.data' \
+            -p 'tokenizer.model' -p 'meta.json' -p 'rnnt_*.onnx'
+      - name: Transkript
+        env:
+          FILES: ${{ needs.plan.outputs.transcribe }}
+        run: |
+          python scripts/eval_pipeline.py --model-dir model --audio $FILES --chains rnnt,rnnt-hibrit --words \
+            --trjson-out new.trjson --summary "$GITHUB_STEP_SUMMARY"
+          python tests/tune.py merge --src new.trjson --dst tests/trjson/asr-model-v2.trjson
+      - name: Dala commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/trjson/asr-model-v2.trjson
+          git diff --cached --quiet && exit 0
+          git commit -m "Yeni kayit transkriptleri (ayar denemesi, run ${{ github.run_number }})"
+          for i in 1 2 3 4; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep $((i * 5)); done
+
+  senaryo:
+    name: Senaryo ${{ matrix.id }}
+    needs: [plan, transcribe]
+    if: ${{ always() && needs.plan.result == 'success' && needs.transcribe.result != 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}   # transcribe isinin commit'i dahil
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Python bagimliliklari
+        run: |
+          pip install rapidfuzz==3.14.6 numpy soundfile soxr
+          if [ "${{ matrix.asr }}" = "true" ]; then pip install onnxruntime sentencepiece scipy audiotsm; fi
+      - name: Kuran verisi cache
+        id: quran-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/quran-align
+          key: quran-data-v2-${{ hashFiles('scripts/download_meal.py', 'scripts/download_surah_names.py') }}
+      - name: Kuran verisini indir
+        if: steps.quran-cache.outputs.cache-hit != 'true'
+        run: |
+          python -c "import sys; sys.path.insert(0, 'scripts'); from aligner import QuranCorpus; QuranCorpus.load()"
+          python scripts/download_meal.py
+          python scripts/download_surah_names.py
+      - name: Hizalama onbellegi (test kapisinin)
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/tilavet-gate
+          key: gate-align-${{ hashFiles('scripts/aligner.py') }}-${{ github.sha }}
+          restore-keys: gate-align-${{ hashFiles('scripts/aligner.py') }}-
+      - name: Ses kayitlari (ozel repo)
+        if: ${{ matrix.asr }}
+        env:
+          KAYIT_TOKEN: ${{ secrets.KAYIT_TOKEN }}
+        run: bash tools/kayitlari_cek.sh
+      - name: ASR modeli
+        if: ${{ matrix.asr }}
+        run: |
+          gh release download "$MODEL_TAG" -R "$GITHUB_REPOSITORY" -D model \
+            -p 'fastconformer_full.onnx' -p 'fastconformer_full.onnx.data' \
+            -p 'tokenizer.model' -p 'meta.json' -p 'rnnt_*.onnx'
+      - name: Ses / ASR (kayitlari yeni ayarla yeniden tani)
+        if: ${{ matrix.asr }}
+        run: python tests/tune.py asr --group ${{ matrix.group }} --only "${{ matrix.id }}" --out out --model-dir model --threads 4
+      - name: Senaryo (test kumeleri)
+        run: |
+          python tests/tune.py run --group ${{ matrix.group }} --only "${{ matrix.id }}" --out out \
+            --seeds ${{ needs.plan.outputs.seeds }} --cache ~/.cache/tilavet-gate/align.pkl
+          tail -40 "out/${{ matrix.id }}/gate.log"
+          test -f "out/${{ matrix.id }}/results.json"
+      - name: Sonuc
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tune-${{ matrix.id }}
+          path: |
+            out/${{ matrix.id }}/*.json
+            out/${{ matrix.id }}/gate.log
+            out/trjson/${{ matrix.id }}/stats.json
+          retention-days: 30
+
+  rapor:
+    name: Rapor
+    needs: senaryo
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: tune-*
+          path: sonuc
+      - name: Kiyas
+        run: |
+          D="tuning/run-${{ github.run_number }}"
+          mkdir -p "$D"
+          for a in sonuc/tune-*; do id="${a#sonuc/tune-}"; mkdir -p "$D/$id"; cp "$a"/*.json "$D/$id/" 2>/dev/null || true; done
+          python tests/tune.py report --out "$D" --summary "$GITHUB_STEP_SUMMARY" --json "$D/kararlar.json" > "$D/rapor.md"
+          cat "$D/rapor.md"
+          rm -f "$D"/*/details.json   # kayit kayit ayrinti rapor.md / kararlar.json'da; dosyalar buyuk
+      - name: Dala commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tuning
+          git diff --cached --quiet && exit 0
+          git commit -m "Ayar denemesi raporu (run ${{ github.run_number }})"
+          for i in 1 2 3 4; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep $((i * 5)); done

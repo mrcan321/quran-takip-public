@@ -750,6 +750,22 @@ KAMET_PAIRS = {("اشهد", "ان"), ("اشهد", "انه"), ("اشهد", "لا"
 _NON_LETTER = re.compile(r"[^\u0621-\u064A]")
 # Felak "قل أعوذ برب الفلق" → ASR "أعوذ برب الفلاح" kamet degil (yatsi 19.10 vaazi)
 FALAQ_PREV = {"برب", "رب"}
+# Aksam 26.10: rukûdan kalkista tek basina "محمدا" ("ربنا لك الحمد حمدا…") kamet sayiliyordu; kamet / ezanda hep "ان" ile
+MUHAMMAD_PREV = {"ان", "وان", "انه", "اشهد", "واشهد"}
+MUHAMMAD_NEXT_PREFIXES = ("رسول", "ورسول", "عبد", "وعبد")
+
+
+def is_kamet_word(toks, i):
+    """toks[i] kamet kelimesi mi ("الفلاح" Felak'ta degil, "محمدا" sadece sehadet baglaminda)."""
+    t = toks[i]
+    if t not in KAMET_WORDS:
+        return False
+    if t == "الفلاح":
+        return not (i > 0 and toks[i - 1] in FALAQ_PREV)
+    if t == "محمدا":
+        return (i > 0 and toks[i - 1] in MUHAMMAD_PREV) or \
+            (i + 1 < len(toks) and toks[i + 1].startswith(MUHAMMAD_NEXT_PREFIXES))
+    return True
 
 
 def bare_token(word: str) -> str:
@@ -961,8 +977,7 @@ def namaz_signal(text: str) -> Optional[str]:
     # "استمع الله" (aksam 22.10): Kuran'da "استمع" sadece 72:1'de ("استمع نفر")
     if any(a == "استمع" and b == "الله" for a, b in zip(toks, toks[1:])):
         return "ruku"
-    if any(t in KAMET_WORDS and not (t == "الفلاح" and i > 0 and toks[i - 1] in FALAQ_PREV) for i, t in enumerate(toks)) \
-            or any(p in KAMET_PAIRS for p in zip(toks, toks[1:])):
+    if any(is_kamet_word(toks, i) for i in range(len(toks))) or any(p in KAMET_PAIRS for p in zip(toks, toks[1:])):
         return "kamet"
     if any(a == "السلام" and b in ("عليكم", "عليك") for a, b in zip(toks, toks[1:])):
         return "selam"
