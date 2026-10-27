@@ -12,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -58,7 +59,9 @@ fun ReportDialog(file: File, onShare: () -> Unit, onDismiss: () -> Unit) {
                     Icon(Icons.Filled.Close, contentDescription = "Kapat", tint = palette.fgDim)
                 }
             }
-            AndroidView(
+            // Sayfa bir kez yuklenir (update yok): ana ekran sik yeniden cizilir (ses seviyesi), WebView bastan yuklenip
+            // kaydirma yeri kaybolmasin; yeni rapor dosyasi = yeni WebView (key)
+            key(file) { AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {
                         settings.allowFileAccess = true      // cacheDir/reports/namaz-raporu.html
@@ -68,9 +71,8 @@ fun ReportDialog(file: File, onShare: () -> Unit, onDismiss: () -> Unit) {
                         loadUrl(Uri.fromFile(file).toString())
                     }
                 },
-                update = { it.loadUrl(Uri.fromFile(file).toString()) },
                 modifier = Modifier.fillMaxWidth().weight(1f),
-            )
+            ) }
         }
     }
 }

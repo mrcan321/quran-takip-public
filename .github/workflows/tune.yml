@@ -24,8 +24,9 @@ on:
         type: string
         default: ""
 
+# Istek dosyasi push'lari ayni grupta (yeni istek eskisini keser); elle baslatilan kucuk kosu (only) ayri grupta, paralel
 concurrency:
-  group: tune-${{ github.ref }}
+  group: tune-${{ github.ref }}-${{ inputs.only || 'istek' }}
   cancel-in-progress: true
 
 permissions:

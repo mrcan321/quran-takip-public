@@ -461,6 +461,9 @@ FALAQ_PREV = {"برب", "رب"}
 # "رسول… / عبد…" varsa.
 MUHAMMAD_PREV = {"ان", "وان", "انه", "اشهد", "واشهد"}
 MUHAMMAD_NEXT_PREFIXES = ("رسول", "ورسول", "عبد", "وعبد")
+# Ayar denemesi (tests/tune.py "eski kural" senaryolari) icin anahtarlar — uygulamada hep acik
+MUHAMMAD_CONTEXT = True        # "محمدا" sadece sehadet baglaminda kamet
+SELAM_SPLIT_SIGNAL = True      # "عليكم/عليك + (و)رحمه" de selam (yatsi 27.10)
 _NON_LETTER = re.compile(r"[^\u0621-\u064A]")
 
 
@@ -706,7 +709,7 @@ def is_kamet_word(toks, i):
         return False
     if t == "الفلاح":
         return not (i > 0 and toks[i - 1] in FALAQ_PREV)
-    if t == "محمدا":
+    if t == "محمدا" and MUHAMMAD_CONTEXT:
         return (i > 0 and toks[i - 1] in MUHAMMAD_PREV) or \
             (i + 1 < len(toks) and toks[i + 1].startswith(MUHAMMAD_NEXT_PREFIXES))
     return True
@@ -727,7 +730,8 @@ def namaz_signal(text):
         return "kamet"
     # Bolunmus / bozuk selam: "عليكم ورحمة الله" ("السلام" onceki parcada; yatsi 27.10, cuma #2), "ساء عليكم ورحمة",
     # "سلام عليكم ورحمة" — "عليكم/عليك + (و)رحمه" Kuran'da yok (strip_namaz_phrases ile ayni kural)
-    if any((a == "السلام" and b in ("عليكم", "عليك")) or (a in ("عليكم", "عليك") and b in ("ورحمه", "رحمه"))
+    if any((a == "السلام" and b in ("عليكم", "عليك"))
+           or (SELAM_SPLIT_SIGNAL and a in ("عليكم", "عليك") and b in ("ورحمه", "رحمه"))
            for a, b in zip(toks, toks[1:])):
         return "selam"
     if any(t in SEMIALLAH_TAIL for t in toks) or any(a == "لمن" and b.startswith("حم") for a, b in zip(toks, toks[1:])):

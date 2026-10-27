@@ -1575,6 +1575,64 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   `rebuildPageContainer` (kısa titreme) + 4 karo.
 - Testler: node `headerAutoHide` (değişken boyutta küçülen / küçülmeyen meal, sabit boyutta fazladan sayfa, aday sönük, not kartı),
   JVM `json headerAutoHide` + `glasses-serve`, simülatör `ust_oto_kursi` / `ust_oto_kevser`.
+
+### 30. Yeni kayıtlar (25-27.10) + "محمدا" kamet, namaz ortası rekât, gözlükte ara ayet, bölünmüş selam (APK #123+)
+- Kayıtlar (özel repo `data/`, EXPECTED + TIMELINE, transkript CI'dan — `tune.yml` transcribe işi): akşam 26.10 (Felak / Nâs),
+  yatsı 25.10 (kayıt 1. rekâtın zammı ortasında: Bakara 2:104-107 → 2. rekât İnsân), sabah 26.10 (Hac 22:56-69 / 22:70-72, hatim
+  devamı), yatsı 27.10 (Mü'minûn 23:51-68 / 23:68-77; TIMELINE sabit parça transkriptinin son kelime zamanlarından).
+- **"محمدا" kamet:** akşam 26.10'da rükûdan kalkışta tek başına "محمدا" ("ربنا لك الحمد حمدا…") kamet sayıldı → rekât sayacı
+  sıfırlandı ("kamet: yeni namaz"), 2. rekât "1." göründü. Kamet / ezanda "محمدا" hep "ان" ile (tüm transkriptlerde 38 kez) →
+  `is_kamet_word` / `isKametWord`: önünde "ان / وان / انه / اشهد / واشهد" ya da arkasında "رسول… / عبد…" yoksa kamet değil.
+  16 415 metinde sadece bu kayıt değişiyor.
+- **Namaz ortasında başlayan kayıt** (yatsı 25.10): okunan zammın hemen ardından (≤ 40 sn) semiallah gelince rekât bilinmiyorsa
+  sonraki Fatiha 2. rekât (`RakatTracker.midRuku`; kamet / selam siler).
+- **Gözlükte ara ayet** (yatsı 27.10, kullanıcı: "ikinci rekatta geç kilitlenmeden dolayı gözlük ekranından hızlı aktı, ayeti
+  okuyamadım; 1 saniye delay yetmedi mi?"): 296-301 sn'de ASR iki parça boş döndü, 23:69 ancak 23:70 ile birlikte duyuldu →
+  AyahStepper 23:69'u 1 sn (ayar) gösterdi; gözlüğe 4 karo aktarımı 1023 ms sürdü → 23:69 gözlükte çizilir çizilmez 23:70 geldi.
+  Eklenti her ekranın son karosu gidince köprüye `cizildi=<seq>` bildirir (`app.js reportDrawn`, `GlassesBridge.drawnSeq`,
+  `reportsDrawing()`); AyahStepper ara ayetin süresini gözlükte çizildiği andan sayar (`awaitShown` → `MainViewModel.
+  awaitGlassesDrawn`: bu ayetin durumu yayınlanınca (≤ 0.5 sn, gözlükte başka şey — zikir kartı — varsa beklemez) o seq'in
+  çizilmesi, en çok 3 sn). Gözlük / eklenti yoksa eskisi gibi. JVM glasses: çizim bildirimi (72 kontrol).
+- **Bölünmüş selam** (yatsı 27.10: "…عليكم ورحمة الله"): namaz bitti sayılmıyordu (rekât sayacı açık kaldı). `namaz_signal`:
+  "عليكم/عليك + (و)رحمه" de selam (Kuran'da yok; strip ile aynı kural). Tüm transkriptlerde 19 metin değişiyor, hepsi gerçek
+  selam (cuma #2 / #3 ikinci selamı, sentetik teravih / hatim "ساء عليكم ورحمة", "سلام عليكم ورحمة").
+
+### 31. Namaz raporu: son 3 kayıtta okunan ayetler (APK #123+)
+- Kullanıcı (27.10): "ana ekranda bir buton ile son 3 kayda ait namazda okunan ayetleri güzel bir rapor html sunsun; ayetin
+  Arapçası, Türkçe meali olsun; rapor bitiminde isteyenler için tefsir de olsun; html mobil telefonda okunabilir stilde olsun".
+- Üst barda 📄 (`Icons.Filled.Description`) → `MainViewModel.openReport` → `util/NamazReportBuilder` (IO): `cacheDir/sessions`'taki
+  son 3 kaydın oturum log'u (`.txt`) → `report/NamazReport.parse` → `report/ReportHtml.render` → `cacheDir/reports/
+  namaz-raporu.html` → `ui/components/ReportDialog` (tam ekran WebView, paylaş = HTML dosyası, FileProvider `reports/`).
+- **Log'dan ayetler** (`NamazReport`, Android'siz): `[chunk N] …→FATIHA|ZAMM matched … | 23:56,23:57` kilitli eşleşmeler;
+  `[rekat] N. rekat (Fatiha)` / `sessiz rekat: N.` / `kamet: yeni namaz` / `selam (namaz bitti, N rekat)`. Aynı rekâtta aynı
+  surede ileri giden eşleşmeler arası doldurulur (`GAP_FILL` 20 — ASR boş parçaları), Fatiha hep tam (1-7), yeni surenin ilk
+  5 ayetine düşen ilk eşleşme surenin başından, önceki rekâtta kalınan yerden devam kaldığı yerden; rekâtı başlatan Fatiha
+  parçası (rekât satırı ondan sonra yazılır) yeni rekâta taşınır; rekât bilinmiyorsa "kayıt namazın ortasında başladı".
+- **HTML** (`ReportHtml`, tek dosya ~350 KB: KFGQPC fontu base64): Zümrüt renkleri, telefon koyu temadaysa koyu; içindekiler
+  (birden çok namaz), namaz adı tahmini (selamdaki rekât sayısı + saat + gün: Akşam / Yatsı / Sabah / Cuma, bilinmiyorsa
+  "Namaz"), rekât başlıkları, sure bölümü (Arapça adı), besmele (1. ayetten başlıyorsa), ayet kartı (etiket "Mü'minûn: 51",
+  Arapça + ayet sonu rakamı, seçili meal); Fatiha 2. rekâttan itibaren kapalı (dokununca açılır); sessiz rekâtlar tek satır;
+  sonda **Tefsir**: her ayet bir kez, dokununca açılan kısa açıklama; altta kaynaklar.
+- **Tefsir:** El-Muhtasar fi Tefsîri'l-Kur'ân (Tefsir Araştırmaları Merkezi; QuranEnc "Turkish Mokhtasar") — `spa5k/tafsir_api`
+  (GitHub) `tafsir/turkish-mokhtasar/<sure>.json`; ayet başına kısa (medyan 229, en çok 2034 karakter), 6236 ayetin hepsi var.
+  `scripts/build_tefsir.py` → `asr/tefsir.bin` (meal.bin biçimi, MealLoader okur; android.yml, indirilemezse rapor tefsirsiz),
+  `AssetSync` kopyalar. Diyanet Kur'an Yolu / Elmalılı için açık veri bulunamadı.
+- Testler: JVM `report` (21 kontrol: yatsı 25.10 / 27.10 biçiminde log'lar — Fatiha taşıma, boşluk doldurma, sure başı, kalınan
+  yerden devam, sessiz rekât, iki namaz, HTML kaçış / font / tefsir) test kapısında (`report_failures` 0); `report-file` ile
+  gerçek log'dan elle bakılır (telefon boyutunda açık / koyu ekran görüntüsüyle kontrol edildi).
+
+### 32. Parametre ayarı denemesi (CI)
+- Kullanıcı (26.10): "test kapısını tüm kayıtlarda çalıştır, sonra fine tuning planı belirle; her değişiklik için sıfırdan
+  testleri koş, performansı ölç, hepsini kıyasla; sonra en iyi kombinasyona geçelim (5 sn penceresi, hız, güven eşiği,
+  ayarlardaki parametreler…)". Plan + kontrol listesi: özel repoda `AYAR_PLANI.md`.
+- `tests/tune.py` (senaryolar, kıyas) + `.github/workflows/tune.yml` (istek `tests/tune_request.json` değişince): transcribe (yeni
+  kayıt transkripti + kelime zamanları `tests/trjson/words/` → dala commit) → senaryo matrisi (paralel; A = kilit parametreleri
+  `TILAVET_SM_PARAMS`, B = ses / ASR `TILAVET_ASR_PARAMS`: parça süresi, bindirme, duraklama, en kısa parça, ses hızı (WSOLA,
+  audiotsm), mikrofon filtresi — kendi kayıtlarımız gerçek modelle yeniden tanınır) → rapor (`tuning/run-N/rapor.md`,
+  `kararlar.json`; dala commit). Karar: güvenlik ölçüsü (yanlış kilit / ekranda yanlış aday / yanlış ilk kilit / yanlış ayet)
+  kötüleşen senaryo ELENDİ; kayıt kayıt kötüleşen + iyileşen KARIŞIK; sadece iyileşen İYİ.
+- Yerel oturumda Kuran metni (alquran.cloud) kapalı, konteyner yeniden başlayınca yerel koşular kayboldu (26.10) → hepsi CI'da.
+
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)
