@@ -126,6 +126,10 @@ jobs:
       - name: Mealler
         run: python scripts/build_meals.py
 
+      # Namaz raporunun tefsiri (El-Muhtasar, spa5k/tafsir_api — GitHub) → asr/tefsir.bin; indirilemezse rapor tefsirsiz
+      - name: Tefsir
+        run: python scripts/build_tefsir.py || echo "::warning::tefsir indirilemedi, rapor tefsirsiz"
+
       - name: ASR modelini release'ten indir
         run: |
           gh release download "$MODEL_TAG" -R "$GITHUB_REPOSITORY" --clobber \

@@ -51,7 +51,7 @@ def concat(parts):
     for chunks, t in parts:
         sc = shift(chunks, off)
         allc += sc
-        tl += [(st + off, su) for st, su in t]
+        tl += [(st + off, su) for st, su in (t or [])]   # zaman cizelgesi henuz yazilmamis yeni kayit: bolumsuz
         off = sc[-1][2] if sc else off
     return allc, tl
 

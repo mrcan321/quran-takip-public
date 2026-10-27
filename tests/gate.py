@@ -49,7 +49,7 @@ LOWER_BETTER = ("first_wrong", "first_none", "wrong_chunks", "shown_wrong", "sig
 # Ses surse de bu kadar yeni eslesme yoksa metin kalkar (VoiceActivity.kt TextHold.NO_MATCH_SEC)
 HIDE_NO_MATCH_SEC = 20.0
 HARD_ZERO = ("app_diffs", "kotlin_trace_diffs", "chunk_diffs", "wav_diffs", "golden_diffs", "fixture_failures",
-             "glasses_failures", "g2_failures", "meals_failures")
+             "glasses_failures", "g2_failures", "meals_failures", "report_failures")
 
 
 def direction(key):
@@ -422,6 +422,10 @@ def main():
         results["kotlin"].update(ml)
         notes += [f"mealler: {f}" for f in mfails]
         print(f"[kotlin] mealler {ml.get('meals_passed')}/{ml.get('meals_total')}", flush=True)
+        rp, rfails = kotlin.report()
+        results["kotlin"].update(rp)
+        notes += [f"namaz raporu: {f}" for f in rfails]
+        print(f"[kotlin] namaz raporu {rp['report_passed']}/{rp['report_total']}", flush=True)
 
     if "glasses" in suites and "kotlin" not in suites:
         from lib import kotlin
@@ -434,6 +438,10 @@ def main():
         results["kotlin"].update(ml)
         notes += [f"mealler: {f}" for f in mfails]
         print(f"[glasses] mealler {ml.get('meals_passed')}/{ml.get('meals_total')}", flush=True)
+        rp, rfails = kotlin.report()
+        results["kotlin"].update(rp)
+        notes += [f"namaz raporu: {f}" for f in rfails]
+        print(f"[glasses] namaz raporu {rp['report_passed']}/{rp['report_total']}", flush=True)
 
     if "g2" in suites:
         from lib import g2

@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Functions
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -92,6 +93,7 @@ fun MainScreen(
     onFuzzyTest: () -> Unit = {},
     onStateMachineTest: () -> Unit = {},
     onLogExport: () -> Unit = {},
+    onReport: () -> Unit = {},
     buildLabel: String = "",
     onSimMenuOpen: () -> Unit = {},
     onSimRecording: (File) -> Unit = {},
@@ -147,6 +149,7 @@ fun MainScreen(
                 onFuzzyTest = onFuzzyTest,
                 onStateMachineTest = onStateMachineTest,
                 onLogExport = onLogExport,
+                onReport = onReport,
             )
         } else {
             TopBar(
@@ -160,6 +163,7 @@ fun MainScreen(
                 onFuzzyTest = onFuzzyTest,
                 onStateMachineTest = onStateMachineTest,
                 onLogExport = onLogExport,
+                onReport = onReport,
             )
 
             StatusLine(info = statusLineInfo(state), buildLabel = buildLabel)
@@ -381,6 +385,7 @@ private fun TopBar(
     onFuzzyTest: () -> Unit,
     onStateMachineTest: () -> Unit,
     onLogExport: () -> Unit,
+    onReport: () -> Unit,
 ) {
     val palette = LocalAppPalette.current
     val style = LocalAppStyle.current
@@ -435,11 +440,12 @@ private fun TopBar(
             onFuzzyTest = onFuzzyTest,
             onStateMachineTest = onStateMachineTest,
             onLogExport = onLogExport,
+            onReport = onReport,
         )
     }
 }
 
-/** Ust bar ikonlari: Σ # ▶ 🔬 📤 ⚙ (test sonuclari durum satirinda / panelde). */
+/** Ust bar ikonlari: Σ # ▶ 🔬 📄 📤 ⚙ (test sonuclari durum satirinda / panelde; 📄 namaz raporu). */
 @Composable
 private fun TestIcons(
     spacing: androidx.compose.ui.unit.Dp,
@@ -449,6 +455,7 @@ private fun TestIcons(
     onFuzzyTest: () -> Unit,
     onStateMachineTest: () -> Unit,
     onLogExport: () -> Unit,
+    onReport: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -477,6 +484,12 @@ private fun TestIcons(
             onClick = onAsrTest,
             contentDescription = "ASR Test",
             icon = Icons.Filled.Science,
+        )
+        // Namaz raporu: son 3 kayitta okunan ayetler (Arapca + meal + tefsir)
+        IconBtn(
+            onClick = onReport,
+            contentDescription = "Namaz raporu",
+            icon = Icons.Filled.Description,
         )
         // Log Export
         IconBtn(
@@ -514,6 +527,7 @@ private fun OrnateHeader(
     onFuzzyTest: () -> Unit,
     onStateMachineTest: () -> Unit,
     onLogExport: () -> Unit,
+    onReport: () -> Unit,
 ) {
     val style = LocalAppStyle.current
     val shape = RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)
@@ -577,6 +591,7 @@ private fun OrnateHeader(
                 onFuzzyTest = onFuzzyTest,
                 onStateMachineTest = onStateMachineTest,
                 onLogExport = onLogExport,
+                onReport = onReport,
             )
         }
         Spacer(Modifier.height(10.dp))

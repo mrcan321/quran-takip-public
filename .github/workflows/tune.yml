@@ -114,13 +114,23 @@ jobs:
           FILES: ${{ needs.plan.outputs.transcribe }}
         run: |
           python scripts/eval_pipeline.py --model-dir model --audio $FILES --chains rnnt,rnnt-hibrit --words \
-            --trjson-out new.trjson --summary "$GITHUB_STEP_SUMMARY"
+            --trjson-out new.trjson --summary "$GITHUB_STEP_SUMMARY" | tee eval.log
           python tests/tune.py merge --src new.trjson --dst tests/trjson/asr-model-v2.trjson
+          # kelime zamanlari (TIMELINE yazmak icin; job log'u yerel oturumdan indirilemiyor) → tests/trjson/words/<kayit>.json
+          mkdir -p tests/trjson/words
+          python - <<'PY'
+          import json
+          for line in open("eval.log", encoding="utf-8"):
+              if line.startswith("WORDS "):
+                  d = json.loads(line[6:])
+                  with open(f"tests/trjson/words/{d['file'].removesuffix('.wav')}.json", "w", encoding="utf-8") as f:
+                      json.dump(d, f, ensure_ascii=False)
+          PY
       - name: Dala commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/trjson/asr-model-v2.trjson
+          git add tests/trjson/asr-model-v2.trjson tests/trjson/words
           git diff --cached --quiet && exit 0
           git commit -m "Yeni kayit transkriptleri (ayar denemesi, run ${{ github.run_number }})"
           for i in 1 2 3 4; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep $((i * 5)); done

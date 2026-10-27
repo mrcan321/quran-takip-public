@@ -149,6 +149,19 @@ def meals(asr_dir):
     return {"meals_passed": ok, "meals_total": total, "meals_failures": total - ok}, fails
 
 
+def report():
+    """Namaz raporu (JvmTests report: oturum log'u → namaz / rekat / sure → HTML) → ({report_passed, report_total,
+    report_failures}, hatalar)."""
+    p = subprocess.run([str(JVM_BIN), "report"], capture_output=True, text=True, encoding="utf-8")
+    m = re.search(r"report: (\d+)/(\d+)", p.stdout)
+    fails = [ln.strip() for ln in p.stdout.splitlines() if "BASARISIZ" in ln]
+    if not m:
+        return {"report_passed": 0, "report_total": 0, "report_failures": 1}, \
+            fails + [f"cikti yok ({p.returncode}): {p.stderr[-500:]}"]
+    ok, total = int(m.group(1)), int(m.group(2))
+    return {"report_passed": ok, "report_total": total, "report_failures": total - ok}, fails
+
+
 def glasses():
     """G2 gozluk koprusu kontrolleri (JvmTests glasses) → ({glasses_passed, glasses_total, glasses_failures}, hatalar)."""
     p = subprocess.run([str(JVM_BIN), "glasses"], capture_output=True, text=True, encoding="utf-8")

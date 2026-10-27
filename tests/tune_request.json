@@ -2,10 +2,5 @@
   "group": "A,B",
   "only": "",
   "seeds": 5,
-  "transcribe": [
-    "data/namaz_aksam4_kamet_fatiha_felak_fatiha_nas.wav",
-    "data/namaz_yatsi5_bakara_fatiha_insan.wav",
-    "data/namaz_sabah2_fatiha_hac_fatiha_hac.wav",
-    "data/namaz_yatsi6_fatiha_muminun_fatiha_muminun.wav"
-  ]
+  "transcribe": []
 }

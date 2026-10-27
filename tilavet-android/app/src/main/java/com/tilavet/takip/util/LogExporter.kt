@@ -120,7 +120,11 @@ object LogExporter {
             val intent: Intent
             if (uris.size == 1) {
                 intent = Intent(Intent.ACTION_SEND)
-                intent.type = if (files[0].name.endsWith(".wav")) "audio/wav" else "text/plain"
+                intent.type = when {
+                    files[0].name.endsWith(".wav") -> "audio/wav"
+                    files[0].name.endsWith(".html") -> "text/html"
+                    else -> "text/plain"
+                }
                 intent.putExtra(Intent.EXTRA_STREAM, uris[0])
             } else {
                 intent = Intent(Intent.ACTION_SEND_MULTIPLE)
@@ -129,7 +133,11 @@ object LogExporter {
             }
             intent.putExtra(Intent.EXTRA_SUBJECT, "Tilavet Takip — $names")
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            val title = if (uris.size == 1) "Logu paylaş" else "Log + ses kaydını paylaş"
+            val title = when {
+                uris.size > 1 -> "Log + ses kaydını paylaş"
+                files[0].name.endsWith(".html") -> "Raporu paylaş"
+                else -> "Logu paylaş"
+            }
             val chooser = Intent.createChooser(intent, title).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }

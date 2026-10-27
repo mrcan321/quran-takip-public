@@ -47,6 +47,7 @@ import com.tilavet.takip.ui.theme.AppTheme
 import com.tilavet.takip.util.AssetSync
 import com.tilavet.takip.util.ListenService
 import com.tilavet.takip.util.LogExporter
+import com.tilavet.takip.util.NamazReportBuilder
 import com.tilavet.takip.util.PhoneControl
 import com.tilavet.takip.util.PublicRecordings
 import com.tilavet.takip.util.SessionAudioWriter
@@ -125,6 +126,9 @@ data class UiState(
     val micSilenced: Boolean = false,
     /** Ayarlar → G2 DEMO (0 = kapali, 1-4): gozlukte cerceveli deneme yazisi; ayarlar kapaninca / dinleme baslayinca 0. */
     val glassesDemo: Int = 0,
+    /** Namaz raporu (ana ekran → 📄): hazir HTML dosyasi (gosteriliyor) / hazirlaniyor. */
+    val reportFile: File? = null,
+    val reportBusy: Boolean = false,
     /** Pil kisitlamasindan muaf (arka planda surekli calisabilir) — Ayarlar → ARKA PLANDA ÇALIŞMA. */
     val bgUnrestricted: Boolean = true,
     /** Rahatsiz Etmeyin erisimi (MUTE ON RECORDING tam sessiz icin). */
@@ -1051,6 +1055,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 SessionLog.e(TAG, "Log export basarisiz")
             }
         }
+    }
+
+    /**
+     * Namaz raporu: son 3 kaydin log'undan okunan ayetler (Arapca + secili meal + tefsir) → HTML, uygulama icinde gosterilir
+     * (util/NamazReportBuilder, report/). Kullanici (27.10): "son 3 kayda ait namazda okunan ayetleri guzel bir rapor html
+     * sunsun".
+     */
+    fun openReport() {
+        val s = _state.value
+        if (s.reportBusy) return
+        val m = s.mushaf ?: run {
+            _state.update { it.copy(statusText = "Rapor: Kuran verisi henüz yüklenmedi") }
+            return
+        }
+        val mealName = s.meals.firstOrNull { it.id == mealLoaderId }?.name ?: s.meals.firstOrNull()?.name ?: ""
+        _state.update { it.copy(reportBusy = true) }
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val file = withContext(Dispatchers.IO) {
+                try {
+                    NamazReportBuilder.build(app, m, mealName, AssetSync.sync(app))
+                } catch (e: Exception) {
+                    SessionLog.e(TAG, "Rapor hazirlanamadi", e)
+                    null
+                }
+            }
+            _state.update {
+                if (file == null) it.copy(reportBusy = false, statusText = "Rapor hazırlanamadı")
+                else it.copy(reportBusy = false, reportFile = file)
+            }
+        }
+    }
+
+    fun closeReport() {
+        _state.update { it.copy(reportFile = null) }
+    }
+
+    fun shareReport() {
+        val f = _state.value.reportFile ?: return
+        LogExporter.share(getApplication(), f)
     }
 
     // ============================================================

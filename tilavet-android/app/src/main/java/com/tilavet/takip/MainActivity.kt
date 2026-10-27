@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tilavet.takip.ui.components.ReportDialog
 import com.tilavet.takip.ui.components.SettingsSheet
 import com.tilavet.takip.ui.screens.MainScreen
 import com.tilavet.takip.ui.theme.LocalAppPalette
@@ -118,6 +119,7 @@ private fun AppRoot(viewModel: MainViewModel) {
             onFuzzyTest = { viewModel.runFuzzyTest() },
             onStateMachineTest = { viewModel.runStateMachineTest() },
             onLogExport = { viewModel.exportLog() },
+            onReport = { viewModel.openReport() },
             onEzanDismiss = { viewModel.dismissEzan() },
             onZikirDismiss = { viewModel.dismissZikir() },
             // Durum satirinin en saginda: hangi CI build'i / commit test ediliyor
@@ -128,6 +130,10 @@ private fun AppRoot(viewModel: MainViewModel) {
             onSimPickFile = { wavPicker.launch(arrayOf("audio/*")) },
             onSimStop = { viewModel.toggleListening() },
         )
+
+        state.reportFile?.let { f ->
+            ReportDialog(file = f, onShare = { viewModel.shareReport() }, onDismiss = { viewModel.closeReport() })
+        }
 
         if (state.showSettingsSheet) {
             val context = LocalContext.current

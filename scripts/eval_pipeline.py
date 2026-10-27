@@ -222,6 +222,11 @@ TIMELINE = {
     # 2. Fatiha "الحمد" 320.8, "ألم تعلم" 360.0 (22:70), "المصير" 435.1 (22:72 sonu), "الله" 439.5
     "namaz_sabah2_fatiha_hac_fatiha_hac.wav": [(0, None), (23.1, 1), (67.1, 22), (267, None), (320.6, 1), (359.8, 22),
                                                (441, None)],
+    # yatsi 27.10 (sabit parca transkripti, son kelime zamanlari; kelime zamanli transkript CI log'unda): "الحمد" ~10,
+    # "يا أيها الرسل" ~52 (23:51), "سامرا تهجرون" ~204 (23:67 sonu), tekbir 206, 2. Fatiha "الحمد" ~248, "أفلم يدبروا"
+    # ~287 (23:68), "تبلسون" 394 (23:77 sonu)
+    "namaz_yatsi6_fatiha_muminun_fatiha_muminun.wav": [(0, None), (9.8, 1), (51.5, 23), (207, None), (248.0, 1),
+                                                       (287.0, 23), (397, None)],
 }
 
 

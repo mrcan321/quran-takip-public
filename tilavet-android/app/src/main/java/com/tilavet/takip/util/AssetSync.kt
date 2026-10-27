@@ -39,7 +39,8 @@ object AssetSync {
         "rnnt_decoder.onnx",
         "rnnt_joint.onnx",
     )
-    private val DATA_FILES = listOf("quran.bin", "meal.bin")
+    // tefsir.bin: namaz raporunun tefsiri (scripts/build_tefsir.py; yoksa rapor tefsirsiz)
+    private val DATA_FILES = listOf("quran.bin", "meal.bin", "tefsir.bin")
 
     /** Senkronu yap (gerekiyorsa) ve filesDir/asr klasorunu don. Thread-safe, idempotent. */
     @Synchronized

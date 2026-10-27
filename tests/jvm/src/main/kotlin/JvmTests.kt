@@ -58,6 +58,8 @@ fun main(args: Array<String>) {
         "chunks" -> chunks(File(args[1]), File(args[2]))
         "wav" -> wav(File(args[1]), File(args[2]))
         "glasses" -> glassesTests()
+        "report" -> reportTests()   // namaz raporu: oturum log'u → namaz / rekat / sure → HTML
+        "report-file" -> reportFile(args.drop(1).toList())   // elle bakmak icin: gercek log'lardan rapor HTML'i
         "meals" -> mealTests(File(args[1]))   // <asr dizini>: Ayarlar → MEAL (MealCatalog + MealLoader)
         "glasses-serve" -> glassesServe(File(args[1]), File(args[2]), args.getOrNull(3)?.toInt() ?: 18765)  // g2dir, fontdir
         else -> { System.err.println("bilinmeyen komut ${args[0]}"); 2 }
