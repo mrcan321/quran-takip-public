@@ -1,0 +1,73 @@
+[
+ {
+  "id": "base",
+  "verdict": "temel",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "K3",
+  "verdict": "IYI",
+  "worse": [],
+  "better": [
+   "external/rnnt/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt-hibrit/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "synth/rnnt/synth_hatim4_saood_s1.wav: 1: 6.1→1.1 sn"
+  ]
+ },
+ {
+  "id": "K4",
+  "verdict": "IYI",
+  "worse": [],
+  "better": [
+   "external/rnnt/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt-hibrit/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "synth/rnnt/synth_hatim4_saood_s1.wav: 1: 6.1→1.1 sn"
+  ]
+ },
+ {
+  "id": "K5",
+  "verdict": "IYI",
+  "worse": [],
+  "better": [
+   "external/rnnt/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt-hibrit/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "synth/rnnt/synth_hatim4_saood_s1.wav: 1: 6.1→1.1 sn"
+  ]
+ },
+ {
+  "id": "A9-10",
+  "verdict": "IYI",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "A4-9",
+  "verdict": "IYI",
+  "worse": [],
+  "better": [
+   "external/rnnt/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt-hibrit/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn"
+  ]
+ },
+ {
+  "id": "A5-87",
+  "verdict": "FARK YOK",
+  "worse": [],
+  "better": []
+ }
+]

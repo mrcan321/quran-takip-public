@@ -1,0 +1,1 @@
+{"id": "K3", "group": "A", "desc": "kombinasyon: K2, kilit farki 8", "params": {"UNIQUE_LOCK_MARGIN": 8, "FATIHA_FAST_LOCK_MIN_SCORE": 85, "JUMP_SEARCH_BELOW": 75, "MIN_CONFIDENCE": 55, "AMBIGUOUS_MARGIN": 5.0}, "asr": null}
