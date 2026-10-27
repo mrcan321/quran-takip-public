@@ -1656,8 +1656,10 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     mikrofon filtresi → hepsi ELENDİ (yanlış kilit / ekranda yanlış aday artıyor; ör. 4 sn: Kevser / Ayetel Kürsî / asr.wav hiç
     kilitlenmiyor, cuma 6 yanlış parça); duraklamada en kısa parça 1.0 sn fark yok, 2.0 sn kötü → ses ayarları aynı kaldı.
     B-base (bugünkü ayarla yeniden tanıma) kayıtlı transkriptlerle aynı sonucu veriyor (düzenek doğru).
-  - **C (ekran)**: SES KESİLİNCE METİN süresi `tests.yml` `hide_sweep` (gate `TILAVET_HIDE_SWEEP`, log'da `HIDESWEEP`);
-    ATLANAN AYET SÜRESİ ölçülemiyor (okunabilirlik) — gözlükte artık çizildiği andan sayılıyor (bkz. 30).
+  - **C (ekran)**: SES KESİLİNCE METİN süresi `tests.yml` `hide_sweep` (gate `TILAVET_HIDE_SWEEP`, log'da `HIDESWEEP`), K6 ile
+    gerçek WAV'larda: 1 sn → okuma içinde silme 85, kalkmayan 2, bitiş → silme medyan 2.8 sn; 2 sn → 8 / 1 / 6.4 sn; **3 sn
+    (varsayılan) → 1 / 0 / 7.5 sn**; 4 sn → 1 / 1 / 9.0 sn; 5 sn → 1 / 1 / 11.5 sn → 3 sn kaldı. ATLANAN AYET SÜRESİ
+    ölçülemiyor (okunabilirlik) — gözlükte artık çizildiği andan sayılıyor (bkz. 30).
 
 ---
 
