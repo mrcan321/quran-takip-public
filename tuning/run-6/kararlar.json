@@ -1,0 +1,39 @@
+[
+ {
+  "id": "base",
+  "verdict": "temel",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "A2-60",
+  "verdict": "ELENDI (guvenlik)",
+  "worse": [
+   "replay/rnnt/namaz_aksam4_kamet_fatiha_felak_fatiha_nas.wav: YANLIS ekranda aday 0→1",
+   "replay/rnnt/session_1777027721.wav: YANLIS kilitli parca 0→4, YANLIS Kuran disi kilit None→[7, 20.0]",
+   "replay/rnnt-hibrit/namaz_aksam4_kamet_fatiha_felak_fatiha_nas.wav: YANLIS ekranda aday 0→1",
+   "replay/rnnt-hibrit/namaz_cuma2_kamet_fatiha_tekasur_fatiha_asr.wav: 102: 3.2→6.5 sn",
+   "replay/rnnt-hibrit/namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav: 100: 3.5→7.1 sn",
+   "replay/rnnt-hibrit/session_1777027721.wav: YANLIS kilitli parca 0→4, YANLIS Kuran disi kilit None→[7, 20.0]",
+   "synth/rnnt/synth_teravih8_alafasy_s1.wav: 108: 4.7→9.7 sn, 113: 1.7→6.7 sn, ayet 77→75/85"
+  ],
+  "better": [
+   "replay/rnnt/namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav: 113: 12.0→7.0 sn",
+   "external/rnnt/ext_celil1435_106.wav: ilk kilit 20.0→15.0 sn, 106: 20.0→15.0 sn",
+   "external/rnnt/ext_maher1427_069-Al-haaqqa.wav: ilk kilit 25.0→20.0 sn, 69: 25.0→20.0 sn",
+   "external/rnnt-hibrit/ext_celil1435_106.wav: ilk kilit 20.0→15.0 sn, 106: 20.0→15.0 sn",
+   "external/rnnt-hibrit/ext_maher1427_069-Al-haaqqa.wav: ilk kilit 25.0→20.0 sn, 69: 25.0→20.0 sn"
+  ]
+ },
+ {
+  "id": "A3-4",
+  "verdict": "ELENDI (guvenlik)",
+  "worse": [
+   "synth/rnnt/synth_teravih8_saood_s1.wav: ayet 78→77/85"
+  ],
+  "better": [
+   "external/rnnt/ext_maher1427_069-Al-haaqqa.wav: ilk kilit 25.0→20.0 sn, 69: 25.0→20.0 sn",
+   "external/rnnt-hibrit/ext_maher1427_069-Al-haaqqa.wav: ilk kilit 25.0→20.0 sn, 69: 25.0→20.0 sn"
+  ]
+ }
+]
