@@ -21,6 +21,11 @@ on:
         description: "S4/S5 gurultu tohum sayisi"
         type: string
         default: "5"
+      update_baseline:
+        description: "Baseline + altin dosyalari bu kosunun sonucuyla guncelle ve dala commit'le (bilerek yapilan degisiklik /
+          yeni kayit sonrasi; yerelde Kuran metni yok)"
+        type: boolean
+        default: false
 
 jobs:
   scope:
@@ -106,6 +111,8 @@ jobs:
     if: ${{ needs.scope.outputs.recog == 'true' || needs.scope.outputs.g2 == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120   # hizalama onbellegi bosken (yeni repo / aligner.py degisince) ~45 dk; dolu ~20 dk
+    permissions:
+      contents: write      # update_baseline: baseline'i dala commit'ler
     env:
       TILAVET_ASSETS_DIR: ${{ github.workspace }}/android-assets-staged
     steps:
@@ -183,11 +190,23 @@ jobs:
         env:
           SEEDS: ${{ inputs.seeds || '5' }}
           SUITES: ${{ needs.scope.outputs.suites }}
+          UPDATE: ${{ inputs.update_baseline && '--update-baseline' || '' }}
         run: |
           mkdir -p ~/.cache/tilavet-gate
           TILAVET_ALIGN_CACHE=~/.cache/tilavet-gate/align.pkl python tests/gate.py \
             --assets "$TILAVET_ASSETS_DIR" --seeds "$SEEDS" --suites "$SUITES" \
-            --summary "$GITHUB_STEP_SUMMARY" --results gate-results.json
+            --summary "$GITHUB_STEP_SUMMARY" --results gate-results.json $UPDATE
+
+      - name: Baseline'i dala yaz
+        if: ${{ inputs.update_baseline }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/baseline.json tests/golden
+          if git diff --cached --quiet; then echo "baseline degismedi"; exit 0; fi
+          git diff --cached --stat
+          git commit -q -m "Test kapisi baseline'i guncellendi (run $GITHUB_RUN_NUMBER)"
+          for i in 1 2 3 4; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep $((i * 5)); done
 
   # G2 gozluk eklentisi (tilavet-android/app/src/main/assets/g2) Even Hub simulatorunde: uygulamanin kendi koprusu
   # (GlassesBridge, tests/jvm glasses-serve) senaryodaki durumlari yayinlar, simulator (Xvfb) eklentiyi acar; her adimda
