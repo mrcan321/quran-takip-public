@@ -1,0 +1,1 @@
+{"id": "K1", "group": "A", "desc": "kombinasyon: kilit farki 10 + Fatiha 85 + gecis aramasi 75 (kotulestirmeyenler)", "params": {"UNIQUE_LOCK_MARGIN": 10, "FATIHA_FAST_LOCK_MIN_SCORE": 85, "JUMP_SEARCH_BELOW": 75}, "asr": null}

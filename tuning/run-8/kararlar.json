@@ -1,0 +1,97 @@
+[
+ {
+  "id": "base",
+  "verdict": "temel",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "A1-57",
+  "verdict": "IYI",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "A4-6",
+  "verdict": "ELENDI (guvenlik)",
+  "worse": [],
+  "better": [
+   "replay/rnnt/ihlas.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "replay/rnnt-hibrit/ihlas.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt-hibrit/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn"
+  ]
+ },
+ {
+  "id": "A5-80",
+  "verdict": "ELENDI (guvenlik)",
+  "worse": [
+   "replay/rnnt/namaz_aksam4_kamet_fatiha_felak_fatiha_nas.wav: YANLIS kilitli parca 0→2",
+   "replay/rnnt/namaz_sabah2_fatiha_hac_fatiha_hac.wav: YANLIS kilitli parca 0→2"
+  ],
+  "better": [
+   "replay/rnnt-hibrit/namaz_yatsi5_bakara_fatiha_insan.wav: 1: 6.9→1.9 sn",
+   "external/rnnt/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "synth/rnnt/synth_hatim4_saood_s1.wav: 1: 6.1→1.1 sn"
+  ]
+ },
+ {
+  "id": "A7-70",
+  "verdict": "ELENDI (guvenlik)",
+  "worse": [
+   "external/rnnt/ext_rifai_014_ebrahim.wav: 14: 7.0→12.0 sn"
+  ],
+  "better": []
+ },
+ {
+  "id": "A9-7",
+  "verdict": "FARK YOK",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "K1",
+  "verdict": "IYI",
+  "worse": [],
+  "better": [
+   "external/rnnt/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt-hibrit/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "synth/rnnt/synth_hatim4_saood_s1.wav: 1: 6.1→1.1 sn"
+  ]
+ },
+ {
+  "id": "K2",
+  "verdict": "IYI",
+  "worse": [],
+  "better": [
+   "external/rnnt/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt-hibrit/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "synth/rnnt/synth_hatim4_saood_s1.wav: 1: 6.1→1.1 sn"
+  ]
+ },
+ {
+  "id": "K3",
+  "verdict": "IYI",
+  "worse": [],
+  "better": [
+   "external/rnnt/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_celil1435_112.wav: ilk kilit 10.0→5.0 sn, 112: 10.0→5.0 sn",
+   "external/rnnt-hibrit/ext_collak_112.wav: ilk kilit 15.0→10.0 sn, 112: 15.0→10.0 sn",
+   "external/rnnt-hibrit/ext_rifai_009_altawbah.wav: 1: 10.0→5.0 sn",
+   "synth/rnnt/synth_hatim4_saood_s1.wav: 1: 6.1→1.1 sn"
+  ]
+ }
+]
