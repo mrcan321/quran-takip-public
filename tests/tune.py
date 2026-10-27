@@ -76,6 +76,16 @@ SCENARIOS = {
         ("K3", "kombinasyon: K2, kilit farki 8",
          {"UNIQUE_LOCK_MARGIN": 8, "FATIHA_FAST_LOCK_MIN_SCORE": 85, "JUMP_SEARCH_BELOW": 75, "MIN_CONFIDENCE": 55,
           "AMBIGUOUS_MARGIN": 5.0}),
+        # Run 8 (27.10): K3 kayit kayit kotulestirmeden en iyi; guven 57 teravih bilesiminde ekranda yanlis aday → 55 kalir
+        ("K4", "kombinasyon: K3, belirsiz aday 7",
+         {"UNIQUE_LOCK_MARGIN": 8, "FATIHA_FAST_LOCK_MIN_SCORE": 85, "JUMP_SEARCH_BELOW": 75, "MIN_CONFIDENCE": 55,
+          "AMBIGUOUS_MARGIN": 7.0}),
+        ("K5", "kombinasyon: K3, belirsiz aday 7, guven esigi 52",
+         {"UNIQUE_LOCK_MARGIN": 8, "FATIHA_FAST_LOCK_MIN_SCORE": 85, "JUMP_SEARCH_BELOW": 75, "MIN_CONFIDENCE": 52,
+          "AMBIGUOUS_MARGIN": 7.0}),
+        ("A9-10", "belirsiz aday farki 10", {"AMBIGUOUS_MARGIN": 10.0}),
+        ("A4-9", "tek parcada kilit farki 9", {"UNIQUE_LOCK_MARGIN": 9}),
+        ("A5-87", "Fatiha hizli kilit skoru 87", {"FATIHA_FAST_LOCK_MIN_SCORE": 87}),
     ],
     "B": [
         ("B-base", "ses: bugunku ayarlar", {}, {}),
@@ -326,10 +336,19 @@ def load_rows(out):
     return rows
 
 
+def compose_safety(base_res, cur_res):
+    """Bilesik namazlar (gercek cami parcalarindan teravih / hatim / 4 rekat) kayit kayit listede yok: guvenlik olcusu
+    artarsa da senaryo elenir (A1-57 / A1-60: teravihte ekranda yanlis aday 0 → 1, toplam guvenlik azaldigi icin gozden
+    kaciyordu)."""
+    fb, fc = flatten(base_res.get("compose", {}), "compose."), flatten(cur_res.get("compose", {}), "compose.")
+    return [f"{k}: YANLIS {fb.get(k, 0)}→{v}" for k, v in sorted(fc.items())
+            if k.endswith(tuple("." + x for x in SAFETY)) and v > fb.get(k, 0)]
+
+
 def verdict_of(sc, m, bm, worse, better):
     safety_worse = m["safety"] > bm["safety"] or any("YANLIS" in w for w in worse)
     gain = any((m[k] or 0) > (bm[k] or 0) for k in ("real_locked", "ext_locked", "str_locked", "syn_pct")) or any(
-        (m[k] or 0) < (bm[k] or 0) - 0.05 for k in ("real_mean", "ext_mean", "str_mean"))
+        (m[k] or 0) < (bm[k] or 0) - 0.05 for k in ("real_mean", "ext_mean", "str_mean")) or m["safety"] < bm["safety"]
     if sc["id"] == BASE_OF[sc["group"]]:
         return "temel"
     if safety_worse:
@@ -361,6 +380,7 @@ def cmd_report(a):
         for sc, res, det, st in sorted(grows, key=lambda r: order.index(r[0]["id"]) if r[0]["id"] in order else 999):
             m = summary_metrics(res, st)
             worse, better = per_recording(base[2], det) if det and base[2] else ([], [])
+            worse += compose_safety(base[1], res)
             v = verdict_of(sc, m, bm, worse, better)
             verdicts.append((sc["id"], v, worse, better))
             out_lines.append(
