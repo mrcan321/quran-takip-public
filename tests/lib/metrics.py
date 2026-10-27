@@ -48,7 +48,7 @@ def evaluate_recording(fn, chunks, timeline, expected=None, mod=None):
 def summarize(per_file):
     """Kayit sonuclari → toplam metrikler (baseline ile karsilastirilan)."""
     ok = wrong1 = none = 0
-    t1, delays = [], []
+    t1, delays, shows = [], [], []
     segs_n = locked = wrong = shown = 0
     for fn, r in per_file.items():
         exp = r["expected"]
@@ -67,6 +67,8 @@ def summarize(per_file):
             if lk is not None:
                 locked += 1
                 delays.append(lk)
+            if cd is not None:
+                shows.append(cd)
         wrong += r["wrong"]
         shown += r["shown_wrong"]
     return {
@@ -77,6 +79,9 @@ def summarize(per_file):
         "delay_median": round(statistics.median(delays), 2) if delays else 0.0,
         "delay_mean": round(statistics.mean(delays), 2) if delays else 0.0,
         "wrong_chunks": wrong, "shown_wrong": shown,
+        # Dogru surenin ekranda ilk gorunmesi (kilit ya da gorunen aday; belirsiz / gecis adayi gorunmez)
+        "show_delay_median": round(statistics.median(shows), 2) if shows else 0.0,
+        "show_delay_mean": round(statistics.mean(shows), 2) if shows else 0.0,
     }
 
 

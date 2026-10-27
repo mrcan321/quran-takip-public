@@ -84,6 +84,10 @@ SCENARIOS = {
          {"UNIQUE_LOCK_MARGIN": 8, "FATIHA_FAST_LOCK_MIN_SCORE": 85, "JUMP_SEARCH_BELOW": 75, "MIN_CONFIDENCE": 52,
           "AMBIGUOUS_MARGIN": 7.0}),
         ("A9-10", "belirsiz aday farki 10", {"AMBIGUOUS_MARGIN": 10.0}),
+        # Yeni olcu "ekranda ilk gorunme" (27.10): belirsiz aday farki 5 asr.wav'da dogru adayi gizliyor (103: 20 → 30 sn)
+        # → belirsiz aday 3 kalir
+        ("K6", "kombinasyon: K3, belirsiz aday 3 (degismez)",
+         {"UNIQUE_LOCK_MARGIN": 8, "FATIHA_FAST_LOCK_MIN_SCORE": 85, "JUMP_SEARCH_BELOW": 75, "MIN_CONFIDENCE": 55}),
         ("A4-9", "tek parcada kilit farki 9", {"UNIQUE_LOCK_MARGIN": 9}),
         ("A5-87", "Fatiha hizli kilit skoru 87", {"FATIHA_FAST_LOCK_MIN_SCORE": 87}),
     ],
@@ -269,9 +273,16 @@ def per_recording(base, cur):
                         (w if cf[1] > bf[1] else g).append(f"ilk kilit {bf[1]}→{cf[1]} sn")
                 elif exp is None and (cf is not None) != (bf is not None):
                     (w if cf is not None else g).append(f"{'YANLIS ' if cf else ''}Kuran disi kilit {bf}→{cf}")
-                for (su, lb), (_su2, lc) in zip(b["segs"], c["segs"]):
+                for sb, sc_ in zip(b["segs"], c["segs"]):
+                    su, lb, lc = sb[0], sb[1], sc_[1]
                     if su is None:
                         continue
+                    # ekranda ilk gorunme (kilit ya da gorunen aday) — belirsiz aday gizlenince gecikebilir
+                    db, dc = (sb[2] if len(sb) > 2 else None), (sc_[2] if len(sc_) > 2 else None)
+                    if db is not None and dc is not None and abs(dc - db) > 1.0:
+                        (w if dc > db else g).append(f"{su}: ekranda {db}→{dc} sn")
+                    elif db is not None and dc is None:
+                        w.append(f"{su}: ekranda gorunmedi (once {db} sn)")
                     if lb is not None and lc is None:
                         w.append(f"{su}. sure kilitlenmedi (once {lb} sn)")
                     elif lb is None and lc is not None:
@@ -303,6 +314,7 @@ def summary_metrics(res, asr_stats=None):
         "safety": sum(total(f, s) for s in SAFETY),
         "real_locked": g(f"replay.{h}.sections_locked"), "real_med": g(f"replay.{h}.delay_median"),
         "real_mean": g(f"replay.{h}.delay_mean"), "first_med": g(f"replay.{h}.first_median"),
+        "real_show": g(f"replay.{h}.show_delay_mean"),
         "ext_locked": g(f"external.{h}.sections_locked"), "ext_mean": g(f"external.{h}.delay_mean"),
         "syn_pct": g(f"synth.{h}.ayah_follow_pct"), "syn_lat": g(f"synth.{h}.ayah_latency_median"),
         "str_locked": stress_locked, "str_mean": round(sum(stress_delay) / len(stress_delay), 2) if stress_delay else None,
@@ -373,9 +385,9 @@ def cmd_report(a):
         bm = summary_metrics(base[1], base[3])
         out_lines += [f"### Grup {grp} (temel: {BASE_OF[grp]})", "",
                       "| senaryo | guvenlik (yanlis toplam) | gercek: kilitli bolum | gercek: gecikme medyan / ort "
-                      "| ilk kilit medyan | dis: kilitli / ort | sentetik: ayet % / gecikme | zorlama: kilitli / ort "
+                      "| gercek: ekranda ort | ilk kilit medyan | dis: kilitli / ort | sentetik: ayet % / gecikme | zorlama: kilitli / ort "
                       "| ASR ms/parca | kayit: kotu / iyi | karar |",
-                      "|---|---|---|---|---|---|---|---|---|---|---|"]
+                      "|---|---|---|---|---|---|---|---|---|---|---|---|"]
         order = [s[0] for s in SCENARIOS[grp]]
         for sc, res, det, st in sorted(grows, key=lambda r: order.index(r[0]["id"]) if r[0]["id"] in order else 999):
             m = summary_metrics(res, st)
@@ -387,7 +399,7 @@ def cmd_report(a):
                 f"| {sc['id']} {sc['desc']} | {fmt(m['safety'], bm['safety'], 0)} "
                 f"| {fmt(m['real_locked'], bm['real_locked'], 0, True)} "
                 f"| {fmt(m['real_med'], bm['real_med'], 2)} / {fmt(m['real_mean'], bm['real_mean'], 2)} "
-                f"| {fmt(m['first_med'], bm['first_med'])} "
+                f"| {fmt(m['real_show'], bm['real_show'], 2)} | {fmt(m['first_med'], bm['first_med'])} "
                 f"| {fmt(m['ext_locked'], bm['ext_locked'], 0, True)} / {fmt(m['ext_mean'], bm['ext_mean'], 2)} "
                 f"| {fmt(m['syn_pct'], bm['syn_pct'], 1, True)} / {fmt(m['syn_lat'], bm['syn_lat'], 2)} "
                 f"| {fmt(m['str_locked'], bm['str_locked'], 0, True)} / {fmt(m['str_mean'], bm['str_mean'], 2)} "

@@ -133,7 +133,7 @@ def main():
     def keep(suite, cfg, per):
         """Kayit bazinda: ilk kilit, bolum kilit gecikmeleri, yanlis kilitli parca, ekranda yanlis aday."""
         details.setdefault(suite, {})[cfg] = {
-            fn: {"first": r["first"], "expected": r["expected"], "segs": [[su, lk] for _st, su, lk, _cd in r["segs"]],
+            fn: {"first": r["first"], "expected": r["expected"], "segs": [[su, lk, cd] for _st, su, lk, cd in r["segs"]],
                  "wrong": r["wrong"], "shown_wrong": r["shown_wrong"]} for fn, r in per.items()}
 
     if "replay" in suites:
