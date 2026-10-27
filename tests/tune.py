@@ -143,6 +143,7 @@ def run_one(sc, out_dir, seeds, cache_seed):
     env = {**os.environ, "TILAVET_SM_PARAMS": json.dumps(params), "TILAVET_ALIGN_CACHE": str(cache)}
     if trjson_dir is not None:
         env["TILAVET_TRJSON_DIR"] = str(trjson_dir)
+        env["TILAVET_CONFIGS"] = "rnnt-hibrit"   # run_asr sadece hibrit zinciri uretir (rnnt bos → zorlama testi kirilirdi)
     (d / "scenario.json").write_text(json.dumps({"id": sid, "group": group_of(sid), "desc": desc, "params": params,
                                                  "asr": asr_params(sc)}, ensure_ascii=False))
     t0 = time.time()

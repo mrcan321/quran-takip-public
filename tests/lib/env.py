@@ -25,7 +25,8 @@ import build_state_machine_fixture as sm  # noqa: E402
 import eval_pipeline as ev  # noqa: E402
 from aligner import QuranCorpus  # noqa: E402
 
-CONFIGS = ("rnnt", "rnnt-hibrit")
+# TILAVET_CONFIGS: sadece bu zincirler (tests/tune.py B senaryolari kayitlari sadece hibrit zincirle yeniden taniyor)
+CONFIGS = tuple(c for c in (os.environ.get("TILAVET_CONFIGS") or "rnnt,rnnt-hibrit").split(",") if c)
 
 # ---------------- align_transcription onbellegi ----------------
 _orig_align = aligner.align_transcription
