@@ -1632,6 +1632,19 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   `kararlar.json`; dala commit). Karar: güvenlik ölçüsü (yanlış kilit / ekranda yanlış aday / yanlış ilk kilit / yanlış ayet)
   kötüleşen senaryo ELENDİ; kayıt kayıt kötüleşen + iyileşen KARIŞIK; sadece iyileşen İYİ.
 - Yerel oturumda Kuran metni (alquran.cloud) kapalı, konteyner yeniden başlayınca yerel koşular kayboldu (26.10) → hepsi CI'da.
+- **27.10 sonuçları** (yeni 4 kayıtla; `tuning/run-2`, `run-3`):
+  - Yeni kayıtlarla zorlama testleri büyüdü (bölüm 410 → 485), S4 gürültüde yanlış kilitli parça 15 → 41 bu yüzden (baseline
+    CI'da güncellendi, `tests.yml` `update_baseline`). "Eski kural" senaryoları: bölünmüş selam kuralı güvenliği iyileştiriyor
+    (kapatınca +1); "محمدا" bağlam kuralı S4'te +1 yanlış parça — tek vaka (s0 yatsı): gürültüye düşen semiallah yerine rastgele
+    "محمدا" eski kuralda kamet sayılıp rükûda asılı kilidi tesadüfen sıfırlıyordu; yeni kuralla 2. rekâtta 7:54 / 7:57 kilitli
+    (eskide 26:78 / 21:29 belirsiz aday). Kural kaldı.
+  - Güvenliği bozan (ELENDİ): güven eşiği 40 / 45, ilk kilit 65 / 75 / 80, pencere ±1 / ±3 / ±4, doğal geçiş 70 / 75, geçiş farkı 10,
+    kilit kaybı 4 / 8, belirsiz aday 2, ilk kilit kelime 2 / 4. Kötü: Fatiha 95, doğal geçiş 80, güven 60 (1 sentetik ayet).
+    Kayıt kayıt kötüleştirmeyen: tek parça kilit farkı 10 / 8 (Celil / Çollak İhlas 5 sn erken), Fatiha hızlı kilit 85 (Rifai Tevbe
+    5 sn erken), geçiş araması 75, güven 55 ve belirsiz aday 5 (S4 / S5 yanlış kilitli / ekranda aday azalıyor, gürültüde ort.
+    gecikme +0.01-0.02 sn) → komşu değerler + kombinasyonlar K1-K3 (`tune.py`).
+  - Raporlama hataları düzeltildi: artifact alt klasörü (`tools/tune_rapor.sh`), B senaryoları sadece hibrit zincirle
+    (`TILAVET_CONFIGS`), eski run'ların raporu `rapor_runs` ile yeniden üretilir.
 
 ---
 
