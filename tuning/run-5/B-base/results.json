@@ -1,0 +1,89 @@
+{
+  "replay": {
+    "rnnt-hibrit": {
+      "first_ok": 19,
+      "first_wrong": 0,
+      "first_none": 0,
+      "first_median": 10.0,
+      "first_mean": 9.74,
+      "sections": 97,
+      "sections_locked": 97,
+      "delay_median": 5.2,
+      "delay_mean": 7.04,
+      "wrong_chunks": 1,
+      "shown_wrong": 0
+    }
+  },
+  "stress": {
+    "rnnt-hibrit": {
+      "S1": {
+        "sections": 71,
+        "sections_locked": 70,
+        "delay_median": 5.0,
+        "delay_mean": 6.33,
+        "wrong_chunks": 1,
+        "shown_wrong": 1
+      },
+      "S2": {
+        "sections": 16,
+        "sections_locked": 3,
+        "delay_median": 51.6,
+        "delay_mean": 48.17,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "S3": {
+        "sections": 90,
+        "sections_locked": 89,
+        "delay_median": 6.0,
+        "delay_mean": 7.13,
+        "wrong_chunks": 1,
+        "shown_wrong": 1
+      },
+      "S4": {
+        "sections": 485,
+        "sections_locked": 472,
+        "delay_median": 6.0,
+        "delay_mean": 8.12,
+        "wrong_chunks": 38,
+        "shown_wrong": 13
+      },
+      "S5": {
+        "sections": 485,
+        "sections_locked": 483,
+        "delay_median": 5.2,
+        "delay_mean": 7.08,
+        "wrong_chunks": 13,
+        "shown_wrong": 0
+      }
+    }
+  },
+  "compose": {
+    "rnnt-hibrit": {
+      "teravih": {
+        "sections": 40,
+        "sections_locked": 40,
+        "delay_median": 5.0,
+        "delay_mean": 7.16,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "hatimle": {
+        "sections": 4,
+        "sections_locked": 4,
+        "delay_median": 10.4,
+        "delay_mean": 9.93,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      },
+      "4_rekatli": {
+        "sections": 4,
+        "sections_locked": 4,
+        "delay_median": 8.9,
+        "delay_mean": 8.85,
+        "wrong_chunks": 0,
+        "shown_wrong": 0
+      }
+    }
+  }
+}
