@@ -1,1 +1,20 @@
-[]
+[
+ {
+  "id": "base",
+  "verdict": "temel",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "A0-eski-selam",
+  "verdict": "ELENDI (guvenlik)",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "A0-eski-muhammed",
+  "verdict": "FARK YOK",
+  "worse": [],
+  "better": []
+ }
+]
