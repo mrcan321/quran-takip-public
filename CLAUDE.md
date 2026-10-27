@@ -1652,6 +1652,12 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     arama eşiği 80 → 75. Kayıt kayıt 0 kötü / 7 iyi (Celil / Çollak İhlâs ilk kilit 10 → 5 / 15 → 10 sn, Rifai Tevbe Fatiha
     10 → 5 sn, sentetik hatim Fatiha 6.1 → 1.1 sn), güvenlik toplamı 106 → 95 (zorlama yanlış kilitli parça S4 41 → 36 /
     29 → 24), ekranda görünme aynı; bedel: S4 gürültüde ort. gecikme +0.01 sn. Python ref + app.py + Kotlin'e taşındı.
+  - **B (ses / ASR, run 5)**: parça süresi 4 / 6 / 7 sn, bindirme 0.5 / 1.5 sn, duraklama 0.3 / 0.7 sn, ses hızı 0.9 / 1.1 / 1.2,
+    mikrofon filtresi → hepsi ELENDİ (yanlış kilit / ekranda yanlış aday artıyor; ör. 4 sn: Kevser / Ayetel Kürsî / asr.wav hiç
+    kilitlenmiyor, cuma 6 yanlış parça); duraklamada en kısa parça 1.0 sn fark yok, 2.0 sn kötü → ses ayarları aynı kaldı.
+    B-base (bugünkü ayarla yeniden tanıma) kayıtlı transkriptlerle aynı sonucu veriyor (düzenek doğru).
+  - **C (ekran)**: SES KESİLİNCE METİN süresi `tests.yml` `hide_sweep` (gate `TILAVET_HIDE_SWEEP`, log'da `HIDESWEEP`);
+    ATLANAN AYET SÜRESİ ölçülemiyor (okunabilirlik) — gözlükte artık çizildiği andan sayılıyor (bkz. 30).
 
 ---
 

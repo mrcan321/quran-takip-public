@@ -32,6 +32,7 @@ Kullanim:
 """
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -333,46 +334,63 @@ def main():
             ph = Path(td) / "hide.trjson"
             env.write_trjson(ph, {"rnnt-hibrit": {fn: ch for fn, ch in T.get("rnnt-hibrit", {}).items()
                                                   if fn in env.ev.TIMELINE}})
-            hd = kotlin.events_hide(args.assets, ph, env.REPO / "data")
-            hfalse = hmiss = 0
-            hlat = []
-            for (cfg, fn), lines in sorted(hd.items()):
-                tl = env.ev.TIMELINE[fn]
-                try:
-                    import soundfile as sf
-                    rec_end = sf.info(str(env.REPO / "data" / fn)).duration
-                except Exception:
-                    hch = T.get(cfg, {}).get(fn) or []
-                    rec_end = env.chunk_time(hch[-1], len(hch) - 1) if hch else 1e9
-                hides = [float(x.split()[1]) for x in lines if x.startswith("HIDE")]
-                shows = [(float(x.split()[1]), int(x.split()[2])) for x in lines if x.startswith("SHOW")]
+            def hide_eval(hd):
+                hfalse = hmiss = 0
+                hlat = []
+                for (cfg, fn), lines in sorted(hd.items()):
+                    tl = env.ev.TIMELINE[fn]
+                    try:
+                        import soundfile as sf
+                        rec_end = sf.info(str(env.REPO / "data" / fn)).duration
+                    except Exception:
+                        hch = T.get(cfg, {}).get(fn) or []
+                        rec_end = env.chunk_time(hch[-1], len(hch) - 1) if hch else 1e9
+                    hides = [float(x.split()[1]) for x in lines if x.startswith("HIDE")]
+                    shows = [(float(x.split()[1]), int(x.split()[2])) for x in lines if x.startswith("SHOW")]
 
-                def shown_surah(h):
-                    prev = [s for t, s in shows if t <= h]
-                    return prev[-1] if prev else None
-                for i, (t0, su) in enumerate(tl):
-                    t1 = tl[i + 1][0] if i + 1 < len(tl) else 1e9
-                    if su is not None:
-                        # yanlis silme: o an okunan surenin metni kalkti (eski sureninki kalkarsa dogru)
-                        bad = [h for h in hides if t0 + 3 < h < t1 - 1 and shown_surah(h) == su]
-                        hfalse += len(bad)
-                        notes += [f"metin okuma icinde kalkti: {fn} {su} @ {h:.1f}" for h in bad]
-                    elif i > 0 and tl[i - 1][1] is not None:
-                        after = [h for h in hides if t0 - 1 <= h < t1]
-                        if after:
-                            hlat.append(round(after[0] - t0, 1))
-                        elif i + 1 == len(tl) and rec_end - t0 < HIDE_NO_MATCH_SEC:
-                            # kayit okumadan hemen sonra bitiyor (ortam sesi surerken metin en gec 20 sn'de kalkar):
-                            # olculemez (asr 21.10: son ayetten 5 sn sonra kayit bitti)
-                            notes.append(f"metin silme olculemedi (kayit {rec_end - t0:.0f} sn sonra bitti): {fn} @ {t0}")
-                        else:
-                            hmiss += 1
-                            notes.append(f"metin okuma bitince kalkmadi: {fn} @ {t0}")
+                    def shown_surah(h):
+                        prev = [s for t, s in shows if t <= h]
+                        return prev[-1] if prev else None
+                    for i, (t0, su) in enumerate(tl):
+                        t1 = tl[i + 1][0] if i + 1 < len(tl) else 1e9
+                        if su is not None:
+                            # yanlis silme: o an okunan surenin metni kalkti (eski sureninki kalkarsa dogru)
+                            bad = [h for h in hides if t0 + 3 < h < t1 - 1 and shown_surah(h) == su]
+                            hfalse += len(bad)
+                            notes.extend(f"metin okuma icinde kalkti: {fn} {su} @ {h:.1f}" for h in bad)
+                        elif i > 0 and tl[i - 1][1] is not None:
+                            after = [h for h in hides if t0 - 1 <= h < t1]
+                            if after:
+                                hlat.append(round(after[0] - t0, 1))
+                            elif i + 1 == len(tl) and rec_end - t0 < HIDE_NO_MATCH_SEC:
+                                # kayit okumadan hemen sonra bitiyor (ortam sesi surerken metin en gec 20 sn'de kalkar):
+                                # olculemez (asr 21.10: son ayetten 5 sn sonra kayit bitti)
+                                notes.append(f"metin silme olculemedi (kayit {rec_end - t0:.0f} sn sonra bitti): {fn} @ {t0}")
+                            else:
+                                hmiss += 1
+                                notes.append(f"metin okuma bitince kalkmadi: {fn} @ {t0}")
+                return hfalse, hmiss, hlat
+            hd = kotlin.events_hide(args.assets, ph, env.REPO / "data")
+            hfalse, hmiss, hlat = hide_eval(hd)
             results["kotlin"]["hide_false"] = hfalse
             results["kotlin"]["hide_missing"] = hmiss
             results["kotlin"]["hide_latency_median"] = round(float(sorted(hlat)[len(hlat) // 2]), 1) if hlat else None
             results["kotlin"]["hide_latency_max"] = max(hlat) if hlat else None
             print(f"[kotlin] ses kesilince metin: okuma icinde {hfalse}, bitis → silme {hlat}, kalkmayan {hmiss}", flush=True)
+            # Ayar denemesi (SES KESILINCE METIN suresi): TILAVET_HIDE_SWEEP="1,2,4,5" → her sure icin ayni olcu, sadece log /
+            # not (baseline'a girmez)
+            for hv in [x for x in (os.environ.get("TILAVET_HIDE_SWEEP") or "").split(",") if x.strip()]:
+                os.environ["TILAVET_HIDE_HOLD_SEC"] = hv.strip()
+                try:
+                    sf_, sm_, sl_ = hide_eval(kotlin.events_hide(args.assets, ph, env.REPO / "data"))
+                finally:
+                    os.environ.pop("TILAVET_HIDE_HOLD_SEC", None)
+                rec = {"hold_sec": float(hv), "hide_false": sf_, "hide_missing": sm_,
+                       "hide_latency_median": round(float(sorted(sl_)[len(sl_) // 2]), 1) if sl_ else None,
+                       "hide_latency_max": max(sl_) if sl_ else None, "latencies": sl_}
+                print("HIDESWEEP " + json.dumps(rec), flush=True)
+                notes.append(f"SES KESILINCE METIN {hv} sn: okuma icinde silme {sf_}, kalkmayan {sm_}, "
+                             f"bitis → silme medyan {rec['hide_latency_median']} sn, en cok {rec['hide_latency_max']} sn")
             results["kotlin"]["golden_diffs"] = golden_diffs
             pc = Path(td) / "comp.trjson"
             env.write_trjson(pc, {cfg: {name: ch for name, ch, *_ in compositions.get(cfg, [])} for cfg in env.CONFIGS})

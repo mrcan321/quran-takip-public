@@ -21,6 +21,10 @@ on:
         description: "S4/S5 gurultu tohum sayisi"
         type: string
         default: "5"
+      hide_sweep:
+        description: "Ayar denemesi: SES KESILINCE METIN sureleri (sn, virgulle; log'da HIDESWEEP satirlari)"
+        type: string
+        default: ""
       update_baseline:
         description: "Baseline + altin dosyalari bu kosunun sonucuyla guncelle ve dala commit'le (bilerek yapilan degisiklik /
           yeni kayit sonrasi; yerelde Kuran metni yok)"
@@ -191,6 +195,7 @@ jobs:
           SEEDS: ${{ inputs.seeds || '5' }}
           SUITES: ${{ needs.scope.outputs.suites }}
           UPDATE: ${{ inputs.update_baseline && '--update-baseline' || '' }}
+          TILAVET_HIDE_SWEEP: ${{ inputs.hide_sweep }}
         run: |
           mkdir -p ~/.cache/tilavet-gate
           TILAVET_ALIGN_CACHE=~/.cache/tilavet-gate/align.pkl python tests/gate.py \

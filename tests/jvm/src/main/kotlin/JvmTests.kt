@@ -195,7 +195,8 @@ private fun zikir(assets: File, trjson: File, out: File): Int {
 private fun hide(assets: File, trjson: File, wavDir: File, out: File): Int {
     val (idx, al) = engine(assets)
     val sm = StateMachine(idx, al).apply { minConfidenceFirstLock = 70.0 }
-    val holdSec = TextHold.DEFAULT_TENTHS / 10.0
+    // TILAVET_HIDE_HOLD_SEC: ayar denemesi (SES KESILINCE METIN suresi; tests/gate.py TILAVET_HIDE_SWEEP)
+    val holdSec = System.getenv("TILAVET_HIDE_HOLD_SEC")?.toDoubleOrNull() ?: (TextHold.DEFAULT_TENTHS / 10.0)
     val sb = StringBuilder()
     for ((cfg, files) in readTrjson(trjson)) for ((fn, chunks) in files) {
         val wav = File(wavDir, fn)
