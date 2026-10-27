@@ -23,6 +23,10 @@ on:
         description: "Sadece bu senaryolar (virgulle; bos = gruptakilerin hepsi)"
         type: string
         default: ""
+      rapor_runs:
+        description: "Sadece rapor: bu ayar denemesi run'larinin (id, virgulle) sonuclarindan raporu yeniden uret"
+        type: string
+        default: ""
 
 # Istek dosyasi push'lari ayni grupta (yeni istek eskisini keser); elle baslatilan kucuk kosu (only) ayri grupta, paralel
 concurrency:
@@ -31,6 +35,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: read      # rapor_runs: baska run'in artifact'leri
 
 env:
   MODEL_TAG: asr-model-v2
@@ -38,6 +43,7 @@ env:
 jobs:
   plan:
     name: Plan
+    if: ${{ inputs.rapor_runs == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -211,7 +217,7 @@ jobs:
   rapor:
     name: Rapor
     needs: senaryo
-    if: ${{ always() }}
+    if: ${{ always() && needs.senaryo.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -226,13 +232,7 @@ jobs:
           pattern: tune-*
           path: sonuc
       - name: Kiyas
-        run: |
-          D="tuning/run-${{ github.run_number }}"
-          mkdir -p "$D"
-          for a in sonuc/tune-*; do id="${a#sonuc/tune-}"; mkdir -p "$D/$id"; cp "$a"/*.json "$D/$id/" 2>/dev/null || true; done
-          python tests/tune.py report --out "$D" --summary "$GITHUB_STEP_SUMMARY" --json "$D/kararlar.json" > "$D/rapor.md"
-          cat "$D/rapor.md"
-          rm -f "$D"/*/details.json   # kayit kayit ayrinti rapor.md / kararlar.json'da; dosyalar buyuk
+        run: bash tools/tune_rapor.sh sonuc "tuning/run-${{ github.run_number }}" "$GITHUB_STEP_SUMMARY"
       - name: Dala commit
         run: |
           git config user.name "github-actions[bot]"
@@ -240,4 +240,36 @@ jobs:
           git add tuning
           git diff --cached --quiet && exit 0
           git commit -m "Ayar denemesi raporu (run ${{ github.run_number }})"
+          for i in 1 2 3 4; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep $((i * 5)); done
+
+  # Raporu yeniden uret (rapor adimi duzeltildikten sonra eski run'lar icin): artifact'ler run'dan indirilir
+  rapor_yeniden:
+    name: Rapor (yeniden)
+    if: ${{ inputs.rapor_runs != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUNS: ${{ inputs.rapor_runs }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Kiyas
+        run: |
+          for id in ${RUNS//,/ }; do
+            n=$(gh run view "$id" -R "$GITHUB_REPOSITORY" --json number -q .number)
+            gh run download "$id" -R "$GITHUB_REPOSITORY" -p 'tune-*' -D "sonuc/$id" || echo "::warning::$id artifact yok"
+            bash tools/tune_rapor.sh "sonuc/$id" "tuning/run-$n" "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Dala commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tuning
+          git diff --cached --quiet && exit 0
+          git commit -m "Ayar denemesi raporu yeniden (run id: $RUNS)"
           for i in 1 2 3 4; do git pull --rebase -q origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME" && break; sleep $((i * 5)); done
