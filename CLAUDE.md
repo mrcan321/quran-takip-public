@@ -1682,6 +1682,9 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     ilk zammda da (23:78 ilk parçada, En'âm hiç). 16 cami namazı tarih sırasıyla zincirlenince başka hiçbir kayıt değişmiyor.
     Test düzeneği: `eval_pipeline.PREV_ZAMM` + `session_state`, `env.run_sm(fn=)`, TRJSON `"zamm"` (Kotlin iz). Simülasyonda yok.
   - Rapor: taze geçiş düzeltmesinden önceki kısa yanlış bölüm (`FRESH_FIX_MAX_CHUNKS`) raporda yok.
+  - Test kapısı (yeni kayıtla): Kotlin = Python 328 kayıt-zincir, app.py 8309 parça fark 0; gerçek kayıtlarda kilitli bölüm 97 →
+    101, gecikme ort. 7.04 → 6.89 sn; yatsı 22.10 (rnnt) 3. rekât semiallahı 5 sn erken ("من الحمد"). Zorlama testlerindeki
+    artış yeni kaydın kendisinden (aynı veride eski kurallar ya aynı ya kötü) → baseline CI'da güncellendi.
   - Sonuç (sabah 28.10, hibrit): Mü'minûn kilidi 18 → 3 sn, yanlış kilitli parça 1 → 0, 2. rekât zammı 8.9 → 3.9 sn; rnnt 6.3 →
     1.3 sn. "Eski kural" senaryoları (`tuning/run-14`): her biri kapatılınca ya kötü ya aynı (hiçbir kayıt kötüleşmiyor).
   - **Tekbir / ilk selam** (alınmadı): 16 namazda tekbirlerin çoğu ASR'de kayıp (2 rekâtta ~11 tekbirden 1-7'si). İlk selam
