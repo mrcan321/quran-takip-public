@@ -1,0 +1,24 @@
+[
+ {
+  "id": "base",
+  "verdict": "temel",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "A0-eski-menhamd",
+  "verdict": "KOTU",
+  "worse": [
+   "replay/rnnt-hibrit/namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav: 23: ekranda 3.9→8.9 sn, 23: 3.9→8.9 sn"
+  ],
+  "better": []
+ },
+ {
+  "id": "A0-eski-taze",
+  "verdict": "KOTU",
+  "worse": [
+   "replay/rnnt-hibrit/namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav: 23: ekranda 8.0→18.0 sn, 23: 8.0→18.0 sn"
+  ],
+  "better": []
+ }
+]
