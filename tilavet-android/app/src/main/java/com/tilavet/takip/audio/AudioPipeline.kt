@@ -33,6 +33,8 @@ data class PipelineResult(
     val pauseCut: Boolean,
     /** Parcanin bittigi an, oturum basindan itibaren ses saniyesi (simulasyonda dosyadaki konum). */
     val audioEndSec: Double = 0.0,
+    /** Parcadan sonra son zamm konumu (sure, ayet) — util/ZammMemory bir sonraki namaza saklar. */
+    val zamm: Pair<Int, Int>? = null,
 )
 
 /** Pipeline'dan UI'a giden olaylar — sirali (son parca sonucu "bitti"den once gelir). */
@@ -79,6 +81,8 @@ class AudioPipeline(
     private val aligner: Aligner,
     private val sessionDir: File? = null,
     private val onSessionEnd: (() -> Unit)? = null,
+    /** Onceki namazin son zamm konumu (util/ZammMemory; mikrofonda): kaldigi yerden devam onceligi. */
+    private val initialZamm: Pair<Int, Int>? = null,
 ) {
 
     companion object {
@@ -123,6 +127,11 @@ class AudioPipeline(
                 "windowSlack=${aligner.defaultWindowSlack} decoder=${asrEngine.activeDecoder} parca=hibrit(kilitli: duraklama, degil: 5sn)")
 
         sessionState.reset()
+        if (!source.isSimulation && initialZamm != null) {
+            sessionState.zammSurah = initialZamm.first
+            sessionState.zammAyah = initialZamm.second
+            SessionLog.d(TAG, "onceki namazin kaldigi yer: ${initialZamm.first}:${initialZamm.second} (devam onceligi)")
+        }
         voice.reset()
         _isRunning.value = true
         _audioSeconds.value = 0
@@ -232,7 +241,8 @@ class AudioPipeline(
                                 " (parca=$cutStr rms=${"%.4f".format(rms)} asr=${asrMs}ms sm=${smMs}ms gecikme=${lagMs}ms " +
                                 "t=${"%.1f".format(chunk.endSec)}s) txt='${text.take(60)}'")
 
-                        _events.emit(PipelineEvent.Chunk(PipelineResult(result, chunk.endNanos, chunk.pauseCut, chunk.endSec)))
+                        val zamm = sessionState.zammSurah?.let { zs -> sessionState.zammAyah?.let { za -> zs to za } }
+                        _events.emit(PipelineEvent.Chunk(PipelineResult(result, chunk.endNanos, chunk.pauseCut, chunk.endSec, zamm)))
                     }
 
                     chunkIndex++

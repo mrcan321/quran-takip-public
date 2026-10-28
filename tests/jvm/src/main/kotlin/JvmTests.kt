@@ -95,6 +95,14 @@ private fun fixtures(assets: File, out: File): Int {
 /** TRJSON parcasi: rms, metin, parca bitis zamani (yoksa 5 sn izgarasi). */
 private data class Chunk(val rms: Double, val text: String, val endSec: Double)
 
+/** Kaydin onceki namazindan kalan zamm konumu (TRJSON "zamm": eval_pipeline.PREV_ZAMM; uygulamada util/ZammMemory). */
+private val prevZamm = HashMap<String, Pair<Int, Int>>()
+
+/** Yeni oturum durumu: kayit onceki namazin devamiysa son zamm konumuyla (Python eval_pipeline.session_state ile ayni). */
+private fun sessionState(fn: String): SessionState = SessionState().apply {
+    prevZamm[fn]?.let { (s, a) -> zammSurah = s; zammAyah = a }
+}
+
 private fun readTrjson(f: File): Map<String, Map<String, List<Chunk>>> {
     val byCfg = sortedMapOf<String, MutableMap<String, List<Chunk>>>()
     for (line in f.readLines()) {
@@ -111,6 +119,7 @@ private fun readTrjson(f: File): Map<String, Map<String, List<Chunk>>> {
             )
         }
         byCfg.getOrPut(d.getString("config")) { sortedMapOf() }[d.getString("file")] = list
+        d.optJSONArray("zamm")?.let { z -> prevZamm[d.getString("file")] = z.getInt(0) to z.getInt(1) }
     }
     return byCfg
 }
@@ -120,7 +129,7 @@ private fun trace(assets: File, trjson: File, out: File): Int {
     val sm = StateMachine(idx, al).apply { minConfidenceFirstLock = 70.0 }
     val sb = StringBuilder()
     for ((cfg, files) in readTrjson(trjson)) for ((fn, chunks) in files) {
-        val st = SessionState()
+        val st = sessionState(fn)
         val cells = chunks.mapIndexed { k, c ->
             val r = sm.processChunk(c.rms, c.text, k, st)
             when (r.status) {
@@ -142,7 +151,7 @@ private fun rakat(assets: File, trjson: File, out: File): Int {
     val sm = StateMachine(idx, al).apply { minConfidenceFirstLock = 70.0 }
     val sb = StringBuilder()
     for ((cfg, files) in readTrjson(trjson)) for ((fn, chunks) in files) {
-        val st = SessionState()
+        val st = sessionState(fn)
         val rt = RakatTracker()
         var last: String? = null
         val lines = ArrayList<String>()
@@ -165,7 +174,7 @@ private fun zikir(assets: File, trjson: File, out: File): Int {
     val sm = StateMachine(idx, al).apply { minConfidenceFirstLock = 70.0 }
     val sb = StringBuilder()
     for ((cfg, files) in readTrjson(trjson)) for ((fn, chunks) in files) {
-        val st = SessionState()
+        val st = sessionState(fn)
         val ez = EzanTracker()
         val zt = ZikirTracker()
         var ezOpen = false
@@ -201,7 +210,7 @@ private fun hide(assets: File, trjson: File, wavDir: File, out: File): Int {
     for ((cfg, files) in readTrjson(trjson)) for ((fn, chunks) in files) {
         val wav = File(wavDir, fn)
         if (!wav.exists()) continue
-        val st = SessionState()
+        val st = sessionState(fn)
         // (gorunme zamani, parca RMS'i | kamet → null | tilavet sonu → -1 (MainViewModel vurguyu siler), gosterilen sure)
         val shows = ArrayList<Triple<Double, Double?, Int>>()
         for ((k, c) in chunks.withIndex()) {
@@ -262,7 +271,7 @@ private fun ezan(assets: File, trjson: File, out: File): Int {
     val sm = StateMachine(idx, al).apply { minConfidenceFirstLock = 70.0 }
     val sb = StringBuilder()
     for ((cfg, files) in readTrjson(trjson)) for ((fn, chunks) in files) {
-        val st = SessionState()
+        val st = sessionState(fn)
         val ez = EzanTracker()
         for ((k, c) in chunks.withIndex()) {
             val r = sm.processChunk(c.rms, c.text, k, st)

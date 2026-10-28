@@ -52,6 +52,7 @@ import com.tilavet.takip.util.PhoneControl
 import com.tilavet.takip.util.PublicRecordings
 import com.tilavet.takip.util.SessionAudioWriter
 import com.tilavet.takip.util.SessionLog
+import com.tilavet.takip.util.ZammMemory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -199,6 +200,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     @Volatile
     private var pipeline: AudioPipeline? = null
+    /** util/ZammMemory'ye son yazilan zamm konumu (her parcada tekrar yazilmasin). */
+    private var lastSavedZamm: Pair<Int, Int>? = null
 
     @Volatile
     private var mealLoader: MealLoader? = null
@@ -387,8 +390,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // 3. Pipeline olustur (duyulan ses cacheDir/sessions/ altina WAV + oturum log'u olarak da kaydedilir;
                 //    oturum bitince Download/Tilavet Takip'e kopyalanir — bkz. PublicRecordings)
                 val app = getApplication<Application>()
+                // Onceki namazin son zamm konumu (hatim: kaldigi yerden devam) — simulasyonda kullanilmaz
+                val prevZamm = if (simFile == null) ZammMemory.load(app) else null
+                lastSavedZamm = prevZamm?.first
                 val p = AudioPipeline(source, asrEngine, quranIndex!!, aligner!!, sessionDir = app.cacheDir,
-                    onSessionEnd = { onSessionEnd(app) })
+                    onSessionEnd = { onSessionEnd(app) }, initialZamm = prevZamm?.first)
                 pipeline = p
 
                 // Tuner ayarlarini settings'ten yukle
@@ -678,6 +684,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun handleChunkResult(pr: PipelineResult) {
         val result = pr.result
+        // Son zamm konumu bir sonraki namaz icin (simulasyonda yazilmaz)
+        if (_state.value.simFile == null && pr.zamm != null && pr.zamm != lastSavedZamm) {
+            lastSavedZamm = pr.zamm
+            ZammMemory.save(getApplication(), pr.zamm)
+        }
         handleZikir(pr, handleEzan(pr))
         rakatTracker.onChunk(result, pr.audioEndSec)?.let { SessionLog.d(TAG, "[rekat] t=${"%.1f".format(pr.audioEndSec)}s $it") }
         val rakatLabel = rakatTracker.label(pr.audioEndSec)

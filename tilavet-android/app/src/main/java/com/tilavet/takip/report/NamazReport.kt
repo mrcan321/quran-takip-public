@@ -25,7 +25,13 @@ object NamazReport {
     /** Yeni sureye ilk eslesme bu ayete kadarsa bolum surenin basindan (AyahStepper.MAX_OPENING + 1). */
     const val OPENING = 5
 
-    class Segment(val surah: Int, val from: Int, var to: Int)
+    class Segment(val surah: Int, val from: Int, var to: Int) {
+        /** Bu bolume eslesen parca sayisi (taze gecis duzeltmesinde kisa yanlis bolum atilir). */
+        var chunks = 0
+    }
+
+    /** Taze gecis duzeltmesinden once en fazla bu kadar parcalik yanlis bolum raporda gosterilmez (StateMachine FRESH_JUMP_CHUNKS). */
+    const val FRESH_FIX_MAX_CHUNKS = 2
 
     /** [no] null = kayit namazin ortasinda basladi (rekat bilinmiyor); [silent] = sessiz rekat (3. / 4.). */
     class Rakat(val no: Int?, val silent: Boolean = false) {
@@ -64,6 +70,15 @@ object NamazReport {
                 if (state != "FATIHA" && state != "ZAMM") return
                 val t = m.groupValues[3].replace(',', '.').toDoubleOrNull()
                 if (cur.firstSec == null) cur.firstSec = t
+                // Taze gecis duzeltmesi (sabah 28.10: "وهو الذي أنشأ" 6:141 / 23:78 esit, bir parca En'am → hemen 23:78):
+                // Fatiha'dan sonraki kisa yanlis bolum okunmadi, raporda olmasin
+                if (l.contains("taze gecis duzeltmesi")) {
+                    val r = rakat
+                    val last = r?.segments?.lastOrNull()
+                    if (r != null && last != null && last.surah != 1 && last.chunks <= FRESH_FIX_MAX_CHUNKS) {
+                        r.segments.removeAt(r.segments.size - 1)
+                    }
+                }
                 for (v in m.groupValues[2].split(',')) {
                     val (s, a) = v.split(':').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 2 } ?: continue
                     add(s, a)
@@ -113,6 +128,7 @@ object NamazReport {
             }
             if (last != null && last.surah == s && a >= last.from - 2 && a <= last.to + GAP_FILL) {
                 if (a > last.to) last.to = a
+                last.chunks++
                 return
             }
             // onceki rekatta (ayni namazda) bu surede kalinan yerden devam
@@ -122,7 +138,7 @@ object NamazReport {
                 a <= OPENING && prev == null -> 1
                 else -> a
             }
-            r.segments += Segment(s, from, a)
+            r.segments += Segment(s, from, a).also { it.chunks = 1 }
         }
 
         fun close() {

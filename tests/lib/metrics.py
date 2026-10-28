@@ -28,7 +28,7 @@ def shown_wrong_candidates(results, chunks, timeline):
 def evaluate_recording(fn, chunks, timeline, expected=None, mod=None):
     """Tek kayit → {first: (sure, sn) | None, segs: [(bas, sure, kilit, aday)], wrong, shown_wrong}"""
     mod = mod or env.sm
-    results = env.run_sm(chunks, mod)
+    results = env.run_sm(chunks, mod, fn)
     first = None
     for k, r in enumerate(results):
         if r["status"] == "matched":
@@ -37,7 +37,7 @@ def evaluate_recording(fn, chunks, timeline, expected=None, mod=None):
     out = {"first": first, "expected": expected, "segs": [], "wrong": 0, "shown_wrong": 0,
            "trace": " ".join(env.decision_cell(k, r) for k, r in enumerate(results))}
     if timeline:
-        segs, wrong, _trace, _adv = ev.track_file(mod, chunks, env.corpus(), env.aux(), timeline)
+        segs, wrong, _trace, _adv = ev.track_file(mod, chunks, env.corpus(), env.aux(), timeline, fn=fn)
         out["segs"] = [(st, su, None if lk is None else round(lk, 1), None if cd is None else round(cd, 1))
                        for st, su, lk, cd in segs]
         out["wrong"] = wrong

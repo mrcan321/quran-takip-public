@@ -81,7 +81,7 @@ def trace_parity(assets, recs_by_cfg):
     for cfg, recs in recs_by_cfg.items():
         for fn, chunks in recs.items():
             n += 1
-            py = " ".join(env.decision_cell(k, r) for k, r in enumerate(env.run_sm(chunks)))
+            py = " ".join(env.decision_cell(k, r) for k, r in enumerate(env.run_sm(chunks, fn=fn)))
             if kt.get((cfg, fn)) != py:
                 diffs += 1
                 if len(ex) < 5:

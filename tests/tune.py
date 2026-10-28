@@ -37,6 +37,7 @@ SCENARIOS = {
         ("A0-eski-menhamd", "eski kural: \"من الحمد\" semiallah degil", {"SEMIALLAH_MEN_HAMD": False}),
         ("A0-eski-taze", "eski kural: taze gecis duzeltmesi sadece sure acilisina", {"FRESH_JUMP_ANY_AYAH": False}),
         ("A0-eski-hamdan", "eski kural: tek basina \"حمدا\" semiallah degil", {"SEMIALLAH_TAIL": ["حمده", "حميده"]}),
+        ("A0-eski-hafiza", "eski: onceki namazin kaldigi yer hatirlanmaz", {"PREV_ZAMM": {}}),
         ("A1-40", "guven esigi (kilitli) 40", {"MIN_CONFIDENCE": 40}),
         ("A1-45", "guven esigi (kilitli) 45", {"MIN_CONFIDENCE": 45}),
         ("A1-55", "guven esigi (kilitli) 55", {"MIN_CONFIDENCE": 55}),

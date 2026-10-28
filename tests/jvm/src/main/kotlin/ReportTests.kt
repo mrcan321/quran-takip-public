@@ -80,6 +80,21 @@ fun reportTests(): Int {
         b.getOrNull(1)?.segments?.joinToString { "${it.surah}:${it.from}-${it.to}" } ?: "-"
     }
 
+    // Sabah 28.10 gibi: Fatiha sonunda 6:141'e dogal gecis (6:141 / 23:78 esit), sonraki parca taze gecis duzeltmesiyle 23:78
+    // → raporda En'am bolumu yok
+    val sabah = listOf(
+        chunk(10, "BEKLEME", "FATIHA", "1:2", "55,0"),
+        "07:02:01.560 D MainViewModel: [rekat] t=55,0s 1. rekat (Fatiha)",
+        chunk(16, "FATIHA", "FATIHA", "1:7", "85,0"),
+        chunk(19, "FATIHA", "ZAMM", "6:141", "96,7").replace("[kilitli takip]", "[kilitli takip; dogal gecis]"),
+        chunk(20, "ZAMM", "ZAMM", "23:78", "101,7").replace("[kilitli takip]",
+            "[kilitli takip; taze gecis duzeltmesi: 23:78 100,0 (pencere 54,3; gecis parcasi 23:77-78 ayet basina oturuyor)]"),
+        chunk(25, "ZAMM", "ZAMM", "23:81", "126,7"),
+    )
+    val sb = NamazReport.parse(sabah.asSequence()).firstOrNull()?.rakats?.firstOrNull()?.segments
+        ?.joinToString(" ") { "${it.surah}:${it.from}-${it.to}" }
+    ok("taze gecis duzeltmesi: yanlis bolum yok", sb == "1:1-7 23:78-81") { "$sb" }
+
     // HTML
     val text = object : ReportHtml.Text {
         override val mealName = "Ali Bulaç"

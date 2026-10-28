@@ -547,12 +547,29 @@ def timeline_for(fn):
     return None
 
 
-def track_file(sm_mod, chunks, corpus, aux, timeline):
+# Onceki namazin son zamm konumu (uygulama: util/ZammMemory, 48 saat): hatimle okuyan imam ertesi namazda kaldigi yerden
+# devam eder; Fatiha sonundaki gecis aramasinda devam penceresi (bkz. CONTINUE_*) ilk zammda da kullanilir. Sabah 28.10:
+# dunku yatsi 23:77'de bitti, "وهو الذي أنشأ" 6:141 / 23:78 ayni skor → 23:78. Kayitlar tarih sirasiyla zincirlenince sadece
+# bu kayit degisiyor (16 cami namazi, iki zincir).
+PREV_ZAMM = {
+    "namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav": (23, 77),   # yatsi 27.10 sonu
+}
+
+
+def session_state(sm_mod, fn=None):
+    """Yeni oturum durumu; kayit onceki namazin devamiysa son zamm konumuyla (bkz. PREV_ZAMM)."""
+    state = sm_mod.SessionState()
+    if fn in PREV_ZAMM:
+        state.zamm_surah, state.zamm_ayah = PREV_ZAMM[fn]
+    return state
+
+
+def track_file(sm_mod, chunks, corpus, aux, timeline, fn=None):
     """Kaydi bastan sona state machine'den gecir; her sure bolumu icin kilit/aday gecikmesi,
     yanlis kilitli chunk sayisi ve ekranin sonraki ayete on-kaydirmasi (MainViewModel kurali).
     Zamanlar parca bitisi (sabit parcada (k+1)*5 sn)."""
     ayah_to_range, surah_counts, vocab = aux
-    state = sm_mod.SessionState()
+    state = session_state(sm_mod, fn)
     results = []
     for idx, c in enumerate(chunks):
         r = sm_mod.process_chunk_simulated(c[0], c[1], idx, state, corpus, ayah_to_range, surah_counts, vocab)
@@ -655,7 +672,8 @@ def simulate_tracking(files, configs, transcripts, corpora, sm_mod=None):
             orig_align = sm_mod.align_transcription
             sm_mod.align_transcription = lambda *a, **k: orig_align(*a, **{**k, "window_slack": WINDOW_SLACK})
             try:
-                segs, wrong, trace, adv = track_file(sm_mod, transcripts[name].get(f.name, []), corpus, aux[co_name], tl)
+                segs, wrong, trace, adv = track_file(sm_mod, transcripts[name].get(f.name, []), corpus, aux[co_name], tl,
+                                                     fn=f.name)
             finally:
                 sm_mod.align_transcription = orig_align
             print(f"[takip {name:6s}] {f.name}: {trace}", flush=True)

@@ -69,7 +69,7 @@ def save_cache():
 # modul sabitleri ve telefon varsayilanlari (eval_pipeline WINDOW_SLACK / FIRST_LOCK_THRESHOLD) bu degerlerle. Sadece Python
 # kumeleri icin (app / kotlin birebirligi bilerek bozulur).
 SM_PARAMS = json.loads(os.environ.get("TILAVET_SM_PARAMS") or "{}")
-EV_PARAMS = ("WINDOW_SLACK", "FIRST_LOCK_THRESHOLD")
+EV_PARAMS = ("WINDOW_SLACK", "FIRST_LOCK_THRESHOLD", "PREV_ZAMM")
 for _k in EV_PARAMS:
     if _k in SM_PARAMS:
         setattr(ev, _k, SM_PARAMS[_k])
@@ -163,18 +163,20 @@ def write_trjson(path, recs):
     with open(path, "w", encoding="utf-8") as f:
         for cfg in sorted(recs):
             for fn in sorted(recs[cfg]):
-                f.write("TRJSON " + json.dumps({"config": cfg, "file": fn, "chunks": recs[cfg][fn]},
-                                                ensure_ascii=False) + "\n")
+                d = {"config": cfg, "file": fn, "chunks": recs[cfg][fn]}
+                if fn in ev.PREV_ZAMM:
+                    d["zamm"] = list(ev.PREV_ZAMM[fn])   # Kotlin iz: onceki namazin son zamm konumu
+                f.write("TRJSON " + json.dumps(d, ensure_ascii=False) + "\n")
 
 
 def chunk_time(c, k):
     return ev.chunk_time(c, k)
 
 
-def run_sm(chunks, mod=None):
-    """Parcalari state machine'den gecir → sonuc listesi."""
+def run_sm(chunks, mod=None, fn=None):
+    """Parcalari state machine'den gecir → sonuc listesi (fn: onceki namazin zamm konumu, eval_pipeline.PREV_ZAMM)."""
     mod = mod or sm
-    st = mod.SessionState()
+    st = ev.session_state(mod, fn)
     a = aux()
     return [mod.process_chunk_simulated(c[0], c[1] or "", k, st, corpus(), *a) for k, c in enumerate(chunks)]
 
