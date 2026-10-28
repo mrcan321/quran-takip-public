@@ -1661,6 +1661,35 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     (varsayılan) → 1 / 0 / 7.5 sn**; 4 sn → 1 / 1 / 9.0 sn; 5 sn → 1 / 1 / 11.5 sn → 3 sn kaldı. ATLANAN AYET SÜRESİ
     ölçülemiyor (okunabilirlik) — gözlükte artık çizildiği andan sayılıyor (bkz. 30).
 
+### 33. Sabah 28.10 (APK #128): rükûda ileri ayetler, En'âm yanlış kilidi, tekbir / ilk selam (APK build #129+)
+- `data/namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav` (camide telefon, 10.1 dk): kamet 0-25 → iftitah 37 → Fatiha 51 →
+  Mü'minûn 23:78 (93.7) .. 23:92 (240) → rükû 245 → semiallah 255 → Fatiha 299 → 23:93 (339.9) .. 23:104 (449) → rükû 451 → selam
+  553 / 563. TRJSON + kelime zamanları **yerelde gerçek ASR'yle** (model `asr-model-v2` release'inden REST ile iniyor:
+  `gh api -H "Accept: application/octet-stream" repos/<repo>/releases/assets/<id>`; `onnxruntime` + `sentencepiece`, 10 dk ses
+  ~5 dk, iki zincir + `--words`). Telefon log'undaki hibrit metinler yerel ASR ile birebir.
+- Kullanıcı: "ilk rekâtta rükûya eğilirken ileriki ayetler gösterildi"; "raporda En'âm'a kilitlenmiş"; "tekbir ve ilk selamı
+  duymadı". Bulgular → düzeltmeler (Python ref + app.py + Kotlin birebir):
+  - **Semiallah "من الحمد"**: "لمن حمده" 259.9 sn'de ASR'de "من الحمد" → 23:97'ye 76 (`paused_weak` 70 altını eliyordu) → rükûda
+    23:93-97 ara ayet olarak ekranda (2. rekâtta okundu). "(ل)من الحمد" Kuran'da yok, transkriptlerde sadece semiallahta (yatsı
+    22.10 sabit parça da) → `semiallah_pair` (namaz_signal / strip / ZikirTracker kartı).
+  - **Semiallah sonu "حمدا"**: 2. rekâtta tek kelime "حمدا" (465 sn) rükû sinyali vermiyordu; Kuran'da yok, tüm transkriptlerde
+    sadece semiallahta → `SEMIALLAH_TAIL`.
+  - **"وهو الذي أنشأ" 6:141 / 23:78 aynı skor** (ikisi de ayet başı): Fatiha sonunda 6:141'e doğal geçiş, 15 sn En'âm. (1) Taze
+    geçiş düzeltmesi sure ortasında da (`FRESH_JUMP_ANY_AYAH`): sonraki parça başka surenin 3+. ayetinde ≥ 80 ve geçiş parçası o
+    ayetin (ya da bir öncekinin) başına ≥ 77 oturuyorsa hemen geçilir (15 → 5 sn). (2) **Önceki namazın kaldığı yer**
+    (`util/ZammMemory`, 48 sa): imam hatimle okuyor (Taha → Enbiyâ → Hac → Mü'minûn; dünkü yatsı 23:77'de bitti) → son zamm
+    konumu telefonda saklanır, mikrofon oturumunda `SessionState.zammSurah/Ayah` başlangıcı → Fatiha sonundaki devam penceresi
+    ilk zammda da (23:78 ilk parçada, En'âm hiç). 16 cami namazı tarih sırasıyla zincirlenince başka hiçbir kayıt değişmiyor.
+    Test düzeneği: `eval_pipeline.PREV_ZAMM` + `session_state`, `env.run_sm(fn=)`, TRJSON `"zamm"` (Kotlin iz). Simülasyonda yok.
+  - Rapor: taze geçiş düzeltmesinden önceki kısa yanlış bölüm (`FRESH_FIX_MAX_CHUNKS`) raporda yok.
+  - Sonuç (sabah 28.10, hibrit): Mü'minûn kilidi 18 → 3 sn, yanlış kilitli parça 1 → 0, 2. rekât zammı 8.9 → 3.9 sn; rnnt 6.3 →
+    1.3 sn. "Eski kural" senaryoları (`tuning/run-14`): her biri kapatılınca ya kötü ya aynı (hiçbir kayıt kötüleşmiyor).
+  - **Tekbir / ilk selam** (alınmadı): 16 namazda tekbirlerin çoğu ASR'de kayıp (2 rekâtta ~11 tekbirden 1-7'si). İlk selam
+    553-560 iki 5 sn parçaya bölündü; 12 sn pencereli kelime transkriptinde bile sadece "سلام … الله". Deney: okuma dışında her
+    ses patlamasını ayrı ASR → tekbir ~44 → 58, semiallah aynı, selam 29 → 14, 231 patlama uydurma ("شركة الهدى", "شكراً
+    للمتابعة"), 342 boş → pipeline'a alınmadı. Asıl çözüm cami verisiyle ince ayar (açık sorun 19: tekbir / semiallah / selam
+    etiketleri).
+
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)
