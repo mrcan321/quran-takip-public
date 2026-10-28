@@ -444,7 +444,9 @@ SEMIALLAH_HEAD_MAX = 2
 SEMIALLAH_HEAD_LEN = 5
 # Tek basina semiallah sonu: "حمده", "حميده" (yatsi 22.10: "لمَن حميده"; Kuran'da "لمن"den sonra "حم" ile baslayan kelime yok —
 # sadece "لمن حارب", "لمن حوله" — "لمن حم…" da semiallah)
-SEMIALLAH_TAIL = {"حمده", "حميده"}
+# "حمدا" de (sabah 28.10, 2. rekat semiallahi tek kelime "حمدا" → rukû sinyali kacti; aksam "سمع الله من حمداً", yatsi
+# "سمع الله لمن حمدا"): Kuran'da yok, tum transkriptlerde (RNNT + CTC) sadece semiallahta.
+SEMIALLAH_TAIL = {"حمده", "حميده", "حمدا"}
 # Semiallah "لمن حمده" ASR'de "من الحمد" (sabah 28.10: rukûdan kalkis 259.9 sn → 23:97'ye 76, rukûda ekranda henuz okunmamis
 # 23:93-97; yatsi 22.10 sabit parca 485 sn ayni). "(ل)من الحمد" Kuran'da yok (korpus), transkriptlerde sadece semiallahta.
 SEMIALLAH_MEN_HAMD = True   # ayar denemesi "eski kural" anahtari — uygulamada hep acik

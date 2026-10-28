@@ -745,7 +745,9 @@ TEKBIR_WORDS = {"اكبر", "اغبر", "اكبار"}
 SEMIALLAH_HEAD_MAX = 2
 SEMIALLAH_HEAD_LEN = 5
 # Tek basina semiallah sonu ("حمده", "حميده"); "لمن حم…" (Kuran'da "لمن"den sonra sadece "حارب", "حوله"; yatsi 22.10 "لمَن حميده")
-SEMIALLAH_TAIL = {"حمده", "حميده"}
+# "حمدا" de (sabah 28.10, 2. rekat semiallahi tek kelime "حمدا" → rukû sinyali kacti; aksam "سمع الله من حمداً", yatsi
+# "سمع الله لمن حمدا"): Kuran'da yok, tum transkriptlerde (RNNT + CTC) sadece semiallahta.
+SEMIALLAH_TAIL = {"حمده", "حميده", "حمدا"}
 # Semiallah "لمن حمده" ASR'de "من الحمد" (sabah 28.10: rukûdan kalkis 259.9 sn → 23:97'ye 76, rukûda ekranda henuz okunmamis
 # 23:93-97; yatsi 22.10 sabit parca 485 sn ayni). "(ل)من الحمد" Kuran'da yok (korpus), transkriptlerde sadece semiallahta.
 
