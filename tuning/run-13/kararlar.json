@@ -1,0 +1,14 @@
+[
+ {
+  "id": "base",
+  "verdict": "temel",
+  "worse": [],
+  "better": []
+ },
+ {
+  "id": "A0-eski-hamdan",
+  "verdict": "ELENDI (guvenlik)",
+  "worse": [],
+  "better": []
+ }
+]
