@@ -6,14 +6,14 @@
       "first_none": 0,
       "first_median": 10.0,
       "first_mean": 9.74,
-      "sections": 97,
-      "sections_locked": 97,
-      "delay_median": 6.0,
-      "delay_mean": 7.24,
+      "sections": 101,
+      "sections_locked": 101,
+      "delay_median": 5.9,
+      "delay_mean": 7.11,
       "wrong_chunks": 0,
-      "shown_wrong": 0,
-      "show_delay_median": 5.6,
-      "show_delay_mean": 6.83
+      "shown_wrong": 1,
+      "show_delay_median": 5.3,
+      "show_delay_mean": 6.72
     },
     "rnnt-hibrit": {
       "first_ok": 19,
@@ -21,25 +21,25 @@
       "first_none": 0,
       "first_median": 10.0,
       "first_mean": 9.74,
-      "sections": 97,
-      "sections_locked": 97,
-      "delay_median": 5.2,
-      "delay_mean": 7.04,
+      "sections": 101,
+      "sections_locked": 101,
+      "delay_median": 5.0,
+      "delay_mean": 6.89,
       "wrong_chunks": 1,
       "shown_wrong": 0,
       "show_delay_median": 5.0,
-      "show_delay_mean": 6.68
+      "show_delay_mean": 6.54
     }
   },
   "stress": {
     "rnnt": {
       "S1": {
-        "sections": 71,
-        "sections_locked": 71,
+        "sections": 75,
+        "sections_locked": 75,
         "delay_median": 5.3,
-        "delay_mean": 7.18,
+        "delay_mean": 7.07,
         "wrong_chunks": 0,
-        "shown_wrong": 0
+        "shown_wrong": 1
       },
       "S2": {
         "sections": 16,
@@ -50,37 +50,37 @@
         "shown_wrong": 0
       },
       "S3": {
-        "sections": 90,
-        "sections_locked": 90,
-        "delay_median": 6.35,
-        "delay_mean": 7.68,
+        "sections": 95,
+        "sections_locked": 95,
+        "delay_median": 6.3,
+        "delay_mean": 7.6,
         "wrong_chunks": 0,
-        "shown_wrong": 0
+        "shown_wrong": 1
       },
       "S4": {
-        "sections": 485,
-        "sections_locked": 474,
-        "delay_median": 6.5,
-        "delay_mean": 8.51,
-        "wrong_chunks": 24,
-        "shown_wrong": 7
+        "sections": 505,
+        "sections_locked": 499,
+        "delay_median": 6.4,
+        "delay_mean": 8.29,
+        "wrong_chunks": 19,
+        "shown_wrong": 19
       },
       "S5": {
-        "sections": 485,
-        "sections_locked": 483,
+        "sections": 505,
+        "sections_locked": 503,
         "delay_median": 6.0,
-        "delay_mean": 7.34,
-        "wrong_chunks": 4,
-        "shown_wrong": 0
+        "delay_mean": 7.35,
+        "wrong_chunks": 2,
+        "shown_wrong": 5
       }
     },
     "rnnt-hibrit": {
       "S1": {
-        "sections": 71,
-        "sections_locked": 70,
+        "sections": 75,
+        "sections_locked": 74,
         "delay_median": 5.0,
-        "delay_mean": 6.33,
-        "wrong_chunks": 1,
+        "delay_mean": 6.24,
+        "wrong_chunks": 2,
         "shown_wrong": 1
       },
       "S2": {
@@ -92,28 +92,28 @@
         "shown_wrong": 0
       },
       "S3": {
-        "sections": 90,
-        "sections_locked": 89,
-        "delay_median": 6.0,
-        "delay_mean": 7.13,
-        "wrong_chunks": 1,
+        "sections": 95,
+        "sections_locked": 94,
+        "delay_median": 5.95,
+        "delay_mean": 7.05,
+        "wrong_chunks": 2,
         "shown_wrong": 1
       },
       "S4": {
-        "sections": 485,
-        "sections_locked": 470,
-        "delay_median": 6.0,
-        "delay_mean": 8.25,
-        "wrong_chunks": 36,
-        "shown_wrong": 8
+        "sections": 505,
+        "sections_locked": 495,
+        "delay_median": 5.9,
+        "delay_mean": 8.02,
+        "wrong_chunks": 31,
+        "shown_wrong": 11
       },
       "S5": {
-        "sections": 485,
-        "sections_locked": 484,
-        "delay_median": 5.2,
-        "delay_mean": 7.08,
-        "wrong_chunks": 9,
-        "shown_wrong": 0
+        "sections": 505,
+        "sections_locked": 503,
+        "delay_median": 5.0,
+        "delay_mean": 6.96,
+        "wrong_chunks": 15,
+        "shown_wrong": 1
       }
     }
   },
@@ -173,15 +173,15 @@
   },
   "signals": {
     "signal_false_alarms": 1,
-    "kamet_detected": 99,
-    "selam_detected": 117,
-    "ruku_detected": 97,
-    "texts_scanned": 7663,
+    "kamet_detected": 107,
+    "selam_detected": 120,
+    "ruku_detected": 106,
+    "texts_scanned": 8082,
     "ezan_detected": 0
   },
   "app": {
     "app_diffs": 0,
-    "chunks": 8061
+    "chunks": 8309
   },
   "kotlin": {
     "fuzzy_passed": 51,
@@ -192,21 +192,21 @@
     "state_machine_total": 651,
     "fixture_failures": 0,
     "kotlin_trace_diffs": 0,
-    "kotlin_trace_recordings": 322,
+    "kotlin_trace_recordings": 328,
     "golden_diffs": 0,
     "rakat_errors": 0,
     "namaz_errors": 0,
     "chunk_diffs": 0,
-    "chunk_cases": 96,
+    "chunk_cases": 98,
     "wav_diffs": 0,
-    "wav_cases": 36,
+    "wav_cases": 37,
     "synth_rakat_errors": 0,
     "synth_namaz_errors": 1,
     "ext_ezan_opened": 6,
     "ext_ezan_false_opened": 0,
     "ext_rakat_errors": 0,
     "zikir_false_alarms": 0,
-    "zikir_shown": 405,
+    "zikir_shown": 420,
     "glasses_passed": 72,
     "glasses_total": 72,
     "glasses_failures": 0,
@@ -217,8 +217,8 @@
     "meals_passed": 59,
     "meals_total": 59,
     "meals_failures": 0,
-    "report_passed": 21,
-    "report_total": 21,
+    "report_passed": 22,
+    "report_total": 22,
     "report_failures": 0
   },
   "synth": {

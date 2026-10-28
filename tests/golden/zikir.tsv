@@ -57,6 +57,13 @@ rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	375.0 SELAM
 rnnt	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	380.0 SELAM
 rnnt	namaz_sabah2_fatiha_hac_fatiha_hac.wav	10.0 TEKBIR
 rnnt	namaz_sabah2_fatiha_hac_fatiha_hac.wav	455.0 SEMIALLAH
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	20.0 TEKBIR ezan
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	40.0 TEKBIR
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	260.0 SEMIALLAH
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	280.0 TEKBIR
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	465.0 SEMIALLAH
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	595.0 DUA
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	600.0 DUA
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	315.0 TEKBIR
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	420.0 TEKBIR
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	430.0 SEMIALLAH
@@ -73,6 +80,7 @@ rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	845.0 DUA
 rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	850.0 DUA
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	5.0 TEKBIR
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	245.0 TEKBIR
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	485.0 SEMIALLAH
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	490.0 SEMIALLAH
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	565.0 TEKBIR
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	630.0 SELAM
@@ -163,6 +171,15 @@ rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	373.5 SELAM
 rnnt-hibrit	namaz_cuma_kamet_fatiha_enbiya_fatiha_insirah.wav	378.5 SELAM
 rnnt-hibrit	namaz_sabah2_fatiha_hac_fatiha_hac.wav	10.0 TEKBIR
 rnnt-hibrit	namaz_sabah2_fatiha_hac_fatiha_hac.wav	452.5 SEMIALLAH
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	20.0 TEKBIR ezan
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	40.0 TEKBIR
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	259.9 SEMIALLAH
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	291.8 TEKBIR
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	453.7 TEKBIR
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	465.2 SEMIALLAH
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	565.1 SELAM
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	595.1 DUA
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	600.1 DUA
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	316.4 TEKBIR
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	430.1 SEMIALLAH
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	450.1 TEKBIR

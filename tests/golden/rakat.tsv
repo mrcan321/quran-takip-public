@@ -103,6 +103,16 @@ rnnt	namaz_sabah2_fatiha_hac_fatiha_hac.wav	455.0 olay 2. rekat rukû (semiallah
 rnnt	namaz_sabah2_fatiha_hac_fatiha_hac.wav	455.0 etiket 2. REKÂT · RÜKÛ / SECDE
 rnnt	namaz_sabah2_fatiha_hac_fatiha_hac.wav	525.0 etiket 2. REKÂT SONRASI · SESSİZ
 rnnt	namaz_sabah2_fatiha_hac_fatiha_hac.wav	son rekat=2 toplam=0 namaz=0
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	55.0 olay 1. rekat (Fatiha)
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	55.0 etiket 1. REKÂT · KIYAM
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	260.0 olay 1. rekat rukû (semiallah)
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	260.0 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	305.0 olay 2. rekat (Fatiha)
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	305.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	465.0 olay 2. rekat rukû (semiallah)
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	465.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	535.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	son rekat=2 toplam=0 namaz=0
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	70.0 olay 1. rekat (Fatiha)
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	70.0 etiket 1. REKÂT · KIYAM
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	290.0 etiket 1. REKÂT · RÜKÛ / SECDE
@@ -135,9 +145,9 @@ rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	265.0 olay 2. rekat (Fat
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	265.0 etiket 2. REKÂT · KIYAM
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	415.0 etiket 2. REKÂT · RÜKÛ / SECDE
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	460.0 etiket 2. REKÂT SONRASI · SESSİZ
-rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	490.0 olay sessiz rekat: 3. rekat (semiallah, okumadan 100 sn sonra)
-rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	490.0 etiket 3. REKÂT · RÜKÛ / SECDE
-rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	560.0 etiket 3. REKÂT SONRASI · SESSİZ
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	485.0 olay sessiz rekat: 3. rekat (semiallah, okumadan 95 sn sonra)
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	485.0 etiket 3. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	555.0 etiket 3. REKÂT SONRASI · SESSİZ
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	630.0 olay selam (namaz bitti, 4 rekat)
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	630.0 etiket SELAM
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	655.0 etiket -
@@ -351,6 +361,19 @@ rnnt-hibrit	namaz_sabah2_fatiha_hac_fatiha_hac.wav	452.5 olay 2. rekat rukû (se
 rnnt-hibrit	namaz_sabah2_fatiha_hac_fatiha_hac.wav	452.5 etiket 2. REKÂT · RÜKÛ / SECDE
 rnnt-hibrit	namaz_sabah2_fatiha_hac_fatiha_hac.wav	522.5 etiket 2. REKÂT SONRASI · SESSİZ
 rnnt-hibrit	namaz_sabah2_fatiha_hac_fatiha_hac.wav	son rekat=2 toplam=0 namaz=0
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	55.0 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	55.0 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	259.9 olay 1. rekat rukû (semiallah)
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	259.9 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	301.8 olay 2. rekat (Fatiha)
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	301.8 etiket 2. REKÂT · KIYAM
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	465.2 olay 2. rekat rukû (semiallah)
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	465.2 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	540.1 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	565.1 olay selam (namaz bitti, 2 rekat)
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	565.1 etiket SELAM
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	590.1 etiket -
+rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	son rekat=0 toplam=2 namaz=1
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	70.0 olay 1. rekat (Fatiha)
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	70.0 etiket 1. REKÂT · KIYAM
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	290.9 etiket 1. REKÂT · RÜKÛ / SECDE
