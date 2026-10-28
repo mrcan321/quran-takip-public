@@ -33,6 +33,9 @@ SCENARIOS = {
         # 27.10 duzeltmelerinin yeni veride etkisi (kullanici: "hicbir degisiklik kotuye gotururmemeli"): eski kural
         ("A0-eski-selam", "eski kural: bolunmus selam sinyal degil", {"SELAM_SPLIT_SIGNAL": False}),
         ("A0-eski-muhammed", "eski kural: tek basina \"محمدا\" kamet", {"MUHAMMAD_CONTEXT": False}),
+        # 28.10 sabah duzeltmeleri: "من الحمد" semiallah, taze gecis duzeltmesi sure ortasinda
+        ("A0-eski-menhamd", "eski kural: \"من الحمد\" semiallah degil", {"SEMIALLAH_MEN_HAMD": False}),
+        ("A0-eski-taze", "eski kural: taze gecis duzeltmesi sadece sure acilisina", {"FRESH_JUMP_ANY_AYAH": False}),
         ("A1-40", "guven esigi (kilitli) 40", {"MIN_CONFIDENCE": 40}),
         ("A1-45", "guven esigi (kilitli) 45", {"MIN_CONFIDENCE": 45}),
         ("A1-55", "guven esigi (kilitli) 55", {"MIN_CONFIDENCE": 55}),

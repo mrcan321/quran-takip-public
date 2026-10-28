@@ -143,6 +143,10 @@ OPENING_PREFER_MARGIN = 1.0
 # parcasi o acilisa >= ilk kilit esigi oturuyorsa gecilir (aksam 22.10: "فما جاء النصر" 15:61 → "والله والفتح" 110:1)
 FRESH_JUMP_CHUNKS = 2
 FRESH_JUMP_MIN_SCORE = 80
+# Taze gecis duzeltmesi sure ortasinda da: ayni ifade iki surede ayet basinda (sabah 28.10: "وهو الذي أنشأ" 6:141 / 23:78
+# ayni skor, Fatiha sonunda 6:141'e dogal gecis; imam dunku yatsinin kaldigi 23:78'den devam ediyordu). Sonraki parca tum
+# Kuran'da baska surenin 3+. ayetinde >= FRESH_JUMP_MIN_SCORE ve gecis parcasi o ayetin (ya da bir oncekinin) basina
+# >= NATURAL_MIN_SCORE oturuyorsa (sirali) gecilir: iki parca ayni yeri gosteriyor. 6:141 ekranda 15 → 5 sn.
 # Erken Fatiha: zamm'da son saglam eslesmeden (>= 3 kelime, >= ilk kilit esigi) bu kadar parca gecmeden gelen, Fatiha'nin
 # 1-2. ayetinde biten eslesme gecis adayi olur, sonraki parca dogrularsa gecilir (aksam 22.10: secde tekbiri basi ASR'de
 # "الحمد لله رب العالمين" → "yeni rekat")
@@ -742,6 +746,15 @@ SEMIALLAH_HEAD_MAX = 2
 SEMIALLAH_HEAD_LEN = 5
 # Tek basina semiallah sonu ("حمده", "حميده"); "لمن حم…" (Kuran'da "لمن"den sonra sadece "حارب", "حوله"; yatsi 22.10 "لمَن حميده")
 SEMIALLAH_TAIL = {"حمده", "حميده"}
+# Semiallah "لمن حمده" ASR'de "من الحمد" (sabah 28.10: rukûdan kalkis 259.9 sn → 23:97'ye 76, rukûda ekranda henuz okunmamis
+# 23:93-97; yatsi 22.10 sabit parca 485 sn ayni). "(ل)من الحمد" Kuran'da yok (korpus), transkriptlerde sadece semiallahta.
+
+
+def semiallah_pair(a, b):
+    """Semiallah ikilisi: "لمن حم…" ya da "(ل)من الحمد"."""
+    return (a == "لمن" and b.startswith("حم")) or (a in ("من", "لمن") and b == "الحمد")
+
+
 KAMET_WORDS = {"الفلاح", "قامت", "محمدا"}
 KAMET_PAIRS = {("اشهد", "ان"), ("اشهد", "انه"), ("اشهد", "لا"), ("ان", "محمد"), ("الله", "محمد"), ("قد", "قام"),
                ("قام", "الصلاه"), ("قام", "بالصلاه"), ("حي", "علي"), ("حي", "الصلاه"), ("الصلاه", "حي"),
@@ -909,7 +922,7 @@ def strip_namaz_phrases(text: str) -> Tuple[str, int]:
                 k = 4 if i + 3 < n and norms[i + 3].startswith("حمد") else 3
         elif norms[i] == "ربنا" and i + 2 < n and norms[i + 1] in ("لك", "ولك") and norms[i + 2] == "الحمد":
             k = 3
-        elif norms[i] == "لمن" and i + 1 < n and norms[i + 1].startswith("حم"):
+        elif i + 1 < n and semiallah_pair(norms[i], norms[i + 1]):
             k = 2
             back = 0
             while keep and back < SEMIALLAH_HEAD_MAX and len(bare_token(keep[-1])) <= SEMIALLAH_HEAD_LEN:
@@ -984,7 +997,7 @@ def namaz_signal(text: str) -> Optional[str]:
     if any((a == "السلام" and b in ("عليكم", "عليك")) or (a in ("عليكم", "عليك") and b in ("ورحمه", "رحمه"))
            for a, b in zip(toks, toks[1:])):
         return "selam"
-    if any(t in SEMIALLAH_TAIL for t in toks) or any(a == "لمن" and b.startswith("حم") for a, b in zip(toks, toks[1:])):
+    if any(t in SEMIALLAH_TAIL for t in toks) or any(semiallah_pair(a, b) for a, b in zip(toks, toks[1:])):
         return "ruku"
     return None
 
@@ -1477,6 +1490,16 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 pm = align_transcription(fj[1], CORPUS, preferred_range=ow, preferred_bonus=PREFERRED_BONUS)
                 if (pm and is_opening_match(pm) and pm.start_word_idx <= g.start_word_idx
                         and score_transcription(fj[1], pm)[0] >= MIN_CONFIDENCE_FIRST_LOCK):
+                    match, score, score_details = g, gs, g_details
+                    fresh_fix = True
+                    result["fresh_jump_fix"] = True
+            elif gfs != state.last_surah:
+                # Sure ortasi (bkz. FRESH_JUMP_MIN_SCORE notu): gecis parcasi yeni yerin ayet basina
+                ow = (AYAH_TO_CORPUS_RANGE[(gfs, gfa - 1)][0], AYAH_TO_CORPUS_RANGE[(gfs, gfa)][1])
+                pm = align_transcription(fj[1], CORPUS, preferred_range=ow, preferred_bonus=PREFERRED_BONUS)
+                if (pm and ow[0] <= pm.start_word_idx <= ow[1] and starts_ayah(pm)
+                        and pm.start_word_idx <= g.start_word_idx
+                        and score_transcription(fj[1], pm)[0] >= NATURAL_MIN_SCORE):
                     match, score, score_details = g, gs, g_details
                     fresh_fix = True
                     result["fresh_jump_fix"] = True

@@ -416,6 +416,11 @@ class StateMachine(
         // Tek basina semiallah sonu: "حمده", "حميده" (yatsi 22.10: "لمَن حميده"; Kuran'da "لمن"den sonra "حم" ile baslayan kelime
         // yok — sadece "لمن حارب", "لمن حوله" — "لمن حم…" da semiallah)
         val SEMIALLAH_TAIL = setOf("حمده", "حميده")
+        // Semiallah "لمن حمده" ASR'de "من الحمد" (sabah 28.10: rukûdan kalkis 259.9 sn → 23:97'ye 76, rukûda ekranda henuz
+        // okunmamis 23:93-97; yatsi 22.10 sabit parca 485 sn ayni). "(ل)من الحمد" Kuran'da yok (korpus).
+        /** Semiallah ikilisi: "لمن حم…" ya da "(ل)من الحمد" (Python semiallah_pair ile birebir). */
+        fun semiallahPair(a: String, b: String): Boolean =
+            (a == "لمن" && b.startsWith("حم")) || ((a == "من" || a == "لمن") && b == "الحمد")
         // Kamet / ezan: Kuran'da HIC gecmeyen kelime ve ikililer (korpusla dogrulandi; eval'deki 33 kaydin RNNT +
         // CTC transkriptlerinde hic cikmadi). Cuma kameti: "أشهد ان لا إله", "الله محمد", "أن محمد", "الصلاة حي الصلاة",
         // "بل قام بالصلاة". "لا اله الا الله", "محمد رسول الله", "الله اكبر", "حي" (21:30, 8:42) Kuran'da var → isaret degil.
@@ -582,7 +587,7 @@ class StateMachine(
                     norms[i + 2] == "الحمد"
                 ) {
                     k = 3
-                } else if (norms[i] == "لمن" && i + 1 < n && norms[i + 1].startsWith("حم")) {
+                } else if (i + 1 < n && semiallahPair(norms[i], norms[i + 1])) {
                     k = 2
                     var back = 0
                     while (keep.isNotEmpty() && back < SEMIALLAH_HEAD_MAX && bareToken(keep.last()).length <= SEMIALLAH_HEAD_LEN) {
@@ -679,7 +684,7 @@ class StateMachine(
                 }) {
                 return "selam"
             }
-            if (toks.any { it in SEMIALLAH_TAIL } || (0 until toks.size - 1).any { toks[it] == "لمن" && toks[it + 1].startsWith("حم") }) {
+            if (toks.any { it in SEMIALLAH_TAIL } || (0 until toks.size - 1).any { semiallahPair(toks[it], toks[it + 1]) }) {
                 return "ruku"
             }
             return null
@@ -1101,6 +1106,25 @@ class StateMachine(
                         match = g
                         score = gs
                         freshFix = true
+                    }
+                } else if (gfs != state.lastSurah && gfa > 2) {
+                    // Sure ortasi: ayni ifade iki surede ayet basinda (sabah 28.10: "وهو الذي أنشأ" 6:141 / 23:78) — gecis
+                    // parcasi yeni yerin ayet basina (o ya da bir onceki ayet) >= NATURAL_MIN_SCORE oturuyorsa (sirali) gecilir
+                    val a0 = ayahToCorpusRange[Pair(gfs, gfa - 1)]
+                    val a1 = ayahToCorpusRange[Pair(gfs, gfa)]
+                    if (a0 != null && a1 != null) {
+                        val w = a0.first..a1.second
+                        val pm = aligner.align(fj.second, preferredRange = w)
+                        val pTokens = fj.second.trim().split(Regex("\\s+")).map { Normalizer.normalize(it) }.filter { it.isNotEmpty() }
+                        if (pm != null && pm.startWordIdx in w && startsAyah(pm) &&
+                            pm.startWordIdx <= g.startWordIdx && scoreTranscription(pTokens, pm) >= NATURAL_MIN_SCORE
+                        ) {
+                            notes += "taze gecis duzeltmesi: $gfs:$gfa ${"%.1f".format(gs)} (pencere " +
+                                "${"%.1f".format(if (match != null) score else 0.0)}; gecis parcasi $gfs:${gfa - 1}-$gfa ayet basina oturuyor)"
+                            match = g
+                            score = gs
+                            freshFix = true
+                        }
                     }
                 }
             }

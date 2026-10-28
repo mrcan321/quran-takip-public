@@ -120,6 +120,11 @@ OPENING_PREFER_MARGIN = 1.0
 # 15:61 ("فلما جاء آل لوط") 90.5, 110:1 75.0; sonraki "والله والفتح" (2 kelime, 110:1 86.7) aranmadi, 20 sn Hicr.
 FRESH_JUMP_CHUNKS = 2
 FRESH_JUMP_MIN_SCORE = 80
+# Taze gecis duzeltmesi sure ortasinda da: ayni ifade iki surede ayet basinda (sabah 28.10: "وهو الذي أنشأ" 6:141 / 23:78
+# ayni skor, Fatiha sonunda 6:141'e dogal gecis; imam dunku yatsinin kaldigi 23:78'den devam ediyordu). Sonraki parca tum
+# Kuran'da baska surenin 3+. ayetinde >= FRESH_JUMP_MIN_SCORE ve gecis parcasi o ayetin (ya da bir oncekinin) basina
+# >= NATURAL_MIN_SCORE oturuyorsa (sirali) gecilir: iki parca ayni yeri gosteriyor. 6:141 ekranda 15 → 5 sn.
+FRESH_JUMP_ANY_AYAH = True   # ayar denemesi "eski kural" anahtari — uygulamada hep acik
 # Erken Fatiha: zamm'da kilit dusmeden, son saglam eslesmeden (>= 3 kelime, >= ilk kilit esigi) bu kadar parca gecmeden
 # gelen ve Fatiha'nin 1-2. ayetinde biten eslesme ("الحمد لله رب العالمين": dua / tesbihatta da gecen, ASR'nin uydurdugu kalip)
 # hemen gecmez, gecis adayi olur; sonraki parca Fatiha'da dogrularsa gecilir. Yeni rekat rukû + iki secdeden sonra gelir
@@ -440,6 +445,16 @@ SEMIALLAH_HEAD_LEN = 5
 # Tek basina semiallah sonu: "حمده", "حميده" (yatsi 22.10: "لمَن حميده"; Kuran'da "لمن"den sonra "حم" ile baslayan kelime yok —
 # sadece "لمن حارب", "لمن حوله" — "لمن حم…" da semiallah)
 SEMIALLAH_TAIL = {"حمده", "حميده"}
+# Semiallah "لمن حمده" ASR'de "من الحمد" (sabah 28.10: rukûdan kalkis 259.9 sn → 23:97'ye 76, rukûda ekranda henuz okunmamis
+# 23:93-97; yatsi 22.10 sabit parca 485 sn ayni). "(ل)من الحمد" Kuran'da yok (korpus), transkriptlerde sadece semiallahta.
+SEMIALLAH_MEN_HAMD = True   # ayar denemesi "eski kural" anahtari — uygulamada hep acik
+
+
+def semiallah_pair(a, b):
+    """Semiallah ikilisi: "لمن حم…" ya da "(ل)من الحمد" (bkz. SEMIALLAH_MEN_HAMD)."""
+    return (a == "لمن" and b.startswith("حم")) or (SEMIALLAH_MEN_HAMD and a in ("من", "لمن") and b == "الحمد")
+
+
 # Kamet / ezan: Kuran'da HIC gecmeyen kelime ve ikililer (korpusla dogrulandi; eval'deki 33 kaydin RNNT + CTC
 # transkriptlerinde hic cikmadi). Cuma kameti: "أشهد ان لا إله", "الله محمد", "أن محمد", "الصلاة حي الصلاة",
 # "بل قام بالصلاة". "لا اله الا الله", "محمد رسول الله", "الله اكبر", "حي" (21:30, 8:42) Kuran'da var → isaret degil.
@@ -643,7 +658,7 @@ def strip_namaz_phrases(text):
                 k = 4 if i + 3 < n and norms[i + 3].startswith("حمد") else 3
         elif norms[i] == "ربنا" and i + 2 < n and norms[i + 1] in ("لك", "ولك") and norms[i + 2] == "الحمد":
             k = 3
-        elif norms[i] == "لمن" and i + 1 < n and norms[i + 1].startswith("حم"):
+        elif i + 1 < n and semiallah_pair(norms[i], norms[i + 1]):
             k = 2
             back = 0
             while keep and back < SEMIALLAH_HEAD_MAX and len(bare_token(keep[-1])) <= SEMIALLAH_HEAD_LEN:
@@ -734,7 +749,7 @@ def namaz_signal(text):
            or (SELAM_SPLIT_SIGNAL and a in ("عليكم", "عليك") and b in ("ورحمه", "رحمه"))
            for a, b in zip(toks, toks[1:])):
         return "selam"
-    if any(t in SEMIALLAH_TAIL for t in toks) or any(a == "لمن" and b.startswith("حم") for a, b in zip(toks, toks[1:])):
+    if any(t in SEMIALLAH_TAIL for t in toks) or any(semiallah_pair(a, b) for a, b in zip(toks, toks[1:])):
         return "ruku"
     return None
 
@@ -1274,6 +1289,15 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                 pm = align_transcription(fj[1], corpus, preferred_range=ow, preferred_bonus=PREFERRED_BONUS)
                 if (pm and is_opening_match(pm, corpus, ayah_to_range) and pm.start_word_idx <= g.start_word_idx
                         and score_transcription(fj[1], pm, vocab) >= MIN_CONFIDENCE_FIRST_LOCK):
+                    match, score = g, gs
+                    fresh_fix = True
+            elif gfs != state.last_surah and FRESH_JUMP_ANY_AYAH:
+                # Sure ortasi (bkz. FRESH_JUMP_ANY_AYAH): gecis parcasi yeni yerin ayet basina
+                ow = (ayah_to_range[(gfs, gfa - 1)][0], ayah_to_range[(gfs, gfa)][1])
+                pm = align_transcription(fj[1], corpus, preferred_range=ow, preferred_bonus=PREFERRED_BONUS)
+                if (pm and ow[0] <= pm.start_word_idx <= ow[1] and starts_ayah(pm, corpus, ayah_to_range)
+                        and pm.start_word_idx <= g.start_word_idx
+                        and score_transcription(fj[1], pm, vocab) >= NATURAL_MIN_SCORE):
                     match, score = g, gs
                     fresh_fix = True
 

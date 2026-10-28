@@ -139,6 +139,7 @@ EXPECTED = {
     # rukû / secde (semiallah ASR'de yok) → Fatiha ~248 → 23:68 devam (~286) .. 23:77 (~398) → semiallah 413 → 3-4. rekat
     # sessiz (semiallah 553) → selam 638 (bolunmus: "عليكم ورحمة الله") → dua 653-663. 2. rekatta 296-301 sn ASR bos.
     "namaz_yatsi6_fatiha_muminun_fatiha_muminun.wav": "coklu",
+    "namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -227,6 +228,10 @@ TIMELINE = {
     # ~287 (23:68), "تبلسون" 394 (23:77 sonu)
     "namaz_yatsi6_fatiha_muminun_fatiha_muminun.wav": [(0, None), (9.8, 1), (51.5, 23), (207, None), (248.0, 1),
                                                        (287.0, 23), (397, None)],
+    # sabah 28.10 (APK #128): kamet 0-25, iftitah 37, Fatiha 51, Mu'minun 23:78 (93.7) .. 23:92 (240), rukû 245,
+    # semiallah 255 ("من الحمد"), Fatiha 299, 23:93 (339.9) .. 23:104 (449), rukû 451, selam 553 / 563
+    "namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav": [(0, None), (51.4, 1), (93.7, 23), (241, None), (299.1, 1),
+                                                             (339.9, 23), (450, None)],
 }
 
 

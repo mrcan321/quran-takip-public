@@ -68,7 +68,8 @@ class ZikirTracker {
                     w == "استمع" && next == "الله" -> add(NamazZikri.SEMIALLAH)
                     // Tek basina "حمده" (namazSignal'de rukû) kart icin yetmez: sentetik teravihte Kureys 106:4
                     // "أطعمهم" → ASR "الذي حمده منه" okuma ortasinda kart acti
-                    w == "لمن" && next != null && next.startsWith("حم") -> add(NamazZikri.SEMIALLAH)
+                    // "(ل)من الحمد" (sabah 28.10; StateMachine.semiallahPair)
+                    next != null && StateMachine.semiallahPair(w, next) -> add(NamazZikri.SEMIALLAH)
                     // "بمن حمده" / "ومن حمده" (ASR, yatsi 22.10 telefon log'u; yatsi #3 "ومن حمده الله"): Kuran'da "حمده"
                     // hic yok, "من" + "حمد…" ikilisi de yok ("من حما / حمل / حميم" var — "حمد" ile baslamiyor)
                     w in MEN_WORDS && next != null && (next.startsWith("حمد") || next in StateMachine.SEMIALLAH_TAIL) ->
