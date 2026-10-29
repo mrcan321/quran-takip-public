@@ -9,6 +9,11 @@ model dosyaları (`asr-model-v3`) değişir.
 repoya (`mrcan321/quran-takip`, `data/`) girip `training/real_labels.json`'da etiketlenir (bunu Claude yapar); ilk 6 kayıt ve
 `server/recordings` hep **test**. Kod herkese açık repoda (`mrcan321/quran-takip-public`), ses dosyaları orada yok.
 
+**Veri durumu (29.10):** 16 cami namazı (aynı imam) etiketli — **train 8** (yatsı #2-#6, sabah #1-#3: 32 okuma bölümü
+38.2 dk + 1 kamet + 32 zikir parçası: 20 tekbir / 10 semiallah / 2 selam), test 8 (ilk 6 + akşam #3 / #4). Aşama B'nin
+yerel ONNX taklidinde okumanın 30.5 dk'sı 194 parça olarak kabul ediliyor (kalan gürültülü / ASR'nin de çözemediği yerler). Hedef 20-30 namaz; şu hâliyle de koşulabilir (gerçek
+cami verisi EveryAyah'ın yanında küçük, asıl kazanç yapay cami akustiğinden beklenir).
+
 ## Makine
 
 | | öneri |

@@ -72,6 +72,19 @@ MAX_UTT_SEC = 20.0
 
 
 # ---------------- Kuran metni (imla'i, harekeli) ----------------
+# Etiket yazimi = temel modelin kendi yazimi. Tanzil imla'i metnindeki ustteki kucuk elif (U+0670: عَلَىٰ، ذَٰلِكَ، هَٰذَا،
+# الرَّحْمَٰنِ، إِلَٰهَ) modelin ciktisinda HIC yok (tests/trjson: 68 069 kelime, 27 040'i harekeli → 0; model عَلَى، ذَلِكَ،
+# الرَّحْمَنِ yaziyor); etikette ve ciktida farkli olan tek harf bu. Kalsaydi Asama B'nin zorla hizalamasi bu kelimelerde
+# guveni −6 … −19'a dusurup parcalari atiyordu (yeni cami kayitlarinda 36 dk'nin 11'i) ve egitim modeli bosuna yeni bir
+# yazima zorlardi. Uygulama icin fark yok (normalize kucuk elifi zaten siliyor).
+LABEL_DROP = str.maketrans("", "", "ٰ")
+
+
+def label_text(text):
+    """Ham metin (Tanzil, real_labels.json kamet / zikir) → egitim etiketi: tek bosluk, U+0670 yok."""
+    return " ".join(text.translate(LABEL_DROP).split())
+
+
 def load_texts():
     """{(sure, ayet): imla'i metin}, {sure: besmele}, {sure: ayet sayisi} — aligner'in kullandigi rasm map'ten."""
     import aligner
@@ -81,9 +94,9 @@ def load_texts():
         si = int(s["@index"])
         counts[si] = len(s["aya"])
         for a in s["aya"]:
-            texts[(si, int(a["@index"]))] = " ".join(a["@imlaey"].split())
+            texts[(si, int(a["@index"]))] = label_text(a["@imlaey"])
             if "@bismillah_imlaey" in a:
-                bism[si] = " ".join(a["@bismillah_imlaey"].split())
+                bism[si] = label_text(a["@bismillah_imlaey"])
     return texts, bism, counts
 
 
@@ -267,12 +280,12 @@ def real_items(args, texts, rng_np):
             st, en = info["kamet"]
             clean = Path(args.out) / "align" / "real" / f"{uid(fn, 'kamet')}.flac"
             d = write_flac(clean, audio[int(st * SR):int(en * SR)])
-            aligns.append({"audio_filepath": str(clean), "duration": d, "text": labels["kamet_text"], "kind": "kamet",
-                           "source": fn, "split": "train", "augment": False, "trim_edges": False})
+            aligns.append({"audio_filepath": str(clean), "duration": d, "text": label_text(labels["kamet_text"]),
+                           "kind": "kamet", "source": fn, "split": "train", "augment": False, "trim_edges": False})
             busy.append((st, en))
         for st, en, kind in info.get("phrases", []):
             seg = audio[int(st * SR):int(en * SR)]
-            text = labels["phrase_texts"].get(kind, kind)
+            text = label_text(labels["phrase_texts"].get(kind, kind))
             path = out_dir / f"{uid(fn, st, kind)}.flac"
             items.append({"audio_filepath": str(path), "duration": write_flac(path, seg), "text": text,
                           "kind": "phrase", "source": fn, "aug": "gercek"})

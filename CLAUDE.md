@@ -1253,9 +1253,26 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   onları kullanıyor); yeni kayıtlar varsayılan train, her 4. yeni kayıt test. Etiket: `segments` (sure + ayet aralığı + zaman; Hanefi:
   Fatiha 1:2'den), `kamet`, `phrases` (tekbir / semiallah / selam / dua kanonik metin), `negatives` (Türkçe vaaz — içinde Arapça zikir
   olmamalı). Yeni kayıt gelince: eval (kelime zamanlı) → TIMELINE + real_labels girdisi.
+- **Etiketler (29.10, 16 namaz):** 10 yeni kayıt eklendi — train 8 (yatsı #2-#6, sabah #1-#3: 32 okuma bölümü 38.2 dk + yatsı #2
+  kameti + 32 zikir parçası: 20 tekbir / 10 semiallah / 2 selam), test 2 (akşam #3 / #4 = her 4. yeni kayıt). Sınırlar kelime zamanlı transkriptten
+  (`tests/trjson/words/`, yerel ONNX) + aligner baş / son kontrolü; kesik ayet (yatsı #5 2:103 kayıt başı), namaz öncesi kesik İhlas,
+  zamm sonundaki "صدق" / rükû tekbiri bölüm dışı. **Kısmi kamet alınmaz** (kayıt kamet ortasında başlamış: sabah, yatsı #3, akşam #4,
+  sabah #3 — Aşama A kameti tam kanonik metinle hizalıyor). **Zikir:** sadece ASR'nin de aynı zikri tanıdığı ses patlamaları (tek
+  zikir, 1.2-6.5 sn, okuma / kamet dışı; çift tekbir, eksik selam, "وبركاته"lı selam atıldı) — Aşama B zikirleri doğrulamıyor.
+  Konumdan tahmin denendi: zamm bitişinden sonraki ilk ses patlaması 32 durumda sadece 8'inde ASR'de tekbir (13 boş, 11 başka /
+  uydurma: "شكراً للمتابعة", "المصدر كتاب") → alınmadı. Namaz öncesi Sâffât 37:180-182 (yatsı #2, "والحمد" tekrarı) çıkarıldı.
+  **Aşama B taklidi** (yerel ONNX CTC + `prepare_labels.align_words` / `cut_pieces`, aynı eşikler): okumanın 30.5 / 36.3 dk'sı 194
+  parça kabul; kabul edilenlerin etiketi bağımsız kelime zamanlı dökümle medyan kelime hatası 0.12 (> 0.5 olan 6 parçada fark ASR'de:
+  dökümde boşluk / "إلى" → "من"). Atılanlar gürültülü Fatiha'lar (sabah #3 1., sabah #2 2. rekât) ve ASR'nin de çözemediği yerler.
+  Yatsı #2 kameti 0/6 (güven −3.5 … −6.5; 4 tekbir enerji zarfında doğru — makamlı okuma, temel model kameti zayıf tanıyor) →
+  B atar; etikette kalır (ileride v3 modeliyle hizalanabilir).
 - **Etiket yazımı:** Tanzil imla'i metni **harekeli** (rasm map `@imlaey`; aligner korpusuyla aynı yazım). Temel modelin tokenizer'ı
   (1024 parça, 52 karakter: 0621-0652 + U+0670) bu metni birebir token'lıyor (`حْمَٰ` parçası var); harekeli etiket harekesizle aynı
   uzunlukta (besmele 17 / 16 token). `asr_compare.py`'nin Uthmani ölçüsünden U+0670 çıkarıldı (imla'i Tanzil'de de var).
+  **Ama model U+0670'i hiç yazmıyor** (29.10: tests/trjson'daki 68 069 çıktı kelimesi, 27 040'ı harekeli → 0; `عَلَى، ذَلِكَ، هَذَا،
+  الرَّحْمَنِ`); etiket ile çıktı arasında farklı olan tek harf bu (etikette 3330 kez). Yerel ONNX ile Aşama B taklidinde
+  (`align_words` + `cut_pieces`, yeni 8 kaydın bölümleri) bu kelimelerde güven −6 … −19 → gerçek okumanın 36 dk'sının 11'i atılıyordu
+  (uzun EveryAyah ayetlerinde de aynısı olurdu). → `build_dataset.label_text` U+0670'i siler (Tanzil metni, besmele, kamet, zikir).
 - **Aşamalar** (`training/README.md`): A `build_dataset.py` — EveryAyah ~26 murattal kâri (test kârileri yasak: Alafasy, Husary,
   Şureym, Sudeys, Maher, Hani Rifai, Medine imamları; doğrulama: Ali Hajjaj), 1-6 ayetlik koşular her ayet 4 kâriden (~100 sa),
   5-15 sn parçalar (içinde ayet sınırı), %75 cami akustiği (`acoustics.mosque`: hoparlör EQ / kırpma, RT60 0.6-3 sn yankı, telefon
