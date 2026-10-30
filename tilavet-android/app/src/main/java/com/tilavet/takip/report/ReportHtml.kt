@@ -27,6 +27,33 @@ object ReportHtml {
     /** Bir kayit (oturum): baslangic zamani (epoch ms), sure (sn) ve icindeki namazlar. */
     class Session(val startMs: Long, val durationSec: Int?, val namazlar: List<NamazReport.Namaz>)
 
+    /**
+     * Ayarlar → RAPORDAKİ NAMAZ SAYISI: rapor en son kac namazi gosterir. Kullanici (30.10): "1 ise sadece en son namaz;
+     * 1'den 7'ye; yeni baslayan kullanicinin o kadar namazi yoksa rapor hata vermesin".
+     */
+    const val MIN_NAMAZ = 1
+    const val MAX_NAMAZ = 7
+    const val DEFAULT_NAMAZ = 3
+
+    /**
+     * Oturumlardan (en yenisi once; oturum icinde namazlar zaman sirasiyla) en son [count] namaz: yeni oturumdan eskiye,
+     * oturum icinde sondan basa toplanir — bir oturumda birden cok namaz olabilir (ornegin aksam + yatsi tek kayitta).
+     * Namazi olmayan oturum atlanir. Yeterince namaz yoksa olan kadar, hic yoksa bos liste. Diziyi sadece gerektigi kadar
+     * okur (uygulamada her oturumun log'u ancak sirasi gelince ayristirilir).
+     */
+    fun lastNamaz(sessions: Sequence<Session>, count: Int): List<Session> {
+        var need = count.coerceIn(MIN_NAMAZ, MAX_NAMAZ)
+        val out = mutableListOf<Session>()
+        for (s in sessions) {
+            if (s.namazlar.isEmpty()) continue
+            val take = s.namazlar.takeLast(need)
+            out += Session(s.startMs, s.durationSec, take)
+            need -= take.size
+            if (need <= 0) break
+        }
+        return out
+    }
+
     private val MONTHS = listOf("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül",
         "Ekim", "Kasım", "Aralık")
     private val DAYS = listOf("Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi")
@@ -56,7 +83,11 @@ object ReportHtml {
         }
     }
 
-    fun render(sessions: List<Session>, text: Text, createdMs: Long, arabicFontBase64: String?): String {
+    /**
+     * [requested]: ayardaki namaz sayisi (null = belirtilmedi); kayitlarda daha az namaz varsa baslikta not dusulur.
+     */
+    fun render(sessions: List<Session>, text: Text, createdMs: Long, arabicFontBase64: String?,
+               requested: Int? = null): String {
         val sb = StringBuilder(64 * 1024 + (arabicFontBase64?.length ?: 0))
         sb.append("<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\">")
         sb.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
@@ -68,9 +99,13 @@ object ReportHtml {
         sb.append(CSS).append("</style></head><body>")
         sb.append("<header class=\"top\"><div class=\"wrap\"><div class=\"kicker\">TİLAVET TAKİP</div>")
         sb.append("<h1>Namazda Okunan Ayetler</h1>")
-        sb.append("<div class=\"sub\">Son ${sessions.size} kayıt · ${esc(dateLabel(createdMs))}</div></div></header>")
-        sb.append("<main class=\"wrap\">")
         val items = sessions.flatMap { s -> s.namazlar.map { s to it } }
+        val short = if (requested != null && items.isNotEmpty() && items.size < requested) {
+            " (ayarda $requested; kayıtlarda bu kadar var)"
+        } else ""
+        val head = if (items.isEmpty()) "Namaz yok" else "Son ${items.size} namaz$short"
+        sb.append("<div class=\"sub\">${esc(head)} · ${esc(dateLabel(createdMs))}</div></div></header>")
+        sb.append("<main class=\"wrap\">")
         if (items.isEmpty()) {
             sb.append("<p class=\"empty\">Son kayıtlarda takip edilen bir okuma yok. Namazda mikrofon düğmesine basıp ")
             sb.append("dinleyince okunan ayetler burada listelenir.</p>")

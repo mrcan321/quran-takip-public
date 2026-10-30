@@ -2,8 +2,9 @@ package com.tilavet.takip.report
 
 /**
  * Namaz raporu (ana ekran → RAPOR): oturum log'undan (SessionLog, cacheDir/sessions/tilavet-YYYYMMDD-HHmmss.txt) namazda
- * okunan ayetler — namaz, rekat, sure bolumu. Kullanici (27.10): "anaekranda bir buton ile son 3 kayda ait namazda okunan
- * ayetleri guzel bir rapor html sunsun; ayetin arapcasi turkce meali olsun; rapor bitiminde isteyenler icin tefsir".
+ * okunan ayetler — namaz, rekat, sure bolumu (rapordaki namaz sayisi: ReportHtml.lastNamaz). Kullanici (27.10): "anaekranda
+ * bir buton ile son 3 kayda ait namazda okunan ayetleri guzel bir rapor html sunsun; ayetin arapcasi turkce meali olsun;
+ * rapor bitiminde isteyenler icin tefsir".
  *
  * Kaynak satirlar (pipeline / ViewModel log'u):
  *   [chunk N] ZAMM→ZAMM matched score=… | 23:56,23:57 [...] (… t=102,5s) txt='…'   kilitli eslesme ve ayetleri

@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.tilavet.takip.audio.TextHold
 import com.tilavet.takip.glasses.GlassesState
+import com.tilavet.takip.report.ReportHtml
 import com.tilavet.takip.ui.theme.AppTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -57,6 +58,10 @@ data class AppSettings(
     val textHoldTenths: Int = TextHold.DEFAULT_TENTHS,
     // Ayarlar → MUTE ON RECORDING: mikrofonla dinlerken telefon sessizde (bitince eski haline) — bkz. util/PhoneControl
     val muteOnRecording: Boolean = false,
+    // Ayarlar → RAPORDAKİ NAMAZ SAYISI: 📄 raporu en son kac namazi gosterir (1-7; ReportHtml.lastNamaz)
+    val reportNamazCount: Int = ReportHtml.DEFAULT_NAMAZ,
+    // Ayarlar → GELİŞMİŞ TEST MODU: ust barda 🔬 ASR testi (varsayilan gizli)
+    val advancedTestMode: Boolean = false,
     // === TUNER (debug) ===
     val minConfidence: Int = 55,           // 0-100, normal match esik (kilitli iken); 27.10 ayar denemesi 50 → 55
     val minConfidenceFirstLock: Int = 70,  // 0-100, ilk kilit / kilit-terk esik
@@ -94,6 +99,8 @@ class SettingsRepository(private val context: Context) {
         val GLASSES_MEAL_LABEL_GROW = booleanPreferencesKey("glasses_meal_label_grow")
         val TEXT_HOLD_TENTHS = intPreferencesKey("text_hold_tenths")
         val MUTE_ON_RECORDING = booleanPreferencesKey("mute_on_recording")
+        val REPORT_NAMAZ_COUNT = intPreferencesKey("report_namaz_count")
+        val ADVANCED_TEST_MODE = booleanPreferencesKey("advanced_test_mode")
         // _v2: eski kurulumlarda kayitli 50 bir kez birakilsin, yeni varsayilan (55) gelsin (theme_v2 gibi)
         val MIN_CONFIDENCE = intPreferencesKey("min_confidence_v2")
         val MIN_CONFIDENCE_FIRST_LOCK = intPreferencesKey("min_confidence_first_lock")
@@ -130,6 +137,9 @@ class SettingsRepository(private val context: Context) {
             glassesMealLabelGrow = prefs[Keys.GLASSES_MEAL_LABEL_GROW] ?: false,
             textHoldTenths = prefs[Keys.TEXT_HOLD_TENTHS] ?: TextHold.DEFAULT_TENTHS,
             muteOnRecording = prefs[Keys.MUTE_ON_RECORDING] ?: false,
+            reportNamazCount = (prefs[Keys.REPORT_NAMAZ_COUNT] ?: ReportHtml.DEFAULT_NAMAZ)
+                .coerceIn(ReportHtml.MIN_NAMAZ, ReportHtml.MAX_NAMAZ),
+            advancedTestMode = prefs[Keys.ADVANCED_TEST_MODE] ?: false,
             minConfidence = prefs[Keys.MIN_CONFIDENCE] ?: 55,
             minConfidenceFirstLock = prefs[Keys.MIN_CONFIDENCE_FIRST_LOCK] ?: 70,
             windowSlack = prefs[Keys.WINDOW_SLACK] ?: 2,
@@ -237,6 +247,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setMuteOnRecording(value: Boolean) {
         context.dataStore.edit { it[Keys.MUTE_ON_RECORDING] = value }
+    }
+
+    suspend fun setReportNamazCount(value: Int) {
+        context.dataStore.edit { it[Keys.REPORT_NAMAZ_COUNT] = value.coerceIn(ReportHtml.MIN_NAMAZ, ReportHtml.MAX_NAMAZ) }
+    }
+
+    suspend fun setAdvancedTestMode(value: Boolean) {
+        context.dataStore.edit { it[Keys.ADVANCED_TEST_MODE] = value }
     }
 
     suspend fun setTextHoldTenths(value: Int) {

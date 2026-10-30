@@ -10,20 +10,15 @@ import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Functions
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Science
-import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -54,7 +49,6 @@ import com.tilavet.takip.session.NamazZikri
 import com.tilavet.takip.ui.components.*
 import com.tilavet.takip.ui.theme.AppPalette
 import com.tilavet.takip.ui.theme.AppStyle
-import com.tilavet.takip.ui.theme.JetBrainsMonoFamily
 import com.tilavet.takip.ui.theme.LocalAppPalette
 import com.tilavet.takip.ui.theme.LocalAppStyle
 import java.io.File
@@ -89,9 +83,6 @@ fun MainScreen(
     onToggleListening: () -> Unit,
     onOpenSettings: () -> Unit,
     onAsrTest: () -> Unit = {},
-    onAlignerTest: () -> Unit = {},
-    onFuzzyTest: () -> Unit = {},
-    onStateMachineTest: () -> Unit = {},
     onLogExport: () -> Unit = {},
     onReport: () -> Unit = {},
     buildLabel: String = "",
@@ -129,9 +120,6 @@ fun MainScreen(
         derivedStateOf { mushaf?.let { it.surahOfItem(listState.firstVisibleItemIndex) } }
     }
 
-    // Test sonuc paneli (Σ # ▶): dokununca kapanir; sonuc/durum degisince (yeni test) tekrar acilir
-    var dismissedPanel by remember { mutableStateOf("") }
-
     val rootBg = if (style.ornate) Modifier.ornateBackground(palette, style) else Modifier.background(palette.bg)
     Column(modifier = Modifier.fillMaxSize().then(rootBg)) {
         if (style.ornate) {
@@ -145,9 +133,7 @@ fun MainScreen(
                 buildLabel = buildLabel,
                 onSettings = onOpenSettings,
                 onAsrTest = onAsrTest,
-                onAlignerTest = onAlignerTest,
-                onFuzzyTest = onFuzzyTest,
-                onStateMachineTest = onStateMachineTest,
+                showAsrTest = state.settings.advancedTestMode,
                 onLogExport = onLogExport,
                 onReport = onReport,
             )
@@ -159,9 +145,7 @@ fun MainScreen(
                 motion = state.settings.motion,
                 onSettings = onOpenSettings,
                 onAsrTest = onAsrTest,
-                onAlignerTest = onAlignerTest,
-                onFuzzyTest = onFuzzyTest,
-                onStateMachineTest = onStateMachineTest,
+                showAsrTest = state.settings.advancedTestMode,
                 onLogExport = onLogExport,
                 onReport = onReport,
             )
@@ -169,7 +153,7 @@ fun MainScreen(
             StatusLine(info = statusLineInfo(state), buildLabel = buildLabel)
         }
 
-        // Icerik alani: liste + (varsa) test paneli + alt bilgi. Liste bu alanin disina tasmaz.
+        // Icerik alani: liste + alt bilgi. Liste bu alanin disina tasmaz.
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             if (mushaf != null) {
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -191,29 +175,6 @@ fun MainScreen(
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     EmptyState()
-                }
-            }
-
-            // Test sonuc panelleri — birden fazla varken en son aktif olan
-            val panel: Triple<String, String, String>? = when {
-                state.stateMachineResult.isNotEmpty() || state.stateMachineState.isNotEmpty() ->
-                    Triple("STATE MACHINE TEST", state.stateMachineState, state.stateMachineResult)
-                state.fuzzyResult.isNotEmpty() || state.fuzzyState.isNotEmpty() ->
-                    Triple("FUZZY TEST", state.fuzzyState, state.fuzzyResult)
-                state.alignerResult.isNotEmpty() || state.alignerState.isNotEmpty() ->
-                    Triple("ALIGNER TEST", state.alignerState, state.alignerResult)
-                else -> null
-            }
-            if (panel != null) {
-                val key = panel.toString()
-                if (key != dismissedPanel) {
-                    TestPanel(
-                        title = panel.first,
-                        stateText = panel.second,
-                        resultText = panel.third,
-                        onDismiss = { dismissedPanel = key },
-                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
-                    )
                 }
             }
 
@@ -381,9 +342,7 @@ private fun TopBar(
     motion: Float,
     onSettings: () -> Unit,
     onAsrTest: () -> Unit,
-    onAlignerTest: () -> Unit,
-    onFuzzyTest: () -> Unit,
-    onStateMachineTest: () -> Unit,
+    showAsrTest: Boolean,
     onLogExport: () -> Unit,
     onReport: () -> Unit,
 ) {
@@ -436,24 +395,24 @@ private fun TopBar(
             spacing = 8.dp,
             onSettings = onSettings,
             onAsrTest = onAsrTest,
-            onAlignerTest = onAlignerTest,
-            onFuzzyTest = onFuzzyTest,
-            onStateMachineTest = onStateMachineTest,
+            showAsrTest = showAsrTest,
             onLogExport = onLogExport,
             onReport = onReport,
         )
     }
 }
 
-/** Ust bar ikonlari: Σ # ▶ 🔬 📄 📤 ⚙ (test sonuclari durum satirinda / panelde; 📄 namaz raporu). */
+/**
+ * Ust bar ikonlari: (🔬) 📄 📤 ⚙ — 📄 namaz raporu, 📤 log + son kayit paylas. 🔬 ASR testi sadece GELİŞMİŞ TEST MODU
+ * acikken. Eski Σ # ▶ (Fuzzy / Aligner / StateMachine fixture testleri) kaldirildi (30.10): ayni testler her kod
+ * degisikliginde CI'da JVM'de kosuyor (tests/jvm, test kapisi `kotlin`), telefonda yeni bilgi vermiyordu.
+ */
 @Composable
 private fun TestIcons(
     spacing: androidx.compose.ui.unit.Dp,
     onSettings: () -> Unit,
     onAsrTest: () -> Unit,
-    onAlignerTest: () -> Unit,
-    onFuzzyTest: () -> Unit,
-    onStateMachineTest: () -> Unit,
+    showAsrTest: Boolean,
     onLogExport: () -> Unit,
     onReport: () -> Unit,
 ) {
@@ -461,31 +420,15 @@ private fun TestIcons(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(spacing),
     ) {
-        // Fuzzy test
-        IconBtn(
-            onClick = onFuzzyTest,
-            contentDescription = "Fuzzy Test",
-            icon = Icons.Filled.Functions,
-        )
-        // Aligner test
-        IconBtn(
-            onClick = onAlignerTest,
-            contentDescription = "Aligner Test",
-            icon = Icons.Filled.Tag,
-        )
-        // State Machine test
-        IconBtn(
-            onClick = onStateMachineTest,
-            contentDescription = "State Machine Test",
-            icon = Icons.Filled.PlayArrow,
-        )
-        // ASR Test (sonucu durum satirinda)
-        IconBtn(
-            onClick = onAsrTest,
-            contentDescription = "ASR Test",
-            icon = Icons.Filled.Science,
-        )
-        // Namaz raporu: son 3 kayitta okunan ayetler (Arapca + meal + tefsir)
+        // ASR Test (sonucu durum satirinda) — sadece Ayarlar → GELİŞMİŞ TEST MODU acikken
+        if (showAsrTest) {
+            IconBtn(
+                onClick = onAsrTest,
+                contentDescription = "ASR Test",
+                icon = Icons.Filled.Science,
+            )
+        }
+        // Namaz raporu: son N namazda okunan ayetler (Arapca + meal + tefsir; Ayarlar → RAPORDAKİ NAMAZ SAYISI)
         IconBtn(
             onClick = onReport,
             contentDescription = "Namaz raporu",
@@ -507,7 +450,7 @@ private fun TestIcons(
 
 /**
  * Zumrut ust bant: koyu zumrut gradyan, sag ustte altin isilti, sag altta soluk cami silueti, alti yuvarlak.
- *   [logo madalyonu] DURUM (canli nokta)     [Σ # ▶ 🔬 📤 ⚙ cam daireler]
+ *   [logo madalyonu] DURUM (canli nokta)     [(🔬) 📄 📤 ⚙ cam daireler]
  *                   Sure adi · no (serif)
  *   ─────────── ince altin cizgi ───────────
  *   REKAT · DURUS (altin)  durum satiri (model / guven / gecikme / ASR test)           #surum · commit
@@ -523,9 +466,7 @@ private fun OrnateHeader(
     buildLabel: String,
     onSettings: () -> Unit,
     onAsrTest: () -> Unit,
-    onAlignerTest: () -> Unit,
-    onFuzzyTest: () -> Unit,
-    onStateMachineTest: () -> Unit,
+    showAsrTest: Boolean,
     onLogExport: () -> Unit,
     onReport: () -> Unit,
 ) {
@@ -587,9 +528,7 @@ private fun OrnateHeader(
                 spacing = 6.dp,
                 onSettings = onSettings,
                 onAsrTest = onAsrTest,
-                onAlignerTest = onAlignerTest,
-                onFuzzyTest = onFuzzyTest,
-                onStateMachineTest = onStateMachineTest,
+                showAsrTest = showAsrTest,
                 onLogExport = onLogExport,
                 onReport = onReport,
             )
@@ -716,67 +655,6 @@ private fun StatusRow(
                 color = buildColor,
                 maxLines = 1,
                 softWrap = false,
-            )
-        }
-    }
-}
-
-@Composable
-private fun TestPanel(
-    title: String,
-    stateText: String,
-    resultText: String,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val palette = LocalAppPalette.current
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp)
-            .background(palette.bgElev, RoundedCornerShape(12.dp))
-            .border(1.dp, palette.borderStrong, RoundedCornerShape(12.dp))
-            .clickable(onClick = onDismiss)
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-            .heightIn(max = 480.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = title,
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 10.sp,
-                color = palette.accent,
-                letterSpacing = 1.0.sp,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = "dokun: kapat",
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 9.sp,
-                color = palette.fgFaded,
-            )
-        }
-
-        if (stateText.isNotEmpty()) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = stateText,
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 11.sp,
-                color = palette.fgDim,
-            )
-        }
-
-        if (resultText.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = resultText,
-                fontFamily = JetBrainsMonoFamily,
-                fontSize = 11.sp,
-                color = palette.fg,
-                lineHeight = 16.sp,
             )
         }
     }

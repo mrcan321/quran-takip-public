@@ -121,6 +121,38 @@ fun reportTests(): Int {
     ok("html tefsir tekrar yok", Regex("<summary>Fâtiha: 1</summary>").findAll(html).count() == 1)
     ok("html namaz adi", html.contains("Yatsı namazı") && html.contains("4 rekât"))
     ok("html bos rapor", ReportHtml.render(emptyList(), text, t0, null).contains("class=\"empty\""))
+
+    // Rapordaki namaz sayisi (Ayarlar → RAPORDAKİ NAMAZ SAYISI, 1-7): en yeni oturumdan geriye, oturum icinde sondan basa;
+    // namazsiz oturum atlanir, yeterince namaz yoksa olan kadar (kullanici 30.10: "yeni baslayan kullanici ... hata vermesin")
+    val sA = ReportHtml.Session(t0, 665, y)                                // en yeni oturum: 1 namaz
+    val sBos = ReportHtml.Session(t0 - 3_600_000L, 40, emptyList())        // namazsiz oturum (deneme)
+    val sB = ReportHtml.Session(t0 - 86_400_000L, 535, n)                  // onceki gun: 2 namaz
+    fun pick(c: Int) = ReportHtml.lastNamaz(sequenceOf(sA, sBos, sB), c)
+    fun count(l: List<ReportHtml.Session>) = l.sumOf { it.namazlar.size }
+    ok("son 1 namaz", pick(1).let { it.size == 1 && it[0].startMs == t0 && it[0].namazlar == y })
+    ok("son 2 namaz: en yeni + onceki oturumun son namazi",
+        pick(2).let { it.size == 2 && it[0].namazlar == y && it[1].startMs == sB.startMs && it[1].namazlar == listOf(n[1]) })
+    ok("son 3 namaz: oturum icinde zaman sirasi", pick(3).let { count(it) == 3 && it[1].namazlar == n })
+    ok("7 istenip 3 var: hata yok, olan kadar", count(pick(7)) == 3)
+    ok("namazsiz oturum atlanir", pick(7).none { it.namazlar.isEmpty() })
+    ok("hic kayit yok", ReportHtml.lastNamaz(emptySequence(), 5).isEmpty())
+    ok("namazsiz kayitlar", ReportHtml.lastNamaz(sequenceOf(sBos, sBos), 3).isEmpty())
+    ok("sinirlar: 0 → 1, 99 → 7", count(ReportHtml.lastNamaz(sequenceOf(sA, sB), 0)) == 1 &&
+        count(ReportHtml.lastNamaz(generateSequence { sB }.take(10), 99)) == 7)
+    var read = 0
+    ReportHtml.lastNamaz(sequenceOf(sA, sBos, sB).onEach { read++ }, 1)
+    ok("sadece gereken oturum okunur", read == 1) { "$read" }
+    val h1 = ReportHtml.render(pick(1), text, t0, null, requested = 1)
+    ok("html baslik: son 1 namaz", h1.contains("Son 1 namaz ·") && !h1.contains("kayıtlarda bu kadar")) {
+        Regex("<div class=\"sub\">[^<]*").find(h1)?.value ?: "-"
+    }
+    val h7 = ReportHtml.render(pick(7), text, t0, null, requested = 7)
+    ok("html baslik: eksik namaz notu", h7.contains("Son 3 namaz (ayarda 7; kayıtlarda bu kadar var)")) {
+        Regex("<div class=\"sub\">[^<]*").find(h7)?.value ?: "-"
+    }
+    ok("html bos rapor basligi", ReportHtml.render(emptyList(), text, t0, null, requested = 3).let {
+        it.contains("Namaz yok ·") && it.contains("class=\"empty\"")
+    })
     println("report: $passed/$total")
     return if (passed == total) 0 else 1
 }

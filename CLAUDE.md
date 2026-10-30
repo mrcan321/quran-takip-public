@@ -78,15 +78,15 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
 │   ├── QuranIndex.kt          — quran.bin mmap reader, trigram lookup
 │   ├── Fuzzy.kt               — RapidFuzz partial_ratio + token_sort_ratio Kotlin port (bit-parallel LCS)
 │   ├── Aligner.kt             — align_transcription port
-│   ├── FuzzyTestRunner.kt     — 51 case test (bit-perfect)
-│   └── AlignerTestRunner.kt   — 43 case test
+│   ├── FuzzyTestRunner.kt     — 51 case test (bit-perfect; JVM test kapısı çalıştırır, APK #130'dan beri telefonda düğmesi yok)
+│   └── AlignerTestRunner.kt   — 43 case test (aynı)
 ├── session/
 │   ├── SessionState.kt        — NamazState enum, PendingMatch, ChunkResult
 │   ├── StateMachine.kt        — process_chunk port (app.py referans)
 │   ├── EzanTracker.kt         — ezan/kamet penceresi icin cumle takibi (UI; state machine'i etkilemez)
 │   ├── ZikirTracker.kt        — namaz zikirleri karti: tekbir, semiallah, rabbena, selam, namaz sonu duasi (UI, JVM'de test)
 │   ├── RakatTracker.kt        — rekat sayaci + kaba durus (UI; state machine'i etkilemez, JVM'de test)
-│   └── StateMachineTestRunner.kt — 651 chunk × 27 senaryo test (5-8. = gerçek namaz akışları; 651/651)
+│   └── StateMachineTestRunner.kt — 651 chunk × 27 senaryo test (5-8. = gerçek namaz akışları; 651/651; JVM'de)
 ├── data/
 │   ├── MushafData.kt          — tum Kuran listesi: ayet/sure tablolari, liste satirlari, besmele gizleme
 │   ├── AppSettings.kt         — kullanıcı ayarları (SettingsRepository.kt içinde)
@@ -100,7 +100,7 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
 │   ├── components/            — MushafView (sure basligi + ayet satiri), Controls, SettingsSheet, EzanPopup, ZikirPopup,
 │   │                            Ornaments (Zümrüt süsleri: kemer amblemi, cami silueti, yıldız deseni, altın ayraç,
 │   │                            kemerli kart), BrandLogo (uygulama ikonu = logo madalyonu)
-│   └── screens/MainScreen.kt  — ana ekran: Mushaf listesi + sese gore takip, top bar (6 ikon), footer
+│   └── screens/MainScreen.kt  — ana ekran: Mushaf listesi + sese gore takip, top bar ((🔬) 📄 📤 ⚙), footer
 ├── glasses/                   — Even Realities G2 gözlük (Android'siz, JVM'de test edilir)
 │   ├── GlassesState.kt        — gözlüğe giden ekran durumu (sure/ayet, meal, Arapça, rekât, zikir/ezan) → JSON
 │   └── GlassesBridge.kt       — 127.0.0.1:18765 yerel HTTP köprüsü: /state uzun yoklama + eklenti dosyaları + CORS
@@ -563,7 +563,7 @@ telefona geçmiyordu.
   (parça sonu → ekran), ASR testinde `ASR TEST <arapça metin> RNNT 612ms`; en sağda `#<CI run> · <commit>`
   (`BuildConfig.CI_BUILD` / `GIT_SHA`, CI'da `GITHUB_RUN_NUMBER` / `GITHUB_SHA`, yerelde "yerel").
   Eskiden ASR TEST kutusu listenin üstüne biniyordu ve model "Hazır" olunca hiç kapanmıyordu.
-  Σ # ▶ test sonuç panelleri dokununca kapanır.
+  (Σ # ▶ test düğmeleri ve sonuç panelleri APK #130'da kaldırıldı — bkz. "Nasıl test edilir".)
 
 ---
 
@@ -1614,7 +1614,7 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   "عليكم/عليك + (و)رحمه" de selam (Kuran'da yok; strip ile aynı kural). Tüm transkriptlerde 19 metin değişiyor, hepsi gerçek
   selam (cuma #2 / #3 ikinci selamı, sentetik teravih / hatim "ساء عليكم ورحمة", "سلام عليكم ورحمة").
 
-### 31. Namaz raporu: son 3 kayıtta okunan ayetler (APK #123+)
+### 31. Namaz raporu: son N namazda okunan ayetler (APK #123+, sayı ayarı #130+)
 - Kullanıcı (27.10): "ana ekranda bir buton ile son 3 kayda ait namazda okunan ayetleri güzel bir rapor html sunsun; ayetin
   Arapçası, Türkçe meali olsun; rapor bitiminde isteyenler için tefsir de olsun; html mobil telefonda okunabilir stilde olsun".
 - Üst barda 📄 (`Icons.Filled.Description`) → `MainViewModel.openReport` → `util/NamazReportBuilder` (IO): `cacheDir/sessions`'taki
@@ -1637,6 +1637,14 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
 - Testler: JVM `report` (21 kontrol: yatsı 25.10 / 27.10 biçiminde log'lar — Fatiha taşıma, boşluk doldurma, sure başı, kalınan
   yerden devam, sessiz rekât, iki namaz, HTML kaçış / font / tefsir) test kapısında (`report_failures` 0); `report-file` ile
   gerçek log'dan elle bakılır (telefon boyutunda açık / koyu ekran görüntüsüyle kontrol edildi).
+- **Namaz sayısı ayarı (APK #130+):** kullanıcı (30.10): "en son kaç namazı rapora dahil edeceğini ayarlardan belirlesin, 1 ise
+  sadece en son namaz, 1-7; yeni başlayan kullanıcının o kadar namazı yoksa rapor hata vermesin". Ayarlar → **RAPORDAKİ NAMAZ
+  SAYISI** (1-7, varsayılan 3; `AppSettings.reportNamazCount`). `ReportHtml.lastNamaz`: oturumlar en yeniden eskiye, oturum içinde
+  sondan başa N namaz (bir kayıtta birden çok namaz olabilir), namazsız oturum atlanır, log'lar sadece gerektiği kadar ayrıştırılır;
+  az namaz varsa olan kadar — başlık "Son 3 namaz (ayarda 7; kayıtlarda bu kadar var)", hiç yoksa "Namaz yok" + boş rapor yazısı;
+  okunamayan log atlanır. Eskiden sadece son 3 **oturum** (WAV'la birlikte silinen log'lar) → artık `SessionAudioWriter` WAV'ları
+  yine son 3, oturum log'larını son 20 oturum (`LOG_KEEP`) tutar; rapor log'lardan (`listLogs`, WAV yoksa kayıt süresi yazılmaz).
+  JVM `report` 34 kontrol (+13: 1 / 2 / 3 / 7 namaz, namazsız oturum, boş, sınırlar 0 → 1 / 99 → 7, tembel okuma, başlıklar).
 
 ### 32. Parametre ayarı denemesi (CI)
 - Kullanıcı (26.10): "test kapısını tüm kayıtlarda çalıştır, sonra fine tuning planı belirle; her değişiklik için sıfırdan
@@ -1903,7 +1911,11 @@ kuralı anlatan commit'in gövdesi APK #105'i onaysız derletti; `[tam-test]` de
    Gradle 8.7 + JDK 17 ile `assembleRelease` (debuggable değil, minify kapalı, repodaki keystore ile imzalı).
 4. Push build'lerinde APK **`apk-ci<N>-<deneme>`** release'ine yüklenir ("Latest" işaretli; eski `apk-*` release'leri yenisi
    oluştuktan **sonra** silinir — build #38'de "sil + aynı adla yeniden oluştur" 403 aldı ve link APK'sız kaldı; hedef commit'te
-   tag açılamazsa tag varsayılan dala açılır). Link her zaman aynı. Telefondan direkt link:
+   tag açılamazsa tag varsayılan dala açılır). **Kalıcı sürüm tag'i** (APK #130+, kullanıcı: "129'a dönmek istersem"): her APK'da
+   ayrıca release'siz `surum-<N>` tag'i (o build'in commit'i; apk-ci release'i silinince de kalır). Eski release silinmeden önce
+   onun da `surum-<N>`'i yoksa notlarındaki commit'e açılır (#129 → `9d1759a` böyle geldi). Dönmek: `git checkout surum-129`;
+   o kodla APK: Actions → Android CI → Run workflow → tag `surum-129`. Tag'ler GITHUB_TOKEN'la açılır (iş akışı tetiklemez);
+   push tetikleyicilerinde `branches: ["**"]` → elle tag push'u da build başlatmaz. Link her zaman aynı. Telefondan direkt link:
    `https://github.com/mrcan321/quran-takip-public/releases/latest/download/tilavet-takip.apk` (20.10'a kadar `quran-takip`)
    Kurulum kablosuz: telefonda linki aç → indir → dokun → kur (güncellemeler de üstüne kurulur).
 
@@ -1931,13 +1943,16 @@ python scripts/build_state_machine_fixture.py
 
 ## Nasıl test edilir
 
-Top bar'daki 6 ikon:
-- **Σ** Fuzzy Test — 51 case, ~10-35ms (bit-perfect)
-- **#** Aligner Test — 43 case, 2-5 dakika (yavaş!)
-- **▶** State Machine Test — 651 chunk × 27 senaryo, ~2-3 dakika (651/651 bit-perfect)
-- **🔬** ASR Test — 5sn mikrofon kaydı → transkripsiyon (sonuç durum satırında)
-- **📤** Log Export — logcat share intent
+Top bar ikonları (APK #130+):
+- **🔬** ASR Test — 5sn mikrofon kaydı → transkripsiyon (sonuç durum satırında); sadece Ayarlar → TUNER (DEBUG) → **GELİŞMİŞ TEST
+  MODU** açıkken (varsayılan kapalı, `AppSettings.advancedTestMode`)
+- **📄** Namaz raporu — son N namazda okunan ayetler (bkz. açık sorun 31)
+- **📤** Log Export — logcat + son kayıt share intent
 - **⚙️** Settings — tema + tuner
+- Eski **Σ** Fuzzy / **#** Aligner / **▶** State Machine test düğmeleri (ve sonuç panelleri) kaldırıldı (kullanıcı 30.10: "benchmark
+  butonları gerekli mi? işlevsiz olanları kaldır, diğerlerini gizle, gelişmiş test modu açıksa görünsün"): aynı fixture testleri
+  (`FuzzyTestRunner` / `AlignerTestRunner` / `StateMachineTestRunner`, aynı kod) her kod değişikliğinde CI test kapısında JVM'de
+  koşuyor; telefonda yeni bilgi vermiyordu, Aligner testi 2-5 dk sürüyordu. Fixture'lar APK'da duruyor (~45 KB).
 
 Mikrofon butonu (alttaki yuvarlak) → gerçek pipeline başlat. Solundaki dosya butonu → **simülasyon**
 (kayıtlı WAV'ı mikrofon gibi gerçek zamanlı oynat; bkz. "Simülasyon modu").

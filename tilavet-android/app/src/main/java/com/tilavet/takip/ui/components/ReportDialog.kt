@@ -26,7 +26,7 @@ import com.tilavet.takip.ui.theme.LocalAppStyle
 import java.io.File
 
 /**
- * Namaz raporu (ana ekran → 📄): son 3 kayitta okunan ayetler — util/NamazReportBuilder'in urettigi HTML tam ekranda
+ * Namaz raporu (ana ekran → 📄): son N namazda okunan ayetler — util/NamazReportBuilder'in urettigi HTML tam ekranda
  * (WebView, internetsiz; dosya cacheDir/reports). Ustte paylas (HTML dosyasi; tarayicida / baska telefonda da acilir) ve kapat.
  */
 @SuppressLint("SetJavaScriptEnabled")

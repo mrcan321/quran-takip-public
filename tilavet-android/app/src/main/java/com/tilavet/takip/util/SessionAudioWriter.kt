@@ -16,7 +16,8 @@ import java.util.Locale
  * 📤 ile log + son WAV paylasilir, data/ klasorune konup scripts/eval_pipeline.py'de
  * EXPECTED'e beklenen sure yazilir. Log'daki [chunk N] satirlari WAV'da N*5. saniyeye denk gelir.
  *
- * - Dosyalar cacheDir/sessions/ altinda, sadece son [KEEP] oturum tutulur (simulasyon menusu). Oturum bitince
+ * - Dosyalar cacheDir/sessions/ altinda, sadece son [KEEP] oturumun WAV'i (simulasyon menusu), son [LOG_KEEP]
+ *   oturumun log'u (namaz raporu) tutulur. Oturum bitince
  *   PublicRecordings ayni dosyayi + oturum log'unu (.txt) Download/Tilavet Takip'e kopyalar — orada silinmez.
  * - Her oturumun yaninda ayni adla .txt oturum log'u ([logFile], SessionLog yazar).
  * - Tek oturum en fazla [MAX_SECONDS] (sonrasi yazilmaz, pipeline etkilenmez).
@@ -30,6 +31,11 @@ class SessionAudioWriter private constructor(val file: File) {
         private const val TAG = "SessionAudioWriter"
         const val DIR = "sessions"
         private const val KEEP = 3
+        /**
+         * Oturum log'lari (.txt, kucuk) WAV'lardan uzun tutulur: namaz raporu son 1-7 namaza bakar (ReportHtml.MAX_NAMAZ);
+         * kisa / namazsiz oturumlar (deneme, ASR testi) da sayildigi icin pay birakildi.
+         */
+        const val LOG_KEEP = 20
         private const val SAMPLE_RATE = 16000
         private const val MAX_SECONDS = 60 * 60
         private const val HEADER_SIZE = 44
@@ -70,15 +76,26 @@ class SessionAudioWriter private constructor(val file: File) {
         /** Oturumun log dosyasi: ayni ad, .txt (SessionLog yazar, PublicRecordings WAV'la birlikte kopyalar). */
         fun logFileOf(wav: File): File = File(wav.parentFile, wav.name.removeSuffix(".wav") + ".txt")
 
+        /** Oturumun WAV'i (log'dan): ayni ad, .wav — WAV'lar [KEEP] ile sinirli, eski oturumda yoktur. */
+        fun wavOf(log: File): File = File(log.parentFile, log.name.removeSuffix(".txt") + ".wav")
+
+        /** Tutulan oturum log'lari, en yenisi once (adindaki baslangic zamanina gore; namaz raporu icin). */
+        fun listLogs(cacheDir: File): List<File> =
+            File(cacheDir, DIR).listFiles { f -> f.name.startsWith("tilavet-") && f.name.endsWith(".txt") }
+                ?.sortedByDescending { it.name } ?: emptyList()
+
         private fun prune(dir: File, keep: Int) {
             val wavs = dir.listFiles { f -> f.name.endsWith(".wav") }?.sortedByDescending { it.lastModified() }
                 ?: return
-            // Yeni acilan dosya da listede — keep tane kalsin; log'u ve yayin isareti de gitsin
+            // Yeni acilan dosya da listede — keep tane kalsin
             val kept = wavs.take(keep).map { it.name.removeSuffix(".wav") }.toSet()
             wavs.drop(keep).forEach { it.delete() }
+            // Log'lar son LOG_KEEP oturumda kalir (namaz raporu); yayin isareti dosyasiyla birlikte gider
+            val keptLogs = dir.listFiles { f -> f.name.endsWith(".txt") }?.sortedByDescending { it.name }
+                ?.take(LOG_KEEP)?.map { it.name.removeSuffix(".txt") }?.toSet() ?: emptySet()
             dir.listFiles { f -> f.name.endsWith(".txt") || f.name.endsWith(".pub") }?.forEach { f ->
                 val base = f.name.substringBeforeLast('.').removeSuffix(".wav").removeSuffix(".txt")
-                if (base !in kept) f.delete()
+                if (base !in kept && base !in keptLogs) f.delete()
             }
         }
     }

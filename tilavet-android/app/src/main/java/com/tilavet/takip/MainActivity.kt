@@ -115,9 +115,6 @@ private fun AppRoot(viewModel: MainViewModel) {
                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 viewModel.runAsrTest()
             },
-            onAlignerTest = { viewModel.runAlignerTest() },
-            onFuzzyTest = { viewModel.runFuzzyTest() },
-            onStateMachineTest = { viewModel.runStateMachineTest() },
             onLogExport = { viewModel.exportLog() },
             onReport = { viewModel.openReport() },
             onEzanDismiss = { viewModel.dismissEzan() },
@@ -149,6 +146,8 @@ private fun AppRoot(viewModel: MainViewModel) {
                 onIdleOpacity = { viewModel.setIdleOpacity(it) },
                 onSkippedAyahTenths = { viewModel.setSkippedAyahTenths(it) },
                 onTextHoldTenths = { viewModel.setTextHoldTenths(it) },
+                onReportNamazCount = { viewModel.setReportNamazCount(it) },
+                onAdvancedTestMode = { viewModel.setAdvancedTestMode(it) },
                 bgUnrestricted = state.bgUnrestricted,
                 onRequestBackground = { PhoneControl.requestBackgroundUnrestricted(context) },
                 dndAccess = state.dndAccess,

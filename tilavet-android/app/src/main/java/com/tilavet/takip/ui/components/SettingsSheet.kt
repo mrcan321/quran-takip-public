@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tilavet.takip.audio.TextHold
+import com.tilavet.takip.report.ReportHtml
 import com.tilavet.takip.data.AppSettings
 import com.tilavet.takip.data.MealCatalog
 import com.tilavet.takip.glasses.GlassesState
@@ -50,6 +51,8 @@ fun SettingsSheet(
     onIdleOpacity: (Int) -> Unit,
     onSkippedAyahTenths: (Int) -> Unit = {},
     onTextHoldTenths: (Int) -> Unit = {},
+    onReportNamazCount: (Int) -> Unit = {},
+    onAdvancedTestMode: (Boolean) -> Unit = {},
     bgUnrestricted: Boolean = true,
     onRequestBackground: () -> Unit = {},
     dndAccess: Boolean = false,
@@ -230,6 +233,21 @@ fun SettingsSheet(
                     onValueChange = { onTextHoldTenths(it.roundToInt()) },
                     valueRange = 0f..TextHold.MAX_TENTHS.toFloat(),
                     steps = TextHold.MAX_TENTHS - 1,     // 0.1 sn adimlar
+                )
+            }
+
+            // === Namaz raporu (📄): en son kac namaz (ReportHtml.lastNamaz; az namaz varsa olan kadar) ===
+            SettingGroup(
+                label = "RAPORDAKİ NAMAZ SAYISI",
+                trailing = "${settings.reportNamazCount} namaz",
+                hint = "📄 raporu en son bu kadar namazda okunan ayetleri gösterir (1 = sadece en son namaz). Kayıtlarda " +
+                    "daha az namaz varsa olanlar gösterilir.",
+            ) {
+                AppSlider(
+                    value = settings.reportNamazCount.toFloat(),
+                    onValueChange = { onReportNamazCount(it.roundToInt()) },
+                    valueRange = ReportHtml.MIN_NAMAZ.toFloat()..ReportHtml.MAX_NAMAZ.toFloat(),
+                    steps = ReportHtml.MAX_NAMAZ - ReportHtml.MIN_NAMAZ - 1,     // tam sayilar
                 )
             }
 
@@ -467,6 +485,14 @@ fun SettingsSheet(
             Spacer(Modifier.height(8.dp))
 
             SectionHeader(label = "TUNER (DEBUG)")
+
+            // === Gelismis test modu: ust barda 🔬 ASR testi (varsayilan gizli) ===
+            SettingGroup(
+                label = "GELİŞMİŞ TEST MODU",
+                hint = "Açıkken üst barda ASR testi (🔬) görünür: 5 sn mikrofon kaydı, ses tanıma sonucu durum satırında.",
+            ) {
+                OnOffRow(current = settings.advancedTestMode, onSelect = onAdvancedTestMode)
+            }
 
             // === ASR decoder ===
             SettingGroup(label = "ASR DECODER") {

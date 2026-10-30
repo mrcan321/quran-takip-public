@@ -10,8 +10,6 @@ import androidx.annotation.RequiresPermission
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tilavet.takip.aligner.Aligner
-import com.tilavet.takip.aligner.AlignerTestRunner
-import com.tilavet.takip.aligner.FuzzyTestRunner
 import com.tilavet.takip.aligner.QuranIndex
 import com.tilavet.takip.asr.AsrDecoder
 import com.tilavet.takip.asr.AsrState
@@ -40,7 +38,6 @@ import com.tilavet.takip.session.EzanView
 import com.tilavet.takip.session.NamazState
 import com.tilavet.takip.session.NamazZikri
 import com.tilavet.takip.session.RakatTracker
-import com.tilavet.takip.session.StateMachineTestRunner
 import com.tilavet.takip.session.ZikirTracker
 import com.tilavet.takip.ui.AyahStepper
 import com.tilavet.takip.ui.theme.AppTheme
@@ -104,12 +101,6 @@ data class UiState(
     val asrLastResult: String = "",
     val asrTimingInfo: String = "",
     val asrInProgress: Boolean = false,
-    val alignerState: String = "",
-    val alignerResult: String = "",
-    val fuzzyState: String = "",
-    val fuzzyResult: String = "",
-    val stateMachineState: String = "",
-    val stateMachineResult: String = "",
     val pipelineStatus: String = "",  // "[FATIHA] (3/5 chunk match)"
     /** Ezan / kamet penceresi (null = kapali). Bkz. EzanTracker. */
     val ezan: EzanView? = null,
@@ -166,9 +157,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var pipelineJob: Job? = null
     private var asrJob: Job? = null
-    private var alignerJob: Job? = null
-    private var fuzzyJob: Job? = null
-    private var stateMachineJob: Job? = null
 
     // Ezan / kamet penceresi: takip her parcada, pencere kullanici kapattiysa o ezan/kamet bitene kadar acilmaz
     private val ezanTracker = EzanTracker()
@@ -862,75 +850,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ============================================================
-    // Tests
+    // Kuran indeksi / aligner yukleme
     // ============================================================
-    fun runAlignerTest() {
-        alignerJob?.cancel()
-        alignerJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
-                _state.update { it.copy(alignerState = "Yükleniyor...", alignerResult = "") }
-                ensureAligner()
-                val al = aligner!!
-                _state.update { it.copy(alignerState = "Test çalışıyor...") }
-                val ctx = getApplication<Application>()
-                val summary = AlignerTestRunner.runAll(ctx, al)
-                val text = AlignerTestRunner.formatSummary(summary)
-                _state.update { it.copy(
-                    alignerState = if (summary.failedCases.isEmpty()) "Tüm test'ler geçti ✓" else "Bazıları başarısız",
-                    alignerResult = text,
-                ) }
-            } catch (e: Throwable) {
-                SessionLog.e(TAG, "Aligner test hatasi", e)
-                _state.update { it.copy(alignerState = "Hata", alignerResult = "Hata: ${e.message}\n${e.stackTraceToString().take(800)}") }
-            }
-        }
-    }
-
-    fun runStateMachineTest() {
-        stateMachineJob?.cancel()
-        stateMachineJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
-                _state.update { it.copy(stateMachineState = "Yükleniyor...", stateMachineResult = "") }
-                ensureAligner()
-                val al = aligner!!
-                val idx = quranIndex!!
-                _state.update { it.copy(stateMachineState = "Test çalışıyor...") }
-                val ctx = getApplication<Application>()
-                val summary = StateMachineTestRunner.runAll(ctx, idx, al)
-                val text = StateMachineTestRunner.formatSummary(summary)
-                _state.update { it.copy(
-                    stateMachineState = if (summary.failedChecks.isEmpty()) "Tüm chunk'lar geçti ✓" else "Bazıları başarısız",
-                    stateMachineResult = text,
-                ) }
-            } catch (e: Throwable) {
-                SessionLog.e(TAG, "StateMachine test hatasi", e)
-                _state.update { it.copy(
-                    stateMachineState = "Hata",
-                    stateMachineResult = "Hata: ${e.message}\n${e.stackTraceToString().take(800)}",
-                ) }
-            }
-        }
-    }
-
-    fun runFuzzyTest() {
-        fuzzyJob?.cancel()
-        fuzzyJob = viewModelScope.launch(Dispatchers.Default) {
-            try {
-                _state.update { it.copy(fuzzyState = "Calisiyor...", fuzzyResult = "") }
-                val ctx = getApplication<Application>()
-                val summary = FuzzyTestRunner.runAll(ctx)
-                val text = FuzzyTestRunner.formatSummary(summary)
-                _state.update { it.copy(
-                    fuzzyState = if (summary.failedCases.isEmpty()) "Tüm test'ler geçti ✓" else "Bazıları başarısız",
-                    fuzzyResult = text,
-                ) }
-            } catch (e: Throwable) {
-                SessionLog.e(TAG, "Fuzzy test hatasi", e)
-                _state.update { it.copy(fuzzyState = "Hata", fuzzyResult = "Hata: ${e.message}") }
-            }
-        }
-    }
-
     private suspend fun ensureQuranIndex() = withContext(Dispatchers.IO) {
         loadMutex.withLock {
             if (quranIndex != null) return@withLock
@@ -1043,6 +964,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setGlassesMealLabelGrow(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesMealLabelGrow(value) } }
     fun setGlassesHeaderAutoHide(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHeaderAutoHide(value) } }
     fun setTextHoldTenths(value: Int) { viewModelScope.launch { settingsRepo.setTextHoldTenths(value) } }
+    fun setReportNamazCount(value: Int) { viewModelScope.launch { settingsRepo.setReportNamazCount(value) } }
+    fun setAdvancedTestMode(value: Boolean) { viewModelScope.launch { settingsRepo.setAdvancedTestMode(value) } }
     fun setMinConfidence(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidence(value) } }
     fun setMinConfidenceFirstLock(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidenceFirstLock(value) } }
     fun setWindowSlack(value: Int) { viewModelScope.launch { settingsRepo.setWindowSlack(value) } }
@@ -1069,9 +992,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Namaz raporu: son 3 kaydin log'undan okunan ayetler (Arapca + secili meal + tefsir) → HTML, uygulama icinde gosterilir
-     * (util/NamazReportBuilder, report/). Kullanici (27.10): "son 3 kayda ait namazda okunan ayetleri guzel bir rapor html
-     * sunsun".
+     * Namaz raporu: en son N namazda (Ayarlar → RAPORDAKİ NAMAZ SAYISI, 1-7) okunan ayetler (Arapca + secili meal + tefsir)
+     * → HTML, uygulama icinde gosterilir (util/NamazReportBuilder, report/). Kullanici (27.10): "son 3 kayda ait namazda
+     * okunan ayetleri guzel bir rapor html sunsun"; 30.10: sayi ayardan, az namaz varsa olan kadar.
      */
     fun openReport() {
         val s = _state.value
@@ -1086,7 +1009,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val app = getApplication<Application>()
             val file = withContext(Dispatchers.IO) {
                 try {
-                    NamazReportBuilder.build(app, m, mealName, AssetSync.sync(app))
+                    NamazReportBuilder.build(app, m, mealName, AssetSync.sync(app), s.settings.reportNamazCount)
                 } catch (e: Exception) {
                     SessionLog.e(TAG, "Rapor hazirlanamadi", e)
                     null
