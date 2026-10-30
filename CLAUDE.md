@@ -1720,7 +1720,7 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     للمتابعة"), 342 boş → pipeline'a alınmadı. Asıl çözüm cami verisiyle ince ayar (açık sorun 19: tekbir / semiallah / selam
     etiketleri).
 
-### 34. Namaz bitince dinlemeyi durdur, 📤 30 kayıt, ayar kategorileri, kaydırma çubuğu (APK build #132+)
+### 34. Namaz bitince dinlemeyi durdur, 📤 30 kayıt, ayar kategorileri, kaydırma çubuğu (APK build #133+)
 - Kullanıcı (30.10): (1) "namaz bitince selamdan sonra Allahümme ente's-selâm duasını algılayıp meali ekrandan kaybolduktan
   sonra mikrofonu stop et, stop düğmesine basılmış gibi; ayarlarda tercihe bağlı"; (2) "📤 yalnızca son kaydın log'unu ve
   sesini paylaşıyor; popupta en yeniden eskiye 30 kayıt, aşağı kaysın, çoklu seçilsin, seçtiklerini Drive'a / başka uygulamaya
