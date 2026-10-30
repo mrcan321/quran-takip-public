@@ -58,6 +58,9 @@ data class AppSettings(
     val textHoldTenths: Int = TextHold.DEFAULT_TENTHS,
     // Ayarlar → MUTE ON RECORDING: mikrofonla dinlerken telefon sessizde (bitince eski haline) — bkz. util/PhoneControl
     val muteOnRecording: Boolean = false,
+    // Ayarlar → NAMAZ BİTİNCE DİNLEMEYİ DURDUR: selamdan sonra namaz sonu duasi karti kapaninca mikrofon durur
+    // (MainViewModel.autoStopAfterNamaz; kullanici 30.10)
+    val autoStopAfterNamaz: Boolean = true,
     // Ayarlar → RAPORDAKİ NAMAZ SAYISI: 📄 raporu en son kac namazi gosterir (1-7; ReportHtml.lastNamaz)
     val reportNamazCount: Int = ReportHtml.DEFAULT_NAMAZ,
     // Ayarlar → GELİŞMİŞ TEST MODU: ust barda 🔬 ASR testi (varsayilan gizli)
@@ -100,6 +103,7 @@ class SettingsRepository(private val context: Context) {
         val TEXT_HOLD_TENTHS = intPreferencesKey("text_hold_tenths")
         val MUTE_ON_RECORDING = booleanPreferencesKey("mute_on_recording")
         val REPORT_NAMAZ_COUNT = intPreferencesKey("report_namaz_count")
+        val AUTO_STOP_AFTER_NAMAZ = booleanPreferencesKey("auto_stop_after_namaz")
         val ADVANCED_TEST_MODE = booleanPreferencesKey("advanced_test_mode")
         // _v2: eski kurulumlarda kayitli 50 bir kez birakilsin, yeni varsayilan (55) gelsin (theme_v2 gibi)
         val MIN_CONFIDENCE = intPreferencesKey("min_confidence_v2")
@@ -140,6 +144,7 @@ class SettingsRepository(private val context: Context) {
             reportNamazCount = (prefs[Keys.REPORT_NAMAZ_COUNT] ?: ReportHtml.DEFAULT_NAMAZ)
                 .coerceIn(ReportHtml.MIN_NAMAZ, ReportHtml.MAX_NAMAZ),
             advancedTestMode = prefs[Keys.ADVANCED_TEST_MODE] ?: false,
+            autoStopAfterNamaz = prefs[Keys.AUTO_STOP_AFTER_NAMAZ] ?: true,
             minConfidence = prefs[Keys.MIN_CONFIDENCE] ?: 55,
             minConfidenceFirstLock = prefs[Keys.MIN_CONFIDENCE_FIRST_LOCK] ?: 70,
             windowSlack = prefs[Keys.WINDOW_SLACK] ?: 2,
@@ -251,6 +256,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setReportNamazCount(value: Int) {
         context.dataStore.edit { it[Keys.REPORT_NAMAZ_COUNT] = value.coerceIn(ReportHtml.MIN_NAMAZ, ReportHtml.MAX_NAMAZ) }
+    }
+
+    suspend fun setAutoStopAfterNamaz(value: Boolean) {
+        context.dataStore.edit { it[Keys.AUTO_STOP_AFTER_NAMAZ] = value }
     }
 
     suspend fun setAdvancedTestMode(value: Boolean) {

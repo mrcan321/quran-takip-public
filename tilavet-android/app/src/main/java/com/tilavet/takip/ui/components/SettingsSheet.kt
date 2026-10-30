@@ -5,9 +5,18 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -22,6 +31,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,6 +62,7 @@ fun SettingsSheet(
     onSkippedAyahTenths: (Int) -> Unit = {},
     onTextHoldTenths: (Int) -> Unit = {},
     onReportNamazCount: (Int) -> Unit = {},
+    onAutoStopAfterNamaz: (Boolean) -> Unit = {},
     onAdvancedTestMode: (Boolean) -> Unit = {},
     bgUnrestricted: Boolean = true,
     onRequestBackground: () -> Unit = {},
@@ -148,7 +159,9 @@ fun SettingsSheet(
 
             SheetDivider()
 
-            Spacer(Modifier.height(20.dp))
+            // Kategoriler (kullanici 30.10: "ayarlar kismina ceki duzen ver, kategorize edip basliklar koy"):
+            // Gorunum · Takip ekrani · Dinleme · Rapor · G2 gozluk · Gelismis
+            CategoryHeader("Görünüm", Icons.Filled.Palette, first = true)
 
             // === Theme ===
             SettingGroup(label = "TEMA") {
@@ -206,6 +219,8 @@ fun SettingsSheet(
                 )
             }
 
+            CategoryHeader("Takip ekranı", Icons.Filled.AutoStories)
+
             // === Atlanan ayetler: takip 2 → 5 gibi ileri atlayinca aradaki ayetlerin ekranda kalma suresi ===
             SettingGroup(
                 label = "ATLANAN AYET SÜRESİ",
@@ -236,19 +251,15 @@ fun SettingsSheet(
                 )
             }
 
-            // === Namaz raporu (📄): en son kac namaz (ReportHtml.lastNamaz; az namaz varsa olan kadar) ===
+            CategoryHeader("Dinleme", Icons.Filled.Mic)
+
+            // === Namaz bitince dinlemeyi durdur: namaz sonu duasi karti kapaninca (MainViewModel.autoStopAfterNamaz) ===
             SettingGroup(
-                label = "RAPORDAKİ NAMAZ SAYISI",
-                trailing = "${settings.reportNamazCount} namaz",
-                hint = "📄 raporu en son bu kadar namazda okunan ayetleri gösterir (1 = sadece en son namaz). Kayıtlarda " +
-                    "daha az namaz varsa olanlar gösterilir.",
+                label = "NAMAZ BİTİNCE DİNLEMEYİ DURDUR",
+                hint = "Selamdan sonra namaz sonu duası (Allahümme ente's-selâm) duyulup kartı ekrandan kalkınca mikrofon " +
+                    "kendiliğinden durur — durdur düğmesine basılmış gibi. Teravihte (her iki rekâtta bir selam) kapatın.",
             ) {
-                AppSlider(
-                    value = settings.reportNamazCount.toFloat(),
-                    onValueChange = { onReportNamazCount(it.roundToInt()) },
-                    valueRange = ReportHtml.MIN_NAMAZ.toFloat()..ReportHtml.MAX_NAMAZ.toFloat(),
-                    steps = ReportHtml.MAX_NAMAZ - ReportHtml.MIN_NAMAZ - 1,     // tam sayilar
-                )
+                OnOffRow(current = settings.autoStopAfterNamaz, onSelect = onAutoStopAfterNamaz)
             }
 
             // === Mute on recording: mikrofonla dinlerken telefon sessizde (bkz. util/PhoneControl) ===
@@ -284,6 +295,25 @@ fun SettingsSheet(
                     Spacer(Modifier.height(6.dp))
                 }
             }
+
+            CategoryHeader("Rapor", Icons.Filled.Description)
+
+            // === Namaz raporu (📄): en son kac namaz (ReportHtml.lastNamaz; az namaz varsa olan kadar) ===
+            SettingGroup(
+                label = "RAPORDAKİ NAMAZ SAYISI",
+                trailing = "${settings.reportNamazCount} namaz",
+                hint = "📄 raporu en son bu kadar namazda okunan ayetleri gösterir (1 = sadece en son namaz). Kayıtlarda " +
+                    "daha az namaz varsa olanlar gösterilir.",
+            ) {
+                AppSlider(
+                    value = settings.reportNamazCount.toFloat(),
+                    onValueChange = { onReportNamazCount(it.roundToInt()) },
+                    valueRange = ReportHtml.MIN_NAMAZ.toFloat()..ReportHtml.MAX_NAMAZ.toFloat(),
+                    steps = ReportHtml.MAX_NAMAZ - ReportHtml.MIN_NAMAZ - 1,     // tam sayilar
+                )
+            }
+
+            CategoryHeader("G2 gözlük", Icons.Filled.Visibility, subtitle = "Even Realities G2")
 
             // === Even Realities G2 gozluk: okunan ayet + meal gozlukte (bkz. glasses/GlassesBridge, assets/g2) ===
             SettingGroup(
@@ -480,11 +510,7 @@ fun SettingsSheet(
             }
 
             // === DEBUG TUNER ===
-            Spacer(Modifier.height(8.dp))
-            SheetDivider()
-            Spacer(Modifier.height(8.dp))
-
-            SectionHeader(label = "TUNER (DEBUG)")
+            CategoryHeader("Gelişmiş", Icons.Filled.Tune, subtitle = "Test modu ve takip ayarları (tuner)")
 
             // === Gelismis test modu: ust barda 🔬 ASR testi (varsayilan gizli) ===
             SettingGroup(
@@ -560,23 +586,58 @@ private fun SheetDivider() {
     }
 }
 
+/**
+ * Ayar kategorisi basligi (Gorunum, Takip ekrani, Dinleme, Rapor, G2 gozluk, Gelismis): ustte ayrac (ilk kategoride
+ * yok), yuvarlak zeminde ikon + serif baslik, istege bagli alt satir.
+ */
 @Composable
-private fun SectionHeader(label: String) {
+private fun CategoryHeader(title: String, icon: ImageVector, first: Boolean = false, subtitle: String? = null) {
     val palette = LocalAppPalette.current
     val style = LocalAppStyle.current
-    Box(
+    if (!first) {
+        Spacer(Modifier.height(10.dp))
+        SheetDivider()
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 10.dp),
     ) {
-        Text(
-            text = label,
-            fontFamily = style.label,
-            fontWeight = if (style.ornate) FontWeight.Bold else null,
-            fontSize = 11.sp,
-            color = if (style.ornate) style.goldInk else palette.accent,
-            letterSpacing = style.tracking(1.2f).sp,
-        )
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(34.dp)
+                .background(
+                    if (style.ornate) style.gold.copy(alpha = 0.16f) else palette.accent.copy(alpha = 0.14f),
+                    CircleShape,
+                ),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (style.ornate) style.goldInk else palette.accent,
+                modifier = Modifier.size(19.dp),
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(
+                text = title,
+                fontFamily = style.display,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 20.sp,
+                color = if (style.ornate) style.headerTop else palette.fg,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    fontFamily = style.body,
+                    fontSize = 12.sp,
+                    color = palette.fgDim,
+                )
+            }
+        }
     }
 }
 

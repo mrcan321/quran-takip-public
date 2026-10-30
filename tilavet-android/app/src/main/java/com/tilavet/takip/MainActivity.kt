@@ -21,6 +21,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tilavet.takip.ui.components.ReportDialog
+import com.tilavet.takip.ui.components.ShareDialog
 import com.tilavet.takip.ui.components.SettingsSheet
 import com.tilavet.takip.ui.screens.MainScreen
 import com.tilavet.takip.ui.theme.LocalAppPalette
@@ -115,7 +116,7 @@ private fun AppRoot(viewModel: MainViewModel) {
                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 viewModel.runAsrTest()
             },
-            onLogExport = { viewModel.exportLog() },
+            onLogExport = { viewModel.openShare() },
             onReport = { viewModel.openReport() },
             onEzanDismiss = { viewModel.dismissEzan() },
             onZikirDismiss = { viewModel.dismissZikir() },
@@ -130,6 +131,15 @@ private fun AppRoot(viewModel: MainViewModel) {
 
         state.reportFile?.let { f ->
             ReportDialog(file = f, onShare = { viewModel.shareReport() }, onDismiss = { viewModel.closeReport() })
+        }
+
+        // 📤 Kayitlari paylas: son 30 oturum, coklu secim
+        if (state.shareOpen) {
+            ShareDialog(
+                recordings = state.shareList,
+                onShare = { selected, logcat -> viewModel.shareRecordings(selected, logcat) },
+                onDismiss = { viewModel.closeShare() },
+            )
         }
 
         if (state.showSettingsSheet) {
@@ -147,6 +157,7 @@ private fun AppRoot(viewModel: MainViewModel) {
                 onSkippedAyahTenths = { viewModel.setSkippedAyahTenths(it) },
                 onTextHoldTenths = { viewModel.setTextHoldTenths(it) },
                 onReportNamazCount = { viewModel.setReportNamazCount(it) },
+                onAutoStopAfterNamaz = { viewModel.setAutoStopAfterNamaz(it) },
                 onAdvancedTestMode = { viewModel.setAdvancedTestMode(it) },
                 bgUnrestricted = state.bgUnrestricted,
                 onRequestBackground = { PhoneControl.requestBackgroundUnrestricted(context) },

@@ -112,7 +112,9 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
     ├── ListenService.kt       — ön plan servisi: dinlerken (mikrofon) ekran kilitli / Even'e geçince de dinler; G2 açıkken
     │                            (specialUse) uygulama arka planda canlı kalır — gözlük mikrofonu beklemeden bağlanır
     ├── PhoneControl.kt        — arka planda çalışma izni (pil kısıtlaması) + MUTE ON RECORDING (zil modu sessiz / geri)
-    └── LogExporter.kt         — logcat'i dosyaya yaz, log + son WAV share intent (FileProvider)
+    ├── RecordingMerge.kt      — 📤 kayıt listesi: genel klasör + cache birleşir, en yeniden 30 oturum (Android'siz, JVM'de)
+    ├── RecordingCatalog.kt    — 📤 için oturumlar: Download/Tilavet Takip (MediaStore) + cacheDir/sessions → Uri
+    └── LogExporter.kt         — logcat'i dosyaya yaz; seçilen kayıtları (Uri) / dosyaları share intent
 ```
 **G2 eklentisi** (Even Hub web uygulaması, `app/src/main/assets/g2/` — APK'dan da sunulur, `.ehpk` de aynı dosyalar):
 `index.html` (telefondaki sayfa + önizleme), `boot.js` (yükleyici: kodu köprüden fetch + blob import, yoksa paketteki), `g2-kod.json`, `app.js` (köprüden okur, gözlüğe yazar, Arapça görüntü, kaydırma),
@@ -1718,6 +1720,39 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     للمتابعة"), 342 boş → pipeline'a alınmadı. Asıl çözüm cami verisiyle ince ayar (açık sorun 19: tekbir / semiallah / selam
     etiketleri).
 
+### 34. Namaz bitince dinlemeyi durdur, 📤 30 kayıt, ayar kategorileri, kaydırma çubuğu (APK build #132+)
+- Kullanıcı (30.10): (1) "namaz bitince selamdan sonra Allahümme ente's-selâm duasını algılayıp meali ekrandan kaybolduktan
+  sonra mikrofonu stop et, stop düğmesine basılmış gibi; ayarlarda tercihe bağlı"; (2) "📤 yalnızca son kaydın log'unu ve
+  sesini paylaşıyor; popupta en yeniden eskiye 30 kayıt, aşağı kaysın, çoklu seçilsin, seçtiklerini Drive'a / başka uygulamaya
+  paylaş"; (3) "ayarlara çeki düzen, kategorize edip başlıklar"; (4) "ekranı aşağı çekerken bir düğmeye yanlışlıkla basma
+  ihtimali var; en sağda boydan boya kalın bir scroll dikmesi ve görünür bir kaydırma ikonu, tutup çekeyim".
+- **Otomatik durdurma** (`MainViewModel.autoStopAfterNamaz`; Ayarlar → Dinleme → **NAMAZ BİTİNCE DİNLEMEYİ DURDUR**, varsayılan
+  AÇIK): ZikirTracker NAMAZ SONU DUASI kartını verince (selamdan ≤ 90 sn sonra "اللهم" / "يا ذا", bkz. açık sorun 17) kart
+  kapanınca (6 sn dolunca ya da dokununca) `stopPipeline()` — kayıt / log genel klasöre kopyalanır, servis kapanır, durum
+  "Namaz bitti · dinleme durduruldu", log `[otomatik] namaz sonu duasi bitti → dinleme durduruldu`. Kuran okuması yeniden
+  kilitlenirse iptal (dua yanlış algılandı / namaz sürüyor). Sadece mikrofonda (simülasyon dosya sonuna kadar oynar, log'a
+  yazılır). Teravihte her iki rekâtta selam → ayardan kapatılmalı (ipucunda yazıyor).
+- **📤 Kayıtları paylaş** (`ui/components/ShareDialog`): `PublicRecordings.publishPending` → `RecordingCatalog.list`: Download/Tilavet
+  Takip (MediaStore; uygulamanın eklediği dosyalar izinsiz okunur — yeniden kurulumda sahiplik gider, o zaman sadece cache;
+  Android 9: uygulamanın dış klasörü, FileProvider `external-files-path`) + cacheDir/sessions (son 3 WAV, son 20 log; henüz
+  kopyalanmamış oturum). `RecordingMerge` (Android'siz): aynı oturumun sesi + log'u tek satır, genel klasör öncelikli, 1 sn'den
+  kısa ses / 2 KB'den küçük tek başına log / şu an yazılan oturum yok, en yeniden eskiye **30**. Pencere: tarih ("28 Ekim 2026
+  Çarşamba, 07:01"), "12 dk 05 sn · ses 23,4 MB · log", onay kutuları (açılışta en son kayıt seçili), en üstte "Uygulama log'u
+  (logcat)" (varsayılan seçili), TÜMÜ / HİÇBİRİ, İPTAL, PAYLAŞ (n) → `LogExporter.shareUris` (ACTION_SEND_MULTIPLE + ClipData ile
+  okuma izni; Drive, e-posta, WhatsApp...). JVM `report` 34 → 42 kontrol (birleştirme, sıralama, 30 sınırı, kısa / boş / yazılan).
+- **Ayar kategorileri** (`SettingsSheet.CategoryHeader`: ayraç + yuvarlak zeminde ikon + serif başlık): **Görünüm** (tema, Arapça
+  boyut, meal, meal boyutu, hareket, eski ayet soluk) · **Takip ekranı** (atlanan ayet, ses kesilince metin) · **Dinleme** (namaz
+  bitince durdur, mute on recording, arka planda çalışma) · **Rapor** (namaz sayısı) · **G2 gözlük** · **Gelişmiş** (gelişmiş test
+  modu + tuner; eski "TUNER (DEBUG)").
+- **Kaydırma çubuğu** (`ui/components/QuranScrollbar`): listenin sağında 34 dp boydan boya dikme + 76 dp ikonlu tutamak
+  (`UnfoldMore`), liste sağdan 34 dp boşluk bırakır (kartlar altına girmez), alt bar / mikrofonun üstünde biter. Çubuğun herhangi
+  bir yerinden sürükleme (kaydırma eşiğini geçince) tutamağı parmağın altına alır, liste satır sırasıyla orantılı atlar (114 başlık
+  + 6236 ayet); sadece dokunmak bir şey yapmaz. Sürüklerken solda "Bakara 2:255" etiketi; sese göre takip durur (ok butonuyla
+  devam; ok butonu çubuğun soluna kaydı).
+- **Derleme denetimi** (`.github/workflows/derleme.yml`, ~5 dk): `tilavet-android/**` değişince `:app:compileReleaseKotlin`
+  (model / asset gerekmez). Yerelde Android SDK yok (dl.google.com proxy'de 403); APK #130'daki derleme hatası ancak test
+  kapısından ~20 dk sonra APK işinde çıkmıştı. Akış: arayüz kodu `[apk]`'sız push → derleme yeşilse Android CI'ı elle başlat.
+
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)
@@ -1950,7 +1985,7 @@ Top bar ikonları (APK #131+):
 - **🔬** ASR Test — 5sn mikrofon kaydı → transkripsiyon (sonuç durum satırında); sadece Ayarlar → TUNER (DEBUG) → **GELİŞMİŞ TEST
   MODU** açıkken (varsayılan kapalı, `AppSettings.advancedTestMode`)
 - **📄** Namaz raporu — son N namazda okunan ayetler (bkz. açık sorun 31)
-- **📤** Log Export — logcat + son kayıt share intent
+- **📤** Kayıtları paylaş — en yeniden eskiye 30 oturum (ses + log) + uygulama log'u, çoklu seçim (bkz. açık sorun 34)
 - **⚙️** Settings — tema + tuner
 - Eski **Σ** Fuzzy / **#** Aligner / **▶** State Machine test düğmeleri (ve sonuç panelleri) kaldırıldı (kullanıcı 30.10: "benchmark
   butonları gerekli mi? işlevsiz olanları kaldır, diğerlerini gizle, gelişmiş test modu açıksa görünsün"): aynı fixture testleri

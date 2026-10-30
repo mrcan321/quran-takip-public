@@ -47,6 +47,8 @@ import com.tilavet.takip.util.LogExporter
 import com.tilavet.takip.util.NamazReportBuilder
 import com.tilavet.takip.util.PhoneControl
 import com.tilavet.takip.util.PublicRecordings
+import com.tilavet.takip.util.RecordingCatalog
+import com.tilavet.takip.util.SessionRecording
 import com.tilavet.takip.util.SessionAudioWriter
 import com.tilavet.takip.util.SessionLog
 import com.tilavet.takip.util.ZammMemory
@@ -120,6 +122,9 @@ data class UiState(
     val glassesDemo: Int = 0,
     /** Namaz raporu (ana ekran → 📄): hazir HTML dosyasi (gosteriliyor) / hazirlaniyor. */
     val reportFile: File? = null,
+    /** 📤 Kayitlari paylas penceresi acik; [shareList] null = liste hazirlaniyor (util/RecordingCatalog). */
+    val shareOpen: Boolean = false,
+    val shareList: List<SessionRecording>? = null,
     val reportBusy: Boolean = false,
     /** Pil kisitlamasindan muaf (arka planda surekli calisabilir) — Ayarlar → ARKA PLANDA ÇALIŞMA. */
     val bgUnrestricted: Boolean = true,
@@ -167,6 +172,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Namaz zikirleri karti (tekbir, semiallah, rabbena, selam, dua): birkac saniye gorunur
     private val zikirTracker = ZikirTracker()
     private var zikirJob: Job? = null
+    /**
+     * Namaz sonu duasi karti gosterildi: kart kapaninca (suresi dolunca ya da dokununca) mikrofon durur (Ayarlar →
+     * NAMAZ BİTİNCE DİNLEMEYİ DURDUR). Kuran okumasi yeniden kilitlenirse iptal (dua yanlis algilandi / namaz suruyor).
+     */
+    private var stopAfterDua = false
 
     // Atlanan ara ayetler (ör. 1:2 → 1:5): ekran aradaki ayetlerde sirayla durur, sonra okunan ayete gecer
     private val ayahStepper = AyahStepper(viewModelScope)
@@ -587,9 +597,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val r = pr.result
         val zs = zikirTracker.onChunk(r, pr.audioEndSec)
         val quranLocked = r.status == ChunkStatus.MATCHED && (r.state == NamazState.FATIHA || r.state == NamazState.ZAMM)
-        if (quranLocked && _state.value.zikir != null) dismissZikir()
+        if (quranLocked) {
+            stopAfterDua = false
+            if (_state.value.zikir != null) closeZikir()
+        }
         if (zs.isEmpty() || ezanEvent != EzanEvent.NONE || _state.value.ezan != null) return
         SessionLog.d(TAG, "[zikir] t=${"%.1f".format(pr.audioEndSec)}s ${zs.joinToString(",")}")
+        if (NamazZikri.DUA in zs) stopAfterDua = true
         zikirJob?.cancel()
         zikirJob = viewModelScope.launch {
             for ((i, z) in zs.withIndex()) {
@@ -597,13 +611,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 delay(if (i < zs.lastIndex) ZIKIR_STEP_MS else ZIKIR_SHOW_MS)
             }
             _state.update { it.copy(zikir = null) }
+            if (stopAfterDua) autoStopAfterNamaz()
         }
     }
 
-    /** Zikir karti kapat (dokunma / carpi ya da Kuran okumasi basladi). */
+    /** Kullanici zikir kartini kapatti (dokunma / carpi): namaz sonu duasiysa kart kapanmis sayilir. */
     fun dismissZikir() {
+        closeZikir()
+        if (stopAfterDua) autoStopAfterNamaz()
+    }
+
+    private fun closeZikir() {
         zikirJob?.cancel()
         _state.update { it.copy(zikir = null) }
+    }
+
+    /**
+     * Namaz sonu duasinin karti kapandi → mikrofon dinlemesi durur, durdur dugmesine basilmis gibi (kayit / log
+     * kopyalanir, servis kapanir). Kullanici (30.10). Sadece mikrofonda ve ayar aciksa; simulasyon dosya sonuna kadar
+     * oynar.
+     */
+    private fun autoStopAfterNamaz() {
+        stopAfterDua = false
+        val s = _state.value
+        if (!s.isListening || !s.settings.autoStopAfterNamaz) return
+        if (s.simFile != null) {
+            SessionLog.d(TAG, "[otomatik] namaz sonu duasi bitti (simulasyonda dinleme durdurulmaz)")
+            return
+        }
+        SessionLog.d(TAG, "[otomatik] namaz sonu duasi bitti → dinleme durduruldu (Ayarlar → NAMAZ BİTİNCE DİNLEMEYİ DURDUR)")
+        stopPipeline()
+        _state.update { it.copy(statusText = "Namaz bitti · dinleme durduruldu") }
     }
 
     private fun showEzan(v: EzanView?) {
@@ -623,6 +661,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ezanDismissed = false
         zikirTracker.reset()
         zikirJob?.cancel()
+        stopAfterDua = false
     }
 
     /**
@@ -965,6 +1004,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setGlassesHeaderAutoHide(value: Boolean) { viewModelScope.launch { settingsRepo.setGlassesHeaderAutoHide(value) } }
     fun setTextHoldTenths(value: Int) { viewModelScope.launch { settingsRepo.setTextHoldTenths(value) } }
     fun setReportNamazCount(value: Int) { viewModelScope.launch { settingsRepo.setReportNamazCount(value) } }
+    fun setAutoStopAfterNamaz(value: Boolean) { viewModelScope.launch { settingsRepo.setAutoStopAfterNamaz(value) } }
     fun setAdvancedTestMode(value: Boolean) { viewModelScope.launch { settingsRepo.setAdvancedTestMode(value) } }
     fun setMinConfidence(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidence(value) } }
     fun setMinConfidenceFirstLock(value: Int) { viewModelScope.launch { settingsRepo.setMinConfidenceFirstLock(value) } }
@@ -975,19 +1015,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Logcat'i dosyaya yaz, son oturumun ses kaydiyla (WAV) birlikte share intent ac.
      * WAV + log → data/'ya konunca eval_pipeline.py ile telefonsuz tekrar oynatilabilir.
      */
-    fun exportLog() {
+    /**
+     * 📤 Kayitlari paylas penceresi: en yeniden eskiye son 30 oturum (ses + log), coklu secim (ui/components/ShareDialog).
+     * Kullanici (30.10): "yalnizca son kaydin logu ve ses kaydi paylasiliyor; popupta 30 kayit, istedigini secebilsin".
+     * Once bitmis ama kopyalanmamis oturumlar genel klasore kopyalanir (liste tek yerden gelsin).
+     */
+    fun openShare() {
+        if (_state.value.shareOpen) return
+        _state.update { it.copy(shareOpen = true, shareList = null) }
         viewModelScope.launch(Dispatchers.IO) {
-            val ctx = getApplication<Application>()
-            val file = LogExporter.export(ctx)
-            val wav = SessionAudioWriter.latest(ctx.cacheDir)
-            val files = listOfNotNull(file?.takeIf { it.exists() }, wav)
-            if (files.isNotEmpty()) {
-                withContext(Dispatchers.Main) {
-                    LogExporter.share(ctx, files)
-                }
-            } else {
-                SessionLog.e(TAG, "Log export basarisiz")
+            val app = getApplication<Application>()
+            val list = try {
+                PublicRecordings.publishPending(app)
+                RecordingCatalog.list(app)
+            } catch (e: Throwable) {
+                SessionLog.e(TAG, "Kayit listesi hazirlanamadi", e)
+                emptyList()
             }
+            _state.update { if (it.shareOpen) it.copy(shareList = list) else it }
+        }
+    }
+
+    fun closeShare() {
+        _state.update { it.copy(shareOpen = false, shareList = null) }
+    }
+
+    /** Secilen oturumlarin sesi + log'u (+ istenirse logcat) tek paylasimla. */
+    fun shareRecordings(selected: List<SessionRecording>, includeLogcat: Boolean) {
+        closeShare()
+        viewModelScope.launch(Dispatchers.IO) {
+            val app = getApplication<Application>()
+            val uris = ArrayList<Uri>()
+            val names = ArrayList<String>()
+            if (includeLogcat) {
+                LogExporter.export(app)?.takeIf { it.exists() }?.let { f ->
+                    try {
+                        uris += LogExporter.uriOf(app, f)
+                        names += f.name
+                    } catch (e: Throwable) {
+                        SessionLog.e(TAG, "logcat paylasilamadi", e)
+                    }
+                }
+            }
+            for (r in selected) for (e in r.files) {
+                uris += e.ref
+                names += e.name
+            }
+            SessionLog.d(TAG, "[paylas] ${selected.size} kayit, ${uris.size} dosya${if (includeLogcat) " (+logcat)" else ""}")
+            if (uris.isEmpty()) {
+                _state.update { it.copy(statusText = "Paylaşılacak dosya yok") }
+                return@launch
+            }
+            withContext(Dispatchers.Main) { LogExporter.shareUris(app, uris, names) }
         }
     }
 

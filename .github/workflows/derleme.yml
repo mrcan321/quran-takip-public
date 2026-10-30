@@ -1,0 +1,41 @@
+name: Derleme denetimi
+
+# Uygulama (Kotlin / Compose) kodu degisince APK'dan once hizli derleme (~5 dk): yerelde Android SDK yok
+# (dl.google.com proxy'de kapali), JVM test duzenegi (tests/jvm) sadece Android'siz dosyalari derliyor — arayuz
+# dosyalarindaki hata ancak APK isinde (test kapisindan ~20 dk sonra) cikiyordu (APK #130: derleme hatasi).
+# Model / asset gerekmez (compileReleaseKotlin). Akis: kodu "[apk]"siz push et → bu is yesilse APK'yi baslat.
+
+on:
+  push:
+    branches: ["**"]   # tag push'u (surum-<N>) tetiklemesin
+    paths:
+      - "tilavet-android/**"
+      - "!**.md"
+      - ".github/workflows/derleme.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: derleme-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  derle:
+    name: Kotlin derleme
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "8.7"
+          cache-read-only: false
+
+      - name: compileReleaseKotlin
+        working-directory: tilavet-android
+        run: gradle --stacktrace :app:compileReleaseKotlin

@@ -1,5 +1,6 @@
 import com.tilavet.takip.report.NamazReport
 import com.tilavet.takip.report.ReportHtml
+import com.tilavet.takip.util.RecordingMerge
 
 /**
  * Namaz raporu (report/NamazReport + ReportHtml): oturum log'u → namaz / rekat / sure bolumleri → HTML. Log satirlari
@@ -153,6 +154,39 @@ fun reportTests(): Int {
     ok("html bos rapor basligi", ReportHtml.render(emptyList(), text, t0, null, requested = 3).let {
         it.contains("Namaz yok ·") && it.contains("class=\"empty\"")
     })
+
+    // Paylas penceresi (📤) kayit listesi (util/RecordingMerge): genel klasor + cache birlesir, ayni oturumun sesi ve
+    // log'u tek kayit, en yeniden eskiye, en fazla 30; kisa ses / bos log / su an yazilan oturum yok
+    fun e(name: String, bytes: Long, src: String) = RecordingMerge.Entry(name, bytes, "$src:$name")
+    val big = 44L + 32000L * 600          // 10 dk
+    val pub = listOf(
+        e("tilavet-20261028-070105.wav", big, "pub"), e("tilavet-20261028-070105.txt", 90_000, "pub"),
+        e("tilavet-20261027-194923.wav", big, "pub"), e("tilavet-20261027-194923.txt", 80_000, "pub"),
+        e("tilavet-20261026-180000.wav", 44L + 16000, "pub"),          // yarim sn: yanlislikla basma
+        e("tilavet-20261026-180000.txt", 1_000, "pub"),
+        e("tilavet-20261025-190000 (1).wav", big, "pub"),             // MediaStore'un ikinci kopyasi: ad uymuyor
+        e("notlar.txt", 500, "pub"),
+    )
+    val cache = listOf(
+        e("tilavet-20261028-070105.wav", big, "cache"),                // genel klasorde de var → genel olan alinir
+        e("tilavet-20261029-200000.wav", big, "cache"), e("tilavet-20261029-200000.txt", 50_000, "cache"),  // kopyalanmamis
+        e("tilavet-20261020-200000.txt", 30_000, "cache"),             // WAV'i silinmis, log kaldi
+        e("tilavet-20261019-200000.txt", 900, "cache"),                // bos oturumun log'u
+        e("tilavet-20261030-090000.wav", big, "cache"), e("tilavet-20261030-090000.txt", 4_000, "cache"),  // yaziliyor
+    )
+    val recs = RecordingMerge.merge(listOf(pub, cache), exclude = setOf("tilavet-20261030-090000.wav",
+        "tilavet-20261030-090000.txt"))
+    ok("kayitlar: yeniden eskiye", recs.map { it.stamp } == listOf("20261029-200000", "20261028-070105",
+        "20261027-194923", "20261020-200000")) { recs.joinToString { it.stamp } }
+    ok("kayitlar: genel klasor onde", recs.getOrNull(1)?.wav?.ref == "pub:tilavet-20261028-070105.wav")
+    ok("kayitlar: ses + log birlikte", recs.getOrNull(0)?.files?.map { it.ref } ==
+        listOf("cache:tilavet-20261029-200000.wav", "cache:tilavet-20261029-200000.txt"))
+    ok("kayitlar: sadece log", recs.getOrNull(3)?.let { it.wav == null && it.log != null && it.durationSec == null } == true)
+    ok("kayitlar: sure", recs.getOrNull(0)?.durationSec == 600)
+    ok("kayitlar: baslangic zamani", recs.getOrNull(0)?.startMs?.let { ReportHtml.dateLabel(it) } == "29 Ekim 2026 Perşembe, 20:00")
+    val many = (1..40).flatMap { d -> listOf(e("tilavet-202610%02d-0700%02d.wav".format(d % 28 + 1, d), big, "pub")) }
+    ok("kayitlar: en fazla 30", RecordingMerge.merge(listOf(many)).size == 30)
+    ok("kayitlar: bos", RecordingMerge.merge(listOf(emptyList<RecordingMerge.Entry<String>>())).isEmpty())
     println("report: $passed/$total")
     return if (passed == total) 0 else 1
 }

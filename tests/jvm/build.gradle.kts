@@ -23,6 +23,7 @@ sourceSets {
                 "com/tilavet/takip/session/*.kt",
                 "com/tilavet/takip/glasses/*.kt",
                 "com/tilavet/takip/report/*.kt",
+                "com/tilavet/takip/util/RecordingMerge.kt",
                 "com/tilavet/takip/audio/WavReader.kt",
                 "com/tilavet/takip/audio/ChunkBuilder.kt",
                 "com/tilavet/takip/audio/VoiceActivity.kt",

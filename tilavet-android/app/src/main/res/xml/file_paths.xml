@@ -3,4 +3,6 @@
     <cache-path name="logs" path="logs/" />
     <cache-path name="sessions" path="sessions/" />
     <cache-path name="reports" path="reports/" />
+    <!-- Android 9: kayitlarin genel kopyasi (PublicRecordings) uygulamanin dis klasorunde; paylas penceresi (📤) -->
+    <external-files-path name="public" path="Tilavet Takip/" />
 </paths>

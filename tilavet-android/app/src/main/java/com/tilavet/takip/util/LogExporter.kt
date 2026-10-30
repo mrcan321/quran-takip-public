@@ -1,5 +1,6 @@
 package com.tilavet.takip.util
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -98,6 +99,43 @@ object LogExporter {
         } catch (e: Throwable) {
             Log.e(TAG, "export hata", e)
             null
+        }
+    }
+
+    /** Cache'teki bir dosyanin paylasilabilir adresi (FileProvider: logs/, sessions/, reports/). */
+    fun uriOf(context: Context, file: File): Uri =
+        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+
+    /**
+     * Paylas penceresinde (📤) secilen dosyalar: oturum sesleri / log'lari (genel klasorde MediaStore, cache'te
+     * FileProvider adresleri) + istenirse logcat. Drive, mail, WhatsApp... hangisi secilirse. [names] konu satiri icin.
+     */
+    fun shareUris(context: Context, uris: List<Uri>, names: List<String>) {
+        if (uris.isEmpty()) return
+        try {
+            val intent = if (uris.size == 1) {
+                Intent(Intent.ACTION_SEND).apply {
+                    type = if (names.firstOrNull()?.endsWith(".wav") == true) "audio/wav" else "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, uris[0])
+                }
+            } else {
+                Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                    type = "*/*"
+                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+                }
+            }
+            // Okuma izni her dosyaya gitsin (ClipData — EXTRA_STREAM listesi tek basina her alicida yetmiyor)
+            val clip = ClipData.newRawUri(names.firstOrNull() ?: "dosya", uris[0])
+            uris.drop(1).forEach { clip.addItem(ClipData.Item(it)) }
+            intent.clipData = clip
+            intent.putExtra(Intent.EXTRA_SUBJECT, "Tilavet Takip — ${names.joinToString(", ")}")
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            val chooser = Intent.createChooser(intent, "Kayıtları paylaş (${uris.size} dosya)").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(chooser)
+        } catch (e: Throwable) {
+            Log.e(TAG, "share hata", e)
         }
     }
 
