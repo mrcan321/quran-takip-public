@@ -220,7 +220,7 @@ jobs:
           }
           surum_tag "$TILAVET_BUILD" "$GITHUB_SHA"
           # Eski APK release'leri (ayni onek, bu build disinda) — silinemezse sadece uyari. Silmeden once o build'in
-          # kalici tag'i yoksa (surum tag'inden onceki build'ler, ilk kez: #129) notlardaki commit'e acilir.
+          # kalici tag'i yoksa notlardaki commit'e acilmaya calisilir (eski commit'te GITHUB_TOKEN 403 alabiliyor: #129).
           gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' \
             | { grep "^${APK_TAG_PREFIX}" || true; } | { grep -vx "$TAG" || true; } | while read -r old; do
                 n=$(echo "$old" | sed -n "s/^${APK_TAG_PREFIX}ci\([0-9]*\)-.*/\1/p")

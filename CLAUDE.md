@@ -78,7 +78,7 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
 │   ├── QuranIndex.kt          — quran.bin mmap reader, trigram lookup
 │   ├── Fuzzy.kt               — RapidFuzz partial_ratio + token_sort_ratio Kotlin port (bit-parallel LCS)
 │   ├── Aligner.kt             — align_transcription port
-│   ├── FuzzyTestRunner.kt     — 51 case test (bit-perfect; JVM test kapısı çalıştırır, APK #130'dan beri telefonda düğmesi yok)
+│   ├── FuzzyTestRunner.kt     — 51 case test (bit-perfect; JVM test kapısı çalıştırır, APK #131'den beri telefonda düğmesi yok)
 │   └── AlignerTestRunner.kt   — 43 case test (aynı)
 ├── session/
 │   ├── SessionState.kt        — NamazState enum, PendingMatch, ChunkResult
@@ -563,7 +563,7 @@ telefona geçmiyordu.
   (parça sonu → ekran), ASR testinde `ASR TEST <arapça metin> RNNT 612ms`; en sağda `#<CI run> · <commit>`
   (`BuildConfig.CI_BUILD` / `GIT_SHA`, CI'da `GITHUB_RUN_NUMBER` / `GITHUB_SHA`, yerelde "yerel").
   Eskiden ASR TEST kutusu listenin üstüne biniyordu ve model "Hazır" olunca hiç kapanmıyordu.
-  (Σ # ▶ test düğmeleri ve sonuç panelleri APK #130'da kaldırıldı — bkz. "Nasıl test edilir".)
+  (Σ # ▶ test düğmeleri ve sonuç panelleri APK #131'de kaldırıldı — bkz. "Nasıl test edilir".)
 
 ---
 
@@ -1614,7 +1614,7 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   "عليكم/عليك + (و)رحمه" de selam (Kuran'da yok; strip ile aynı kural). Tüm transkriptlerde 19 metin değişiyor, hepsi gerçek
   selam (cuma #2 / #3 ikinci selamı, sentetik teravih / hatim "ساء عليكم ورحمة", "سلام عليكم ورحمة").
 
-### 31. Namaz raporu: son N namazda okunan ayetler (APK #123+, sayı ayarı #130+)
+### 31. Namaz raporu: son N namazda okunan ayetler (APK #123+, sayı ayarı #131+)
 - Kullanıcı (27.10): "ana ekranda bir buton ile son 3 kayda ait namazda okunan ayetleri güzel bir rapor html sunsun; ayetin
   Arapçası, Türkçe meali olsun; rapor bitiminde isteyenler için tefsir de olsun; html mobil telefonda okunabilir stilde olsun".
 - Üst barda 📄 (`Icons.Filled.Description`) → `MainViewModel.openReport` → `util/NamazReportBuilder` (IO): `cacheDir/sessions`'taki
@@ -1637,7 +1637,7 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
 - Testler: JVM `report` (21 kontrol: yatsı 25.10 / 27.10 biçiminde log'lar — Fatiha taşıma, boşluk doldurma, sure başı, kalınan
   yerden devam, sessiz rekât, iki namaz, HTML kaçış / font / tefsir) test kapısında (`report_failures` 0); `report-file` ile
   gerçek log'dan elle bakılır (telefon boyutunda açık / koyu ekran görüntüsüyle kontrol edildi).
-- **Namaz sayısı ayarı (APK #130+):** kullanıcı (30.10): "en son kaç namazı rapora dahil edeceğini ayarlardan belirlesin, 1 ise
+- **Namaz sayısı ayarı (APK #131+):** kullanıcı (30.10): "en son kaç namazı rapora dahil edeceğini ayarlardan belirlesin, 1 ise
   sadece en son namaz, 1-7; yeni başlayan kullanıcının o kadar namazı yoksa rapor hata vermesin". Ayarlar → **RAPORDAKİ NAMAZ
   SAYISI** (1-7, varsayılan 3; `AppSettings.reportNamazCount`). `ReportHtml.lastNamaz`: oturumlar en yeniden eskiye, oturum içinde
   sondan başa N namaz (bir kayıtta birden çok namaz olabilir), namazsız oturum atlanır, log'lar sadece gerektiği kadar ayrıştırılır;
@@ -1911,11 +1911,14 @@ kuralı anlatan commit'in gövdesi APK #105'i onaysız derletti; `[tam-test]` de
    Gradle 8.7 + JDK 17 ile `assembleRelease` (debuggable değil, minify kapalı, repodaki keystore ile imzalı).
 4. Push build'lerinde APK **`apk-ci<N>-<deneme>`** release'ine yüklenir ("Latest" işaretli; eski `apk-*` release'leri yenisi
    oluştuktan **sonra** silinir — build #38'de "sil + aynı adla yeniden oluştur" 403 aldı ve link APK'sız kaldı; hedef commit'te
-   tag açılamazsa tag varsayılan dala açılır). **Kalıcı sürüm tag'i** (APK #130+, kullanıcı: "129'a dönmek istersem"): her APK'da
-   ayrıca release'siz `surum-<N>` tag'i (o build'in commit'i; apk-ci release'i silinince de kalır). Eski release silinmeden önce
-   onun da `surum-<N>`'i yoksa notlarındaki commit'e açılır (#129 → `9d1759a` böyle geldi). Dönmek: `git checkout surum-129`;
-   o kodla APK: Actions → Android CI → Run workflow → tag `surum-129`. Tag'ler GITHUB_TOKEN'la açılır (iş akışı tetiklemez);
-   push tetikleyicilerinde `branches: ["**"]` → elle tag push'u da build başlatmaz. Link her zaman aynı. Telefondan direkt link:
+   tag açılamazsa tag varsayılan dala açılır). **Kalıcı sürüm tag'i** (APK #131+, kullanıcı: "129'a dönmek istersem"): her APK'da
+   ayrıca release'siz `surum-<N>` tag'i (o build'in commit'i; apk-ci release'i silinince de kalır; ilk: `surum-131` → `bf264c5`).
+   Dönmek: `git checkout surum-131`; o kodla APK: Actions → Android CI → Run workflow → tag `surum-131`. Tag'ler GITHUB_TOKEN'la
+   açılır (iş akışı tetiklemez); push tetikleyicilerinde `branches: ["**"]` → elle tag push'u da build başlatmaz. Eski release
+   silinmeden önce onun `surum-<N>`'i yoksa notlarındaki commit'e açılmaya çalışılır — #129 (`9d1759a`) için GitHub 403 verdi
+   ("Resource not accessible by integration"; build #38'deki hedef commit 403'ü gibi, eski commit'e GITHUB_TOKEN'la ref açılamıyor)
+   → **#129 = `9d1759a`, tag'i yok**. Elle `git push` ile tag açılmadı: o commit'teki iş akışlarında `branches` filtresi yok, tag
+   push'u eski kodla APK derleyip yayınlardı. #130 derleme hatasıyla APK'sız (tag yok). Link her zaman aynı. Telefondan direkt link:
    `https://github.com/mrcan321/quran-takip-public/releases/latest/download/tilavet-takip.apk` (20.10'a kadar `quran-takip`)
    Kurulum kablosuz: telefonda linki aç → indir → dokun → kur (güncellemeler de üstüne kurulur).
 
@@ -1943,7 +1946,7 @@ python scripts/build_state_machine_fixture.py
 
 ## Nasıl test edilir
 
-Top bar ikonları (APK #130+):
+Top bar ikonları (APK #131+):
 - **🔬** ASR Test — 5sn mikrofon kaydı → transkripsiyon (sonuç durum satırında); sadece Ayarlar → TUNER (DEBUG) → **GELİŞMİŞ TEST
   MODU** açıkken (varsayılan kapalı, `AppSettings.advancedTestMode`)
 - **📄** Namaz raporu — son N namazda okunan ayetler (bkz. açık sorun 31)
