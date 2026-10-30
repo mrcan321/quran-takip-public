@@ -8,6 +8,7 @@ name: Sentetik namaz / teravih
 on:
   # workflow_dispatch sadece varsayilan branch'teki workflow'larda; gelistirme branch'inde ureticinin degismesi tetikler
   push:
+    branches: ["**"]   # tag push'u (surum-<N>) tetiklemesin
     paths:
       - "tests/synth/**"
       - ".github/workflows/synth.yml"

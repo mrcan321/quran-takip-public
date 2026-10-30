@@ -11,6 +11,7 @@ name: Ayar denemesi
 
 on:
   push:
+    branches: ["**"]   # tag push'u (surum-<N>) tetiklemesin
     paths:
       - "tests/tune_request.json"
   workflow_dispatch:

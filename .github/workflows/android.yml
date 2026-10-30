@@ -25,6 +25,8 @@ name: Android CI
 
 on:
   push:
+    # Sadece dal push'lari: tag push'u (surum-<N>, elle "git push --tags") build baslatmasin
+    branches: ["**"]
     paths-ignore:
       - "**.md"
   pull_request:
@@ -204,9 +206,27 @@ jobs:
               --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES" --latest \
             || gh release create "$TAG" "${FILES[@]}" -R "$GITHUB_REPOSITORY" \
               --target "$DEFAULT_BRANCH" --title "$TITLE" --notes "$NOTES (tag $DEFAULT_BRANCH uzerinde)" --latest
-          # Eski APK release'leri (ayni onek, bu build disinda) — silinemezse sadece uyari
+          # Kalici surum tag'i "surum-<N>" (release'siz, silinmez): apk-ci<N> release'i tag'iyle birlikte yeni APK gelince
+          # silinir; bu tag kalir → "129'a don" = git checkout surum-129 ya da Android CI'i o tag'de elle calistir.
+          # Kullanici (30.10). GITHUB_TOKEN ile olusturulan tag is akisi tetiklemez. Varsa dokunulmaz (ayni build'in
+          # yeniden denemesi); olusturulamazsa sadece uyari (APK yine yayinda).
+          surum_tag() {   # $1 = build no, $2 = commit
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/surum-$1" >/dev/null 2>&1; then return 0; fi
+            if gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/surum-$1" -f sha="$2" >/dev/null; then
+              echo "Kalıcı tag: surum-$1 → ${2:0:7}" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::surum-$1 tag'i olusturulamadi"
+            fi
+          }
+          surum_tag "$TILAVET_BUILD" "$GITHUB_SHA"
+          # Eski APK release'leri (ayni onek, bu build disinda) — silinemezse sadece uyari. Silmeden once o build'in
+          # kalici tag'i yoksa (surum tag'inden onceki build'ler, ilk kez: #129) notlardaki commit'e acilir.
           gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' \
-            | grep "^${APK_TAG_PREFIX}" | grep -vx "$TAG" | while read -r old; do
+            | { grep "^${APK_TAG_PREFIX}" || true; } | { grep -vx "$TAG" || true; } | while read -r old; do
+                n=$(echo "$old" | sed -n "s/^${APK_TAG_PREFIX}ci\([0-9]*\)-.*/\1/p")
+                sha=$(gh release view "$old" -R "$GITHUB_REPOSITORY" --json body --jq .body 2>/dev/null \
+                  | grep -o 'Commit: [0-9a-f]\{40\}' | head -1 | cut -d' ' -f2 || true)
+                if [ -n "$n" ] && [ -n "$sha" ]; then surum_tag "$n" "$sha"; fi
                 gh release delete "$old" -R "$GITHUB_REPOSITORY" --cleanup-tag --yes \
                   || echo "::warning::eski release silinemedi: $old"
               done

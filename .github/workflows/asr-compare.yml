@@ -13,6 +13,7 @@ name: ASR model yarisi
 
 on:
   push:
+    branches: ["**"]   # tag push'u (surum-<N>) tetiklemesin
     paths:
       - "tests/asr_candidates.json"
   workflow_dispatch:

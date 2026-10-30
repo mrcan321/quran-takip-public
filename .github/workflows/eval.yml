@@ -10,6 +10,7 @@ name: Skor degerlendirmesi
 # transkripti yerelde (model public release'ten) ya da elle.
 on:
   push:
+    branches: ["**"]   # tag push'u (surum-<N>) tetiklemesin
     paths:
       - "scripts/onnx_asr.py"
       - "scripts/vad_chunker.py"
