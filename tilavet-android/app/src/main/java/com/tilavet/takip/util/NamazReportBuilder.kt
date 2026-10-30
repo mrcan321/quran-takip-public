@@ -72,9 +72,9 @@ object NamazReportBuilder {
     private fun startMs(f: File): Long {
         val m = NAME.find(f.name) ?: return f.lastModified()
         return try {
-            SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).parse(m.groupValues[1])?.time ?: wav.lastModified()
+            SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).parse(m.groupValues[1])?.time ?: f.lastModified()
         } catch (e: Exception) {
-            wav.lastModified()
+            f.lastModified()
         }
     }
 
