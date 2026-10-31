@@ -21,7 +21,7 @@ jobs:
             curl -fL --retry 4 --max-time 120 --silent --show-error "$BASE/$name" -o "public/videos/$name"
           done
           test "$(stat -c%s public/videos/namazda-anla-yeni-film-muhammed-47-24.mp4)" -gt 8000000
-          ffprobe -v error -show_entries stream=codec_name:format=duration,size -of default=noprint_wrappers=1 public/videos/namazda-anla-yeni-film-muhammed-47-24.mp4
+          file public/videos/namazda-anla-yeni-film-muhammed-47-24.mp4
       - name: Commit published film
         run: |
           git config user.name "github-actions[bot]"
