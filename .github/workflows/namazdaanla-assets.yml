@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - ".github/workflows/namazdaanla-assets.yml"
+      - "assets/namazdaanla/topics.json"
   workflow_dispatch:
 permissions:
   contents: write
@@ -20,7 +21,7 @@ jobs:
           python - <<'PY'
           import os, json, math, random
           from PIL import Image, ImageDraw, ImageFont
-          rows=json.loads(os.environ["TOPICS_JSON"])
+          rows=json.load(open("assets/namazdaanla/topics.json",encoding="utf-8"))
           os.makedirs("assets/namazdaanla",exist_ok=True)
           font="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
           bold="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
