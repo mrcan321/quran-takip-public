@@ -1,0 +1,36 @@
+name: Build Namazda Anla live-action film
+on:
+  push:
+    paths:
+      - "scripts/render_liveaction_promo.py"
+      - ".github/workflows/namazdaanla-video.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout public video assets
+        uses: actions/checkout@v4
+      - name: Install FFmpeg and typography
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-lato fonts-noto-core fonts-dejavu-core
+          python -m pip install pillow
+      - name: Render real-footage Namazda Anla promo
+        run: python scripts/render_liveaction_promo.py
+      - name: Verify video
+        run: |
+          test -s public/videos/namazda-anla-gercek-insanlar.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 public/videos/namazda-anla-gercek-insanlar.mp4
+      - name: Commit finished video and poster
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/videos/namazda-anla-gercek-insanlar.mp4 public/videos/namazda-anla-gercek-insanlar-kapak.jpg public/videos/namazda-anla-video-kaynaklar.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish Namazda Anla live-action promo video [skip ci]"
+            git push
+          fi
