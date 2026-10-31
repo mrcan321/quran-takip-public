@@ -1,0 +1,18 @@
+{
+  "length": 57.55,
+  "recitation_at": 25.0,
+  "verse_10_audio": {
+    "source_start": 160.55,
+    "source_end": 176.8,
+    "video_start": 25.0,
+    "video_end": 41.25
+  },
+  "verse_11_audio": {
+    "source_start": 176.8,
+    "source_end": 187.9,
+    "video_start": 41.25,
+    "video_end": 52.349999999999994
+  },
+  "output": "/home/runner/work/quran-takip-public/quran-takip-public/public/videos/namazda-anla-mulk-cemaat-gozluk.mp4",
+  "size_bytes": 7740517
+}
