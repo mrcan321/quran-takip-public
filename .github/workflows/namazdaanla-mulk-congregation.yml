@@ -1,0 +1,41 @@
+name: Build Namazda Anla Mulk congregation demo film
+on:
+  push:
+    paths:
+      - ".github/workflows/namazdaanla-mulk-congregation.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install video and Arabic text tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-noto-core fonts-noto-extra fonts-lato fonts-dejavu-core
+          python -m pip install pillow
+      - name: Render actual human recitation and prayer demo
+        run: python scripts/render_mulk_congregation_glasses.py
+      - name: Verify output and timing
+        run: |
+          test -s public/videos/namazda-anla-mulk-cemaat-gozluk.mp4
+          test -s public/videos/mulk-video-sync.json
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 public/videos/namazda-anla-mulk-cemaat-gozluk.mp4
+          python - <<'PY'
+          import json
+          data=json.load(open('public/videos/mulk-video-sync.json'))
+          assert abs(data['verse_10_audio']['video_end']-data['verse_11_audio']['video_start'])<0.01
+          assert 55 < data['length'] < 65
+          PY
+      - name: Publish video and source documentation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/videos/namazda-anla-mulk-cemaat-gozluk.mp4 public/videos/namazda-anla-mulk-cemaat-gozluk-kapak.jpg public/videos/namazda-anla-mulk-cemaat-gozluk-kaynaklar.txt public/videos/mulk-video-sync.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish synchronized Mulk 67:10-11 congregation and smart-glasses promo [skip ci]"
+            git push
+          fi
