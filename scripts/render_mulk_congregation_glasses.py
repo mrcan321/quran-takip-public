@@ -157,7 +157,7 @@ def main():
       '-ss',str(REC_START),'-t',str(VERSES_DURATION),'-i',A/'mulk.mp3',
       '-filter_complex',
       f'[0:a]volume=0.010[pad1];[1:a]volume=0.009[pad2];[pad1][pad2]amix=inputs=2:normalize=0,afade=t=in:st=0:d=1.5,volume=enable=between(t\\,25\\,52.35):volume=0.00[bed];'
-      f'[2:a]aresample=44100,afade=t=in:st=0:d=.10,afade=t=out:st={VERSES_DURATION-0.25:.2f}:d=.25,adelay={round(rec_at*1000)}|{round(rec_at*1000)},volume=1.05[rec];'
+      f'[2:a]aresample=44100,afade=t=in:st=0:d=0.10,afade=t=out:st={VERSES_DURATION-0.25:.2f}:d=0.25,adelay={round(rec_at*1000)}|{round(rec_at*1000)},volume=1.05[rec];'
       f'[bed][rec]amix=inputs=2:normalize=0:duration=longest,alimiter=limit=0.85,afade=t=out:st={durations-1.5:.2f}:d=1.4[a]',
       '-map','[a]','-t',str(durations),'-c:a','aac','-b:a','160k',audio])
  finished=OUT/'namazda-anla-mulk-cemaat-gozluk.mp4'
