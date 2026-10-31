@@ -1,0 +1,35 @@
+name: Build Namazda Anla eyewear and prayer film
+on:
+  push:
+    paths:
+      - "scripts/render_glasses_liveaction_hybrid.py"
+      - ".github/workflows/namazdaanla-video-gozluk.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install editing tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core fonts-lato fonts-noto-core
+          python -m pip install pillow
+      - name: Render original promotional film
+        run: python scripts/render_glasses_liveaction_hybrid.py
+      - name: Verify output
+        run: |
+          test -s public/videos/namazda-anla-gercek-goruntulu-gozluk.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 public/videos/namazda-anla-gercek-goruntulu-gozluk.mp4
+      - name: Publish film, cover and credits
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/videos/namazda-anla-gercek-goruntulu-gozluk.mp4 public/videos/namazda-anla-gercek-goruntulu-gozluk-kapak.jpg public/videos/namazda-anla-gozluk-video-kaynaklar.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish eyewear and prayer live-action film [skip ci]"
+            git push
+          fi
