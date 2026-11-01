@@ -17,6 +17,11 @@ name: Android CI
 
 on:
   push:
+    # main'de APK derlenmez / yayinlanmaz (kullanici 01.11): uygulama gelistirmesi claude/vigilant-davinci-emx2rt dalinda,
+    # orada APK sadece "[apk]" onayiyla cikar. main'deki bu eski surum her push'ta (Namazda Anla video commit'leri)
+    # 20.10'daki ilk kodla APK uretip "Latest" yapiyor ve guncel APK release'ini siliyordu (build #36-#45).
+    # Sadece branches-ignore tanimli → tag push'lari da tetiklemez.
+    branches-ignore: ["main"]
     # APK'yi etkilemeyen degisikliklerde 520 MB'lik build'i atla (eval.yml bunlari ayrica isler)
     paths-ignore:
       - "**.md"
