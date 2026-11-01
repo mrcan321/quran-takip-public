@@ -37,13 +37,18 @@ import java.util.Locale
  * coklu secim; secilenler (+ istenirse uygulama log'u / logcat) tek paylasimla Drive, e-posta ya da baska uygulamaya.
  * Acilista en son kayit secili (eski 📤 davranisi: son kayit + log). Kullanici (30.10).
  *
- * [recordings] null = liste hazirlaniyor.
+ * [recordings] null = liste hazirlaniyor. [info]: hangi kaynakta kac dosya (tani). [folderLinked] degilse "KLASÖRÜ SEÇ":
+ * uygulama silinip yeniden kurulduysa Android eski kayitlari MediaStore'da gizler, klasor bir kez secilince hepsi gelir
+ * (kullanici 01.11: 30 yerine 3 kayit).
  */
 @Composable
 fun ShareDialog(
     recordings: List<SessionRecording>?,
     onShare: (selected: List<SessionRecording>, includeLogcat: Boolean) -> Unit,
     onDismiss: () -> Unit,
+    info: String? = null,
+    folderLinked: Boolean = false,
+    onPickFolder: () -> Unit = {},
 ) {
     val palette = LocalAppPalette.current
     val style = LocalAppStyle.current
@@ -113,6 +118,38 @@ fun ShareDialog(
                             subtitle = describe(r),
                             onToggle = { if (r.stamp in selected) selected.remove(r.stamp) else selected.add(r.stamp) },
                         )
+                    }
+                }
+            }
+            // Tani: hangi kaynakta kac dosya; eski kayitlar eksikse klasoru bir kez sec
+            if (recordings != null) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(1.dp).background(palette.border))
+                info?.let {
+                    Text(
+                        text = it,
+                        fontFamily = style.body,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        color = palette.fgFaded,
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
+                    )
+                }
+                if (!folderLinked) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 6.dp),
+                    ) {
+                        Text(
+                            text = "Eski kayıtlar eksikse (uygulama silinip yeniden kurulduysa Android onları gizler) " +
+                                "Download/Tilavet Takip klasörünü bir kez seçin.",
+                            fontFamily = style.body,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            color = palette.fgDim,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        DialogButton("KLASÖRÜ SEÇ", primary = false, onClick = onPickFolder)
                     }
                 }
             }

@@ -170,23 +170,6 @@ fun MainScreen(
                         idleOpacity = state.settings.idleOpacity / 100f,
                         motion = state.settings.motion.coerceAtLeast(0.001f),
                         contentPadding = PaddingValues(top = if (style.ornate) 4.dp else 8.dp, bottom = 150.dp),
-                        // sagda kaydirma cubugu: ayet kartlari altina girmesin
-                        modifier = Modifier.padding(end = SCROLLBAR_WIDTH),
-                    )
-                    // Saginda boydan boya kalin kaydirma cubugu: tutup cekerek kaydirma (listeyi parmakla cekerken
-                    // dugmelere yanlislikla basilmasin — kullanici 30.10); alt bar / mikrofonun ustunde biter
-                    QuranScrollbar(
-                        listState = listState,
-                        itemCount = mushaf.itemCount,
-                        labelOf = { i ->
-                            val s = mushaf.surahOfItem(i)
-                            "${mushaf.surahNameTr(s)} $s:${mushaf.ayahNumber(mushaf.ayahOfItem(i))}"
-                        },
-                        onUserDrag = { followPaused = true },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .navigationBarsPadding()
-                            .padding(top = 4.dp, bottom = 100.dp),
                     )
                 }
             } else {
@@ -204,7 +187,7 @@ fun MainScreen(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .navigationBarsPadding()
-                        .padding(end = SCROLLBAR_WIDTH + 12.dp, bottom = 104.dp),
+                        .padding(end = 18.dp, bottom = 104.dp),
                 )
             }
 

@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tilavet.takip.ui.components.ReportDialog
 import com.tilavet.takip.ui.components.ShareDialog
+import com.tilavet.takip.util.RecordingCatalog
 import com.tilavet.takip.ui.components.SettingsSheet
 import com.tilavet.takip.ui.screens.MainScreen
 import com.tilavet.takip.ui.theme.LocalAppPalette
@@ -102,6 +103,11 @@ private fun AppRoot(viewModel: MainViewModel) {
         contract = ActivityResultContracts.OpenDocument()
     ) { uri -> if (uri != null) viewModel.startSimulation(uri) }
 
+    // 📤 penceresi: Download/Tilavet Takip klasorunu bir kez sec (yeniden kurulumdan sonra eski kayitlar icin)
+    val folderPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri -> if (uri != null) viewModel.setRecordingsFolder(uri) }
+
     Box(modifier = Modifier.fillMaxSize().background(palette.bg)) {
         MainScreen(
             state = state,
@@ -139,6 +145,9 @@ private fun AppRoot(viewModel: MainViewModel) {
                 recordings = state.shareList,
                 onShare = { selected, logcat -> viewModel.shareRecordings(selected, logcat) },
                 onDismiss = { viewModel.closeShare() },
+                info = state.shareInfo,
+                folderLinked = state.shareFolderLinked,
+                onPickFolder = { folderPicker.launch(RecordingCatalog.folderHint()) },
             )
         }
 

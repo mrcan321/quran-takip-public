@@ -113,7 +113,7 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
     │                            (specialUse) uygulama arka planda canlı kalır — gözlük mikrofonu beklemeden bağlanır
     ├── PhoneControl.kt        — arka planda çalışma izni (pil kısıtlaması) + MUTE ON RECORDING (zil modu sessiz / geri)
     ├── RecordingMerge.kt      — 📤 kayıt listesi: genel klasör + cache birleşir, en yeniden 30 oturum (Android'siz, JVM'de)
-    ├── RecordingCatalog.kt    — 📤 için oturumlar: Download/Tilavet Takip (MediaStore) + cacheDir/sessions → Uri
+    ├── RecordingCatalog.kt    — 📤 için oturumlar: seçilen klasör (SAF) + Download/Tilavet Takip (MediaStore) + cache → Uri
     └── LogExporter.kt         — logcat'i dosyaya yaz; seçilen kayıtları (Uri) / dosyaları share intent
 ```
 **G2 eklentisi** (Even Hub web uygulaması, `app/src/main/assets/g2/` — APK'dan da sunulur, `.ehpk` de aynı dosyalar):
@@ -1720,7 +1720,7 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     للمتابعة"), 342 boş → pipeline'a alınmadı. Asıl çözüm cami verisiyle ince ayar (açık sorun 19: tekbir / semiallah / selam
     etiketleri).
 
-### 34. Namaz bitince dinlemeyi durdur, 📤 30 kayıt, ayar kategorileri, kaydırma çubuğu (APK build #133+)
+### 34. Namaz bitince dinlemeyi durdur, 📤 30 kayıt, ayar kategorileri, kaydırma çubuğu (APK build #133+, düzeltme #147+)
 - Kullanıcı (30.10): (1) "namaz bitince selamdan sonra Allahümme ente's-selâm duasını algılayıp meali ekrandan kaybolduktan
   sonra mikrofonu stop et, stop düğmesine basılmış gibi; ayarlarda tercihe bağlı"; (2) "📤 yalnızca son kaydın log'unu ve
   sesini paylaşıyor; popupta en yeniden eskiye 30 kayıt, aşağı kaysın, çoklu seçilsin, seçtiklerini Drive'a / başka uygulamaya
@@ -1744,11 +1744,18 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   boyut, meal, meal boyutu, hareket, eski ayet soluk) · **Takip ekranı** (atlanan ayet, ses kesilince metin) · **Dinleme** (namaz
   bitince durdur, mute on recording, arka planda çalışma) · **Rapor** (namaz sayısı) · **G2 gözlük** · **Gelişmiş** (gelişmiş test
   modu + tuner; eski "TUNER (DEBUG)").
-- **Kaydırma çubuğu** (`ui/components/QuranScrollbar`): listenin sağında 34 dp boydan boya dikme + 76 dp ikonlu tutamak
-  (`UnfoldMore`), liste sağdan 34 dp boşluk bırakır (kartlar altına girmez), alt bar / mikrofonun üstünde biter. Çubuğun herhangi
-  bir yerinden sürükleme (kaydırma eşiğini geçince) tutamağı parmağın altına alır, liste satır sırasıyla orantılı atlar (114 başlık
-  + 6236 ayet); sadece dokunmak bir şey yapmaz. Sürüklerken solda "Bakara 2:255" etiketi; sese göre takip durur (ok butonuyla
-  devam; ok butonu çubuğun soluna kaydı).
+- **Kaydırma çubuğu — Ayarlar sayfasında** (`ui/components/DragScrollbar`, APK #147+): APK #133'te yanlışlıkla ana ekrandaki Mushaf
+  listesine konmuştu (kullanıcı 01.11: "ayarlar kısmına istemiştim, ana ekrandakini geri al") → ana ekrandan kaldırıldı, ayar
+  sayfasının (`ModalBottomSheet` içindeki `verticalScroll` Column) sağında 34 dp boydan boya dikme + 76 dp ikonlu tutamak
+  (`UnfoldMore`); içerik sağdan 34 dp boşluk bırakır. Çubuğun herhangi bir yerinden sürükleme (kaydırma eşiğini geçince)
+  tutamağı parmağın altına alır, sayfa `ScrollState.scrollTo` ile kayar; sadece dokunmak bir şey yapmaz; sürüklemeyi kendisi
+  tükettiği için alt sayfa aşağı çekilip kapanmaz; içerik sığıyorsa çizilmez.
+- **📤'te 30 yerine 3 kayıt (01.11):** telefonda kontrol edilemedi, iki olası neden ikisi de kapatıldı: (1) MediaStore'un `SIZE`
+  sütunu 0 / boş gelirse kayıt "1 sn'den kısa" sayılıp düşüyordu → boyut 0 ise `openFileDescriptor().statSize`; (2) uygulama
+  silinip yeniden kurulduysa Android eski dosyaların sahipliğini düşürür, MediaStore'da görünmezler → pencerede **KLASÖRÜ SEÇ**
+  (SAF `OpenDocumentTree`, ipucu Download/Tilavet Takip, kalıcı okuma izni, `AppSettings.recordingsFolder`) → klasördeki tüm
+  dosyalar (ses + log) ilk kaynak. Pencerenin altında tanı satırı: "Seçilen klasör: N · Download/Tilavet Takip: N · uygulama
+  içi: N dosya", log `[paylas] liste: … → K kayit`.
 - **Derleme denetimi** (`.github/workflows/derleme.yml`, ~5 dk): `tilavet-android/**` değişince `:app:compileReleaseKotlin`
   (model / asset gerekmez). Yerelde Android SDK yok (dl.google.com proxy'de 403); APK #130'daki derleme hatası ancak test
   kapısından ~20 dk sonra APK işinde çıkmıştı. Akış: arayüz kodu `[apk]`'sız push → derleme yeşilse Android CI'ı elle başlat.

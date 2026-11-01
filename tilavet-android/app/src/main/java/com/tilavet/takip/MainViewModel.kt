@@ -125,6 +125,9 @@ data class UiState(
     /** 📤 Kayitlari paylas penceresi acik; [shareList] null = liste hazirlaniyor (util/RecordingCatalog). */
     val shareOpen: Boolean = false,
     val shareList: List<SessionRecording>? = null,
+    /** Paylas penceresinin tani satiri (hangi kaynakta kac dosya); klasor secildi mi (RecordingCatalog). */
+    val shareInfo: String? = null,
+    val shareFolderLinked: Boolean = false,
     val reportBusy: Boolean = false,
     /** Pil kisitlamasindan muaf (arka planda surekli calisabilir) — Ayarlar → ARKA PLANDA ÇALIŞMA. */
     val bgUnrestricted: Boolean = true,
@@ -1022,22 +1025,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun openShare() {
         if (_state.value.shareOpen) return
-        _state.update { it.copy(shareOpen = true, shareList = null) }
+        _state.update { it.copy(shareOpen = true, shareList = null, shareInfo = null) }
+        loadShareList()
+    }
+
+    private fun loadShareList() {
         viewModelScope.launch(Dispatchers.IO) {
             val app = getApplication<Application>()
-            val list = try {
+            val folder = _state.value.settings.recordingsFolder.takeIf { it.isNotEmpty() }?.let { Uri.parse(it) }
+            val listing = try {
                 PublicRecordings.publishPending(app)
-                RecordingCatalog.list(app)
+                RecordingCatalog.list(app, folder)
             } catch (e: Throwable) {
                 SessionLog.e(TAG, "Kayit listesi hazirlanamadi", e)
-                emptyList()
+                null
             }
-            _state.update { if (it.shareOpen) it.copy(shareList = list) else it }
+            _state.update {
+                if (!it.shareOpen) it
+                else it.copy(
+                    shareList = listing?.recordings ?: emptyList(),
+                    shareInfo = listing?.info ?: "Kayıtlar okunamadı",
+                    shareFolderLinked = listing?.folderFiles != null,
+                )
+            }
+        }
+    }
+
+    /**
+     * 📤 penceresinde "KLASÖRÜ SEÇ": kullanici Download/Tilavet Takip'i bir kez secer → kalici okuma izni → listede
+     * klasordeki tum kayitlar (uygulama yeniden kurulmus olsa da). Kullanici (01.11): 30 yerine 3 kayit gorundu.
+     */
+    fun setRecordingsFolder(tree: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val app = getApplication<Application>()
+            if (!RecordingCatalog.takeAccess(app, tree)) {
+                _state.update { it.copy(shareInfo = "Klasör izni alınamadı") }
+                return@launch
+            }
+            settingsRepo.setRecordingsFolder(tree.toString())
+            SessionLog.d(TAG, "[paylas] kayit klasoru secildi: $tree")
+            _state.update { it.copy(shareList = null, settings = it.settings.copy(recordingsFolder = tree.toString())) }
+            loadShareList()
         }
     }
 
     fun closeShare() {
-        _state.update { it.copy(shareOpen = false, shareList = null) }
+        _state.update { it.copy(shareOpen = false, shareList = null, shareInfo = null) }
     }
 
     /** Secilen oturumlarin sesi + log'u (+ istenirse logcat) tek paylasimla. */

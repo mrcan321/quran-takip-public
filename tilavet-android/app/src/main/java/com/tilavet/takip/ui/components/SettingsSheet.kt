@@ -113,453 +113,460 @@ fun SettingsSheet(
             )
         }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 30.dp)
-        ) {
-            // Header
-            Row(
+        // Saginda boydan boya kalin kaydirma cubugu + ikonlu tutamak (DragScrollbar): tutup cekerek kaydirma — parmakla
+        // cekerken ayar dugmelerine yanlislikla basilmasin (kullanici 30.10 / 01.11)
+        val scrollState = rememberScrollState()
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 8.dp, bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(end = SCROLLBAR_WIDTH)
+                    .verticalScroll(scrollState)
+                    .padding(bottom = 30.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (style.ornate) {
-                        ArchEmblem(style.gold, Modifier.size(20.dp, 24.dp))
-                        Spacer(Modifier.width(10.dp))
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 8.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (style.ornate) {
+                            ArchEmblem(style.gold, Modifier.size(20.dp, 24.dp))
+                            Spacer(Modifier.width(10.dp))
+                        }
+                        Text(
+                            text = "Ayarlar",
+                            fontSize = if (style.ornate) 26.sp else 22.sp,
+                            fontFamily = style.display,
+                            fontWeight = if (style.ornate) FontWeight.SemiBold else null,
+                            color = if (style.ornate) style.headerTop else palette.fg,
+                        )
                     }
                     Text(
-                        text = "Ayarlar",
-                        fontSize = if (style.ornate) 26.sp else 22.sp,
-                        fontFamily = style.display,
-                        fontWeight = if (style.ornate) FontWeight.SemiBold else null,
-                        color = if (style.ornate) style.headerTop else palette.fg,
+                        text = "KAPAT",
+                        fontFamily = style.label,
+                        fontWeight = if (style.ornate) FontWeight.Bold else null,
+                        fontSize = 11.sp,
+                        color = if (style.ornate) style.goldInk else palette.fgDim,
+                        letterSpacing = style.tracking(0.8f).sp,
+                        modifier = Modifier
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { onDismiss() }
+                            .padding(8.dp)
                     )
                 }
-                Text(
-                    text = "KAPAT",
-                    fontFamily = style.label,
-                    fontWeight = if (style.ornate) FontWeight.Bold else null,
-                    fontSize = 11.sp,
-                    color = if (style.ornate) style.goldInk else palette.fgDim,
-                    letterSpacing = style.tracking(0.8f).sp,
-                    modifier = Modifier
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { onDismiss() }
-                        .padding(8.dp)
-                )
-            }
 
-            SheetDivider()
+                SheetDivider()
 
-            // Kategoriler (kullanici 30.10: "ayarlar kismina ceki duzen ver, kategorize edip basliklar koy"):
-            // Gorunum · Takip ekrani · Dinleme · Rapor · G2 gozluk · Gelismis
-            CategoryHeader("Görünüm", Icons.Filled.Palette, first = true)
+                // Kategoriler (kullanici 30.10: "ayarlar kismina ceki duzen ver, kategorize edip basliklar koy"):
+                // Gorunum · Takip ekrani · Dinleme · Rapor · G2 gozluk · Gelismis
+                CategoryHeader("Görünüm", Icons.Filled.Palette, first = true)
 
-            // === Theme ===
-            SettingGroup(label = "TEMA") {
-                ThemeGrid(currentTheme = settings.theme, onTheme = onTheme)
-            }
+                // === Theme ===
+                SettingGroup(label = "TEMA") {
+                    ThemeGrid(currentTheme = settings.theme, onTheme = onTheme)
+                }
 
-            // === Arabic size ===
-            SettingGroup(
-                label = "ARAPÇA YAZI BOYUTU",
-                trailing = "${settings.arabicSize} px"
-            ) {
-                AppSlider(
-                    value = settings.arabicSize.toFloat(),
-                    onValueChange = { onArabicSize(it.toInt()) },
-                    valueRange = 18f..44f,
-                )
-            }
-
-            // === Meal (Ayarlar → MEAL; liste meals/index.tsv'den, scripts/build_meals.py) ===
-            if (meals.size > 1) {
+                // === Arabic size ===
                 SettingGroup(
-                    label = "MEAL",
-                    hint = "Telefonda ve G2 gözlükte gösterilen Türkçe meal. Hepsi uygulamanın içinde, internet gerekmez.",
+                    label = "ARAPÇA YAZI BOYUTU",
+                    trailing = "${settings.arabicSize} px"
                 ) {
-                    MealPicker(meals = meals, currentId = settings.mealId, onSelect = onMealId)
-                }
-            }
-
-            // === Meal size ===
-            SettingGroup(
-                label = "TÜRKÇE MEAL BOYUTU",
-                trailing = "${settings.mealSize} px"
-            ) {
-                AppSlider(
-                    value = settings.mealSize.toFloat(),
-                    onValueChange = { onMealSize(it.toInt()) },
-                    valueRange = 14f..32f,
-                )
-            }
-
-            // === Motion ===
-            SettingGroup(label = "HAREKET / ANİMASYON") {
-                MotionRow(currentMotion = settings.motion, onMotion = onMotion)
-            }
-
-            // === Idle opacity ===
-            SettingGroup(
-                label = "ESKİ AYET SOLUKLUĞU",
-                trailing = "%${settings.idleOpacity}"
-            ) {
-                AppSlider(
-                    value = settings.idleOpacity.toFloat(),
-                    onValueChange = { onIdleOpacity(it.toInt()) },
-                    valueRange = 0f..80f,
-                )
-            }
-
-            CategoryHeader("Takip ekranı", Icons.Filled.AutoStories)
-
-            // === Atlanan ayetler: takip 2 → 5 gibi ileri atlayinca aradaki ayetlerin ekranda kalma suresi ===
-            SettingGroup(
-                label = "ATLANAN AYET SÜRESİ",
-                trailing = if (settings.skippedAyahTenths == 0) "KAPALI"
-                else "${settings.skippedAyahTenths / 10},${settings.skippedAyahTenths % 10} sn",
-                hint = "Takip birden fazla ayet ileri atlarsa (ör. 2. ayetten 5.'ye) aradaki her ayet bu kadar gösterilir",
-            ) {
-                AppSlider(
-                    value = settings.skippedAyahTenths.toFloat(),
-                    onValueChange = { onSkippedAyahTenths(it.roundToInt()) },
-                    valueRange = 0f..20f,
-                    steps = 19,     // 0.1 sn adimlar
-                )
-            }
-
-            // === Ses kesilince metin: zamm bitip rukuya gidilince ayet ekranda asili kalmasin (bkz. audio/TextHold) ===
-            SettingGroup(
-                label = "SES KESİLİNCE METİN",
-                trailing = "${settings.textHoldTenths / 10},${settings.textHoldTenths % 10} sn",
-                hint = "İmamın sesi kesildikten (rükû, secde) bu kadar sonra okunan ayet ekrandan ve gözlükten kalkar (gözlükte " +
-                    "üstte rekât bilgisi: G2 BOŞ EKRANDA ÜST BİLGİYİ GİZLE ayarı). Okuma devam edince ayet geri gelir.",
-            ) {
-                AppSlider(
-                    value = settings.textHoldTenths.toFloat(),
-                    onValueChange = { onTextHoldTenths(it.roundToInt()) },
-                    valueRange = 0f..TextHold.MAX_TENTHS.toFloat(),
-                    steps = TextHold.MAX_TENTHS - 1,     // 0.1 sn adimlar
-                )
-            }
-
-            CategoryHeader("Dinleme", Icons.Filled.Mic)
-
-            // === Namaz bitince dinlemeyi durdur: namaz sonu duasi karti kapaninca (MainViewModel.autoStopAfterNamaz) ===
-            SettingGroup(
-                label = "NAMAZ BİTİNCE DİNLEMEYİ DURDUR",
-                hint = "Selamdan sonra namaz sonu duası (Allahümme ente's-selâm) duyulup kartı ekrandan kalkınca mikrofon " +
-                    "kendiliğinden durur — durdur düğmesine basılmış gibi. Teravihte (her iki rekâtta bir selam) kapatın.",
-            ) {
-                OnOffRow(current = settings.autoStopAfterNamaz, onSelect = onAutoStopAfterNamaz)
-            }
-
-            // === Mute on recording: mikrofonla dinlerken telefon sessizde (bkz. util/PhoneControl) ===
-            SettingGroup(
-                label = "MUTE ON RECORDING",
-                trailing = if (settings.muteOnRecording) (if (dndAccess) "SESSİZ" else "TİTREŞİM") else null,
-                hint = "Açıkken mikrofonla dinleme başlayınca telefon sessize alınır, dinleme bitince eski haline döner " +
-                    "(siz bu arada elle değiştirdiyseniz dokunulmaz). Tam sessiz için Android'in Rahatsız Etmeyin " +
-                    "erişimi gerekir; verilmezse titreşime alınır.",
-            ) {
-                OnOffRow(current = settings.muteOnRecording, onSelect = onMuteOnRecording)
-                if (settings.muteOnRecording && !dndAccess) {
-                    Spacer(Modifier.height(8.dp))
-                    ActionButton(label = "RAHATSIZ ETMEYİN ERİŞİMİ VER", onClick = onRequestDnd)
-                }
-                Spacer(Modifier.height(6.dp))
-            }
-
-            // === Arka planda calisma: pil kisitlamasi (bkz. util/PhoneControl, util/ListenService) ===
-            SettingGroup(
-                label = "ARKA PLANDA ÇALIŞMA",
-                trailing = if (bgUnrestricted) "İZİN VAR" else "KISITLI",
-                hint = if (bgUnrestricted) {
-                    "Android uygulamayı arka planda kısıtlamıyor: telefon cepteyken ve ekran kapalıyken dinleme ve G2 " +
-                        "bağlantısı sürer."
-                } else {
-                    "Android uygulamayı arka planda kısıtlıyor: telefon cepteyken dinleme ya da G2 bağlantısı kesilebilir. " +
-                        "İZİN VER'e basın (Samsung'da ayrıca: Ayarlar → Uygulamalar → Tilavet Takip → Pil → Kısıtlanmamış)."
-                },
-            ) {
-                if (!bgUnrestricted) {
-                    ActionButton(label = "İZİN VER", onClick = onRequestBackground)
-                    Spacer(Modifier.height(6.dp))
-                }
-            }
-
-            CategoryHeader("Rapor", Icons.Filled.Description)
-
-            // === Namaz raporu (📄): en son kac namaz (ReportHtml.lastNamaz; az namaz varsa olan kadar) ===
-            SettingGroup(
-                label = "RAPORDAKİ NAMAZ SAYISI",
-                trailing = "${settings.reportNamazCount} namaz",
-                hint = "📄 raporu en son bu kadar namazda okunan ayetleri gösterir (1 = sadece en son namaz). Kayıtlarda " +
-                    "daha az namaz varsa olanlar gösterilir.",
-            ) {
-                AppSlider(
-                    value = settings.reportNamazCount.toFloat(),
-                    onValueChange = { onReportNamazCount(it.roundToInt()) },
-                    valueRange = ReportHtml.MIN_NAMAZ.toFloat()..ReportHtml.MAX_NAMAZ.toFloat(),
-                    steps = ReportHtml.MAX_NAMAZ - ReportHtml.MIN_NAMAZ - 1,     // tam sayilar
-                )
-            }
-
-            CategoryHeader("G2 gözlük", Icons.Filled.Visibility, subtitle = "Even Realities G2")
-
-            // === Even Realities G2 gozluk: okunan ayet + meal gozlukte (bkz. glasses/GlassesBridge, assets/g2) ===
-            SettingGroup(
-                label = "G2 GÖZLÜK",
-                trailing = if (settings.glassesEnabled) (glassesLink ?: "açılıyor").uppercase(java.util.Locale.forLanguageTag("tr")) else null,
-                hint = "Okunan ayetin sure/ayet bilgisi ve meali Even Realities G2 gözlüğe de yazılır. Önce bu uygulama açık " +
-                    "olmalı (güncellemeden sonra bir kez açın), sonra Even uygulamasında Tilavet Takip eklentisini açın " +
-                    "(geliştirici modunda adres: http://localhost:18765/). Telefon cepte, ekran kapalıyken de dinleme sürer.",
-            ) {
-                OnOffRow(current = settings.glassesEnabled, onSelect = onGlassesEnabled)
-            }
-            if (settings.glassesEnabled) {
-                // Gozlugu deneyecek kisi icin (layout.js demoLayout): cerceve + numarali satirlar
-                SettingGroup(
-                    label = "G2 DEMO (GÖZLÜK TESTİ)",
-                    trailing = if (glassesDemo > 0) "DEMO $glassesDemo" else null,
-                    hint = "Gözlüğü deneyen kişi için: ekranın dört kenarında çerçeve, satırlar numaralı — dört kenarı ve en " +
-                        "üst / en alt satırın numarasını görüp görmediğini sorun. DEMO 1 kısa bir satır, DEMO 4 ekranı " +
-                        "tamamen doldurur. Açıkken aşağıdaki yazı tipi, kalınlık ve boyut değişince gözlükte hemen değişir. " +
-                        "Ayarlar kapanınca demo kapanır.",
-                ) {
-                    ChoiceGrid(
-                        options = listOf("KAPALI" to 0, "1" to 1, "2" to 2, "3" to 3, "4" to 4),
-                        current = glassesDemo,
-                        onSelect = onGlassesDemo,
-                        columns = 5,
+                    AppSlider(
+                        value = settings.arabicSize.toFloat(),
+                        onValueChange = { onArabicSize(it.toInt()) },
+                        valueRange = 18f..44f,
                     )
+                }
+
+                // === Meal (Ayarlar → MEAL; liste meals/index.tsv'den, scripts/build_meals.py) ===
+                if (meals.size > 1) {
+                    SettingGroup(
+                        label = "MEAL",
+                        hint = "Telefonda ve G2 gözlükte gösterilen Türkçe meal. Hepsi uygulamanın içinde, internet gerekmez.",
+                    ) {
+                        MealPicker(meals = meals, currentId = settings.mealId, onSelect = onMealId)
+                    }
+                }
+
+                // === Meal size ===
+                SettingGroup(
+                    label = "TÜRKÇE MEAL BOYUTU",
+                    trailing = "${settings.mealSize} px"
+                ) {
+                    AppSlider(
+                        value = settings.mealSize.toFloat(),
+                        onValueChange = { onMealSize(it.toInt()) },
+                        valueRange = 14f..32f,
+                    )
+                }
+
+                // === Motion ===
+                SettingGroup(label = "HAREKET / ANİMASYON") {
+                    MotionRow(currentMotion = settings.motion, onMotion = onMotion)
+                }
+
+                // === Idle opacity ===
+                SettingGroup(
+                    label = "ESKİ AYET SOLUKLUĞU",
+                    trailing = "%${settings.idleOpacity}"
+                ) {
+                    AppSlider(
+                        value = settings.idleOpacity.toFloat(),
+                        onValueChange = { onIdleOpacity(it.toInt()) },
+                        valueRange = 0f..80f,
+                    )
+                }
+
+                CategoryHeader("Takip ekranı", Icons.Filled.AutoStories)
+
+                // === Atlanan ayetler: takip 2 → 5 gibi ileri atlayinca aradaki ayetlerin ekranda kalma suresi ===
+                SettingGroup(
+                    label = "ATLANAN AYET SÜRESİ",
+                    trailing = if (settings.skippedAyahTenths == 0) "KAPALI"
+                    else "${settings.skippedAyahTenths / 10},${settings.skippedAyahTenths % 10} sn",
+                    hint = "Takip birden fazla ayet ileri atlarsa (ör. 2. ayetten 5.'ye) aradaki her ayet bu kadar gösterilir",
+                ) {
+                    AppSlider(
+                        value = settings.skippedAyahTenths.toFloat(),
+                        onValueChange = { onSkippedAyahTenths(it.roundToInt()) },
+                        valueRange = 0f..20f,
+                        steps = 19,     // 0.1 sn adimlar
+                    )
+                }
+
+                // === Ses kesilince metin: zamm bitip rukuya gidilince ayet ekranda asili kalmasin (bkz. audio/TextHold) ===
+                SettingGroup(
+                    label = "SES KESİLİNCE METİN",
+                    trailing = "${settings.textHoldTenths / 10},${settings.textHoldTenths % 10} sn",
+                    hint = "İmamın sesi kesildikten (rükû, secde) bu kadar sonra okunan ayet ekrandan ve gözlükten kalkar (gözlükte " +
+                        "üstte rekât bilgisi: G2 BOŞ EKRANDA ÜST BİLGİYİ GİZLE ayarı). Okuma devam edince ayet geri gelir.",
+                ) {
+                    AppSlider(
+                        value = settings.textHoldTenths.toFloat(),
+                        onValueChange = { onTextHoldTenths(it.roundToInt()) },
+                        valueRange = 0f..TextHold.MAX_TENTHS.toFloat(),
+                        steps = TextHold.MAX_TENTHS - 1,     // 0.1 sn adimlar
+                    )
+                }
+
+                CategoryHeader("Dinleme", Icons.Filled.Mic)
+
+                // === Namaz bitince dinlemeyi durdur: namaz sonu duasi karti kapaninca (MainViewModel.autoStopAfterNamaz) ===
+                SettingGroup(
+                    label = "NAMAZ BİTİNCE DİNLEMEYİ DURDUR",
+                    hint = "Selamdan sonra namaz sonu duası (Allahümme ente's-selâm) duyulup kartı ekrandan kalkınca mikrofon " +
+                        "kendiliğinden durur — durdur düğmesine basılmış gibi. Teravihte (her iki rekâtta bir selam) kapatın.",
+                ) {
+                    OnOffRow(current = settings.autoStopAfterNamaz, onSelect = onAutoStopAfterNamaz)
+                }
+
+                // === Mute on recording: mikrofonla dinlerken telefon sessizde (bkz. util/PhoneControl) ===
+                SettingGroup(
+                    label = "MUTE ON RECORDING",
+                    trailing = if (settings.muteOnRecording) (if (dndAccess) "SESSİZ" else "TİTREŞİM") else null,
+                    hint = "Açıkken mikrofonla dinleme başlayınca telefon sessize alınır, dinleme bitince eski haline döner " +
+                        "(siz bu arada elle değiştirdiyseniz dokunulmaz). Tam sessiz için Android'in Rahatsız Etmeyin " +
+                        "erişimi gerekir; verilmezse titreşime alınır.",
+                ) {
+                    OnOffRow(current = settings.muteOnRecording, onSelect = onMuteOnRecording)
+                    if (settings.muteOnRecording && !dndAccess) {
+                        Spacer(Modifier.height(8.dp))
+                        ActionButton(label = "RAHATSIZ ETMEYİN ERİŞİMİ VER", onClick = onRequestDnd)
+                    }
                     Spacer(Modifier.height(6.dp))
                 }
+
+                // === Arka planda calisma: pil kisitlamasi (bkz. util/PhoneControl, util/ListenService) ===
                 SettingGroup(
-                    label = "G2 YAZI",
-                    hint = "BÜYÜK: gözlükte meal, sığan en büyük yazıyla ve ekranın ortasında (uzun meal sayfalara " +
-                        "bölünür, imam okudukça ilerler; üstte isteğe bağlı sure/ayet satırı). NORMAL: gözlüğün kendi " +
-                        "yazısı — sure/ayet başlığı + daha çok satır.",
+                    label = "ARKA PLANDA ÇALIŞMA",
+                    trailing = if (bgUnrestricted) "İZİN VAR" else "KISITLI",
+                    hint = if (bgUnrestricted) {
+                        "Android uygulamayı arka planda kısıtlamıyor: telefon cepteyken ve ekran kapalıyken dinleme ve G2 " +
+                            "bağlantısı sürer."
+                    } else {
+                        "Android uygulamayı arka planda kısıtlıyor: telefon cepteyken dinleme ya da G2 bağlantısı kesilebilir. " +
+                            "İZİN VER'e basın (Samsung'da ayrıca: Ayarlar → Uygulamalar → Tilavet Takip → Pil → Kısıtlanmamış)."
+                    },
                 ) {
-                    OnOffRow(current = settings.glassesBigText, onSelect = onGlassesBigText, labels = "NORMAL" to "BÜYÜK")
+                    if (!bgUnrestricted) {
+                        ActionButton(label = "İZİN VER", onClick = onRequestBackground)
+                        Spacer(Modifier.height(6.dp))
+                    }
                 }
-                if (settings.glassesBigText && !settings.glassesArabic) {
+
+                CategoryHeader("Rapor", Icons.Filled.Description)
+
+                // === Namaz raporu (📄): en son kac namaz (ReportHtml.lastNamaz; az namaz varsa olan kadar) ===
+                SettingGroup(
+                    label = "RAPORDAKİ NAMAZ SAYISI",
+                    trailing = "${settings.reportNamazCount} namaz",
+                    hint = "📄 raporu en son bu kadar namazda okunan ayetleri gösterir (1 = sadece en son namaz). Kayıtlarda " +
+                        "daha az namaz varsa olanlar gösterilir.",
+                ) {
+                    AppSlider(
+                        value = settings.reportNamazCount.toFloat(),
+                        onValueChange = { onReportNamazCount(it.roundToInt()) },
+                        valueRange = ReportHtml.MIN_NAMAZ.toFloat()..ReportHtml.MAX_NAMAZ.toFloat(),
+                        steps = ReportHtml.MAX_NAMAZ - ReportHtml.MIN_NAMAZ - 1,     // tam sayilar
+                    )
+                }
+
+                CategoryHeader("G2 gözlük", Icons.Filled.Visibility, subtitle = "Even Realities G2")
+
+                // === Even Realities G2 gozluk: okunan ayet + meal gozlukte (bkz. glasses/GlassesBridge, assets/g2) ===
+                SettingGroup(
+                    label = "G2 GÖZLÜK",
+                    trailing = if (settings.glassesEnabled) (glassesLink ?: "açılıyor").uppercase(java.util.Locale.forLanguageTag("tr")) else null,
+                    hint = "Okunan ayetin sure/ayet bilgisi ve meali Even Realities G2 gözlüğe de yazılır. Önce bu uygulama açık " +
+                        "olmalı (güncellemeden sonra bir kez açın), sonra Even uygulamasında Tilavet Takip eklentisini açın " +
+                        "(geliştirici modunda adres: http://localhost:18765/). Telefon cepte, ekran kapalıyken de dinleme sürer.",
+                ) {
+                    OnOffRow(current = settings.glassesEnabled, onSelect = onGlassesEnabled)
+                }
+                if (settings.glassesEnabled) {
+                    // Gozlugu deneyecek kisi icin (layout.js demoLayout): cerceve + numarali satirlar
                     SettingGroup(
-                        label = "G2 YAZI TİPİ",
-                        hint = "Sadece gözlükteki büyük yazı (telefon değişmez); seçince gözlükte hemen değişir. " +
-                            "Atkinson Hyperlegible: Braille Enstitüsü, az görenlerle test edilerek; benzer harfler (I l 1, " +
-                            "O 0) kolay ayrılır. Lexend: okuma akıcılığı araştırmasına dayanır, harf aralığı geniş. Inter: " +
-                            "ekran için, küçük harfleri iri (yüksek x-yüksekliği). Manrope: şimdiye kadarki yazı.",
+                        label = "G2 DEMO (GÖZLÜK TESTİ)",
+                        trailing = if (glassesDemo > 0) "DEMO $glassesDemo" else null,
+                        hint = "Gözlüğü deneyen kişi için: ekranın dört kenarında çerçeve, satırlar numaralı — dört kenarı ve en " +
+                            "üst / en alt satırın numarasını görüp görmediğini sorun. DEMO 1 kısa bir satır, DEMO 4 ekranı " +
+                            "tamamen doldurur. Açıkken aşağıdaki yazı tipi, kalınlık ve boyut değişince gözlükte hemen değişir. " +
+                            "Ayarlar kapanınca demo kapanır.",
                     ) {
                         ChoiceGrid(
-                            options = GlassesState.FONTS.map { (id, name) -> name.uppercase(java.util.Locale.ROOT) to id },
-                            current = settings.glassesFont,
-                            onSelect = onGlassesFont,
-                            columns = 2,
+                            options = listOf("KAPALI" to 0, "1" to 1, "2" to 2, "3" to 3, "4" to 4),
+                            current = glassesDemo,
+                            onSelect = onGlassesDemo,
+                            columns = 5,
                         )
+                        Spacer(Modifier.height(6.dp))
                     }
                     SettingGroup(
-                        label = "G2 YAZI KALINLIĞI",
-                        hint = "Gözlüğün yeşil ekranında ince yazı daha soluk görünür; uzun okumada KALIN önerilir.",
+                        label = "G2 YAZI",
+                        hint = "BÜYÜK: gözlükte meal, sığan en büyük yazıyla ve ekranın ortasında (uzun meal sayfalara " +
+                            "bölünür, imam okudukça ilerler; üstte isteğe bağlı sure/ayet satırı). NORMAL: gözlüğün kendi " +
+                            "yazısı — sure/ayet başlığı + daha çok satır.",
                     ) {
-                        ChoiceGrid(
-                            options = GlassesState.WEIGHTS.map { (w, name) -> name to w },
-                            current = settings.glassesFontWeight,
-                            onSelect = onGlassesFontWeight,
-                            columns = 4,
-                        )
+                        OnOffRow(current = settings.glassesBigText, onSelect = onGlassesBigText, labels = "NORMAL" to "BÜYÜK")
                     }
-                    SettingGroup(
-                        label = "G2 YAZI BOYUTU",
-                        trailing = "${settings.glassesTextPx} px",
-                        hint = if (settings.glassesOnePage) {
-                            "Gözlükte yazı bu boyutta" + (if (settings.glassesFixedSize) "" else " ya da kısa metinde daha büyük") +
-                                " (gözlüğün kendi yazısının satırı 27 px); sığmayan ayet tek ekrana sığana kadar küçülür " +
-                                "(en çok G2 TEK EKRAN EN KÜÇÜK YAZI'ya kadar). Değişiklik gözlükte hemen görünür."
-                        } else if (settings.glassesFixedSize) {
-                            "Gözlükte yazı her zaman bu boyutta (gözlüğün kendi yazısının satırı 27 px); sığmayan meal " +
-                                "sayfalara bölünür, sayfalar imam okudukça ilerler. Değişiklik gözlükte hemen görünür."
-                        } else {
-                            "Gözlükte yazı en az bu boyutta (gözlüğün kendi yazısının satırı 27 px). Kısa metin daha da " +
-                                "büyük çizilir; sığmayan meal sayfalara bölünür, sayfalar imam okudukça ilerler. Değişiklik " +
-                                "gözlükte hemen görünür."
-                        },
-                    ) {
-                        AppSlider(
-                            value = settings.glassesTextPx.toFloat(),
-                            onValueChange = { onGlassesTextPx((it.roundToInt() / 2) * 2) },
-                            valueRange = GlassesState.MIN_TEXT_PX.toFloat()..GlassesState.MAX_TEXT_PX.toFloat(),
-                            steps = (GlassesState.MAX_TEXT_PX - GlassesState.MIN_TEXT_PX) / 2 - 1,   // 2 px adimlar
-                        )
-                    }
-                    SettingGroup(
-                        label = "G2 SABİT YAZI BOYUTU",
-                        hint = "Açıkken her metin G2 YAZI BOYUTU'nda: kısa metin büyütülmez, uzun meal küçültülmez (sayfalara " +
-                            "bölünür). Kapalıyken kısa metin sığdığı kadar büyük çizilir, uzun meal ayardaki boyuta kadar küçülür.",
-                    ) {
-                        OnOffRow(current = settings.glassesFixedSize, onSelect = onGlassesFixedSize)
-                    }
-                    SettingGroup(
-                        label = "G2 AYETİ TEK EKRANA SIĞDIR",
-                        hint = "Açıkken uzun ayet sayfalara bölünmez, tamamı tek ekranda: yazı gerektiği kadar küçülür (en çok " +
-                            "G2 TEK EKRAN EN KÜÇÜK YAZI'ya kadar). Sığan metin eskisi gibi çizilir (SABİT YAZI BOYUTU açıksa " +
-                            "ayardaki boyutta). Kapalıyken sığmayan meal G2 YAZI BOYUTU'nda sayfalara bölünür.",
-                    ) {
-                        OnOffRow(current = settings.glassesOnePage, onSelect = onGlassesOnePage)
-                    }
-                    if (settings.glassesOnePage) {
+                    if (settings.glassesBigText && !settings.glassesArabic) {
                         SettingGroup(
-                            label = "G2 TEK EKRAN EN KÜÇÜK YAZI",
-                            trailing = "${minOf(settings.glassesOnePageMinPx, settings.glassesTextPx)} px",
-                            hint = "Tek ekrana sığdırırken yazı en çok bu boyuta küçülür (gözlüğün kendi yazısının satırı 27 px). " +
-                                "Bu boyutta da sığmayan ayet sayfalara bölünür: olabildiğince az sayfa, o sayfa sayısına sığan en " +
-                                "büyük yazı. 12 px'te bütün ayetler tek ekrana sığar (en uzunu Bakara 282); 20 px'te ~100 uzun " +
-                                "ayet 2-3 sayfa olur. G2 YAZI BOYUTU'ndan büyük olamaz.",
+                            label = "G2 YAZI TİPİ",
+                            hint = "Sadece gözlükteki büyük yazı (telefon değişmez); seçince gözlükte hemen değişir. " +
+                                "Atkinson Hyperlegible: Braille Enstitüsü, az görenlerle test edilerek; benzer harfler (I l 1, " +
+                                "O 0) kolay ayrılır. Lexend: okuma akıcılığı araştırmasına dayanır, harf aralığı geniş. Inter: " +
+                                "ekran için, küçük harfleri iri (yüksek x-yüksekliği). Manrope: şimdiye kadarki yazı.",
                         ) {
-                            AppSlider(
-                                value = settings.glassesOnePageMinPx.toFloat(),
-                                onValueChange = { onGlassesOnePageMinPx((it.roundToInt() / 2) * 2) },
-                                valueRange = GlassesState.MIN_ONE_PAGE_PX.toFloat()..GlassesState.MAX_ONE_PAGE_PX.toFloat(),
-                                steps = (GlassesState.MAX_ONE_PAGE_PX - GlassesState.MIN_ONE_PAGE_PX) / 2 - 1,   // 2 px adimlar
+                            ChoiceGrid(
+                                options = GlassesState.FONTS.map { (id, name) -> name.uppercase(java.util.Locale.ROOT) to id },
+                                current = settings.glassesFont,
+                                onSelect = onGlassesFont,
+                                columns = 2,
                             )
                         }
+                        SettingGroup(
+                            label = "G2 YAZI KALINLIĞI",
+                            hint = "Gözlüğün yeşil ekranında ince yazı daha soluk görünür; uzun okumada KALIN önerilir.",
+                        ) {
+                            ChoiceGrid(
+                                options = GlassesState.WEIGHTS.map { (w, name) -> name to w },
+                                current = settings.glassesFontWeight,
+                                onSelect = onGlassesFontWeight,
+                                columns = 4,
+                            )
+                        }
+                        SettingGroup(
+                            label = "G2 YAZI BOYUTU",
+                            trailing = "${settings.glassesTextPx} px",
+                            hint = if (settings.glassesOnePage) {
+                                "Gözlükte yazı bu boyutta" + (if (settings.glassesFixedSize) "" else " ya da kısa metinde daha büyük") +
+                                    " (gözlüğün kendi yazısının satırı 27 px); sığmayan ayet tek ekrana sığana kadar küçülür " +
+                                    "(en çok G2 TEK EKRAN EN KÜÇÜK YAZI'ya kadar). Değişiklik gözlükte hemen görünür."
+                            } else if (settings.glassesFixedSize) {
+                                "Gözlükte yazı her zaman bu boyutta (gözlüğün kendi yazısının satırı 27 px); sığmayan meal " +
+                                    "sayfalara bölünür, sayfalar imam okudukça ilerler. Değişiklik gözlükte hemen görünür."
+                            } else {
+                                "Gözlükte yazı en az bu boyutta (gözlüğün kendi yazısının satırı 27 px). Kısa metin daha da " +
+                                    "büyük çizilir; sığmayan meal sayfalara bölünür, sayfalar imam okudukça ilerler. Değişiklik " +
+                                    "gözlükte hemen görünür."
+                            },
+                        ) {
+                            AppSlider(
+                                value = settings.glassesTextPx.toFloat(),
+                                onValueChange = { onGlassesTextPx((it.roundToInt() / 2) * 2) },
+                                valueRange = GlassesState.MIN_TEXT_PX.toFloat()..GlassesState.MAX_TEXT_PX.toFloat(),
+                                steps = (GlassesState.MAX_TEXT_PX - GlassesState.MIN_TEXT_PX) / 2 - 1,   // 2 px adimlar
+                            )
+                        }
+                        SettingGroup(
+                            label = "G2 SABİT YAZI BOYUTU",
+                            hint = "Açıkken her metin G2 YAZI BOYUTU'nda: kısa metin büyütülmez, uzun meal küçültülmez (sayfalara " +
+                                "bölünür). Kapalıyken kısa metin sığdığı kadar büyük çizilir, uzun meal ayardaki boyuta kadar küçülür.",
+                        ) {
+                            OnOffRow(current = settings.glassesFixedSize, onSelect = onGlassesFixedSize)
+                        }
+                        SettingGroup(
+                            label = "G2 AYETİ TEK EKRANA SIĞDIR",
+                            hint = "Açıkken uzun ayet sayfalara bölünmez, tamamı tek ekranda: yazı gerektiği kadar küçülür (en çok " +
+                                "G2 TEK EKRAN EN KÜÇÜK YAZI'ya kadar). Sığan metin eskisi gibi çizilir (SABİT YAZI BOYUTU açıksa " +
+                                "ayardaki boyutta). Kapalıyken sığmayan meal G2 YAZI BOYUTU'nda sayfalara bölünür.",
+                        ) {
+                            OnOffRow(current = settings.glassesOnePage, onSelect = onGlassesOnePage)
+                        }
+                        if (settings.glassesOnePage) {
+                            SettingGroup(
+                                label = "G2 TEK EKRAN EN KÜÇÜK YAZI",
+                                trailing = "${minOf(settings.glassesOnePageMinPx, settings.glassesTextPx)} px",
+                                hint = "Tek ekrana sığdırırken yazı en çok bu boyuta küçülür (gözlüğün kendi yazısının satırı 27 px). " +
+                                    "Bu boyutta da sığmayan ayet sayfalara bölünür: olabildiğince az sayfa, o sayfa sayısına sığan en " +
+                                    "büyük yazı. 12 px'te bütün ayetler tek ekrana sığar (en uzunu Bakara 282); 20 px'te ~100 uzun " +
+                                    "ayet 2-3 sayfa olur. G2 YAZI BOYUTU'ndan büyük olamaz.",
+                            ) {
+                                AppSlider(
+                                    value = settings.glassesOnePageMinPx.toFloat(),
+                                    onValueChange = { onGlassesOnePageMinPx((it.roundToInt() / 2) * 2) },
+                                    valueRange = GlassesState.MIN_ONE_PAGE_PX.toFloat()..GlassesState.MAX_ONE_PAGE_PX.toFloat(),
+                                    steps = (GlassesState.MAX_ONE_PAGE_PX - GlassesState.MIN_ONE_PAGE_PX) / 2 - 1,   // 2 px adimlar
+                                )
+                            }
+                        }
                     }
-                }
-                SettingGroup(
-                    label = "G2 ÜST BİLGİ (AYET OKUNURKEN)",
-                    hint = "Açıkken gözlükte üstte küçük bir satırda sure adı, ayet numarası, rekât ve sayfa (ör. Bakara: 255 · " +
-                        "1. REKÂT · KIYAM 1/3) gözlüğün kendi yazısıyla görünür; aday ayet orada \"ADAY\" yazar. Kapalıyken üst " +
-                        "bilgi hiç çıkmaz, ekranın tamamı meal (büyük yazıda da, gözlüğün kendi yazısında ve Arapçada da).",
-                ) {
-                    OnOffRow(current = settings.glassesBigHeader, onSelect = onGlassesBigHeader)
-                }
-                if (settings.glassesBigHeader && settings.glassesBigText && !settings.glassesArabic) {
-                    // Ust bilgi buyuk yaziyi kucultecekse o ayette gizle (layout.js buildScreen headerAutoHide)
                     SettingGroup(
-                        label = "YAZI KÜÇÜLECEKSE ÜST BİLGİYİ GİZLE",
-                        hint = "Üst bilgi ekranın üstünden bir satırlık yer alır. Açıkken, ayet meali bu yüzden daha küçük " +
-                            "yazıyla çizilecekse ya da bir sayfa daha bölünecekse o ayette üst bilgi gösterilmez, ekranın tamamı " +
-                            "meal olur (aday ayet sönük yazıyla). Sığan mealde üst bilgi yine görünür. Üst bilgi gelip giderken " +
-                            "gözlük ekranı bir kez yeniden kurulur (kısa titreme olabilir).",
+                        label = "G2 ÜST BİLGİ (AYET OKUNURKEN)",
+                        hint = "Açıkken gözlükte üstte küçük bir satırda sure adı, ayet numarası, rekât ve sayfa (ör. Bakara: 255 · " +
+                            "1. REKÂT · KIYAM 1/3) gözlüğün kendi yazısıyla görünür; aday ayet orada \"ADAY\" yazar. Kapalıyken üst " +
+                            "bilgi hiç çıkmaz, ekranın tamamı meal (büyük yazıda da, gözlüğün kendi yazısında ve Arapçada da).",
                     ) {
-                        OnOffRow(current = settings.glassesHeaderAutoHide, onSelect = onGlassesHeaderAutoHide)
+                        OnOffRow(current = settings.glassesBigHeader, onSelect = onGlassesBigHeader)
                     }
-                }
-                if (settings.glassesBigHeader) {
+                    if (settings.glassesBigHeader && settings.glassesBigText && !settings.glassesArabic) {
+                        // Ust bilgi buyuk yaziyi kucultecekse o ayette gizle (layout.js buildScreen headerAutoHide)
+                        SettingGroup(
+                            label = "YAZI KÜÇÜLECEKSE ÜST BİLGİYİ GİZLE",
+                            hint = "Üst bilgi ekranın üstünden bir satırlık yer alır. Açıkken, ayet meali bu yüzden daha küçük " +
+                                "yazıyla çizilecekse ya da bir sayfa daha bölünecekse o ayette üst bilgi gösterilmez, ekranın tamamı " +
+                                "meal olur (aday ayet sönük yazıyla). Sığan mealde üst bilgi yine görünür. Üst bilgi gelip giderken " +
+                                "gözlük ekranı bir kez yeniden kurulur (kısa titreme olabilir).",
+                        ) {
+                            OnOffRow(current = settings.glassesHeaderAutoHide, onSelect = onGlassesHeaderAutoHide)
+                        }
+                    }
+                    if (settings.glassesBigHeader) {
+                        SettingGroup(
+                            label = "G2 REKÂT BİLGİSİNİ GİZLE",
+                            hint = "Açıkken üst bilgide rekât ve duruş (1. REKÂT · KIYAM) yazmaz, sadece sure adı ve ayet numarası " +
+                                "(ör. Bakara: 255); boş ekranın üst satırında da rekât yazmaz.",
+                        ) {
+                            OnOffRow(current = settings.glassesHideRakat, onSelect = onGlassesHideRakat)
+                        }
+                    }
+                    // Mealin basinda / sonunda ayet adi (layout.js mealWithLabel)
                     SettingGroup(
-                        label = "G2 REKÂT BİLGİSİNİ GİZLE",
-                        hint = "Açıkken üst bilgide rekât ve duruş (1. REKÂT · KIYAM) yazmaz, sadece sure adı ve ayet numarası " +
-                            "(ör. Bakara: 255); boş ekranın üst satırında da rekât yazmaz.",
+                        label = "G2 MEALDE AYET ADI",
+                        hint = "Gözlükte mealin hangi ayete ait olduğu: BAŞTA \"Bakara: 33 — meal…\", SONDA \"meal… — Bakara: 33\". " +
+                            "Telefonda ayet adı her ayetin üstünde zaten yazıyor." +
+                            (if (settings.glassesBigHeader) " Üst bilgi açıkken ayet adı üstte de yazar." else ""),
                     ) {
-                        OnOffRow(current = settings.glassesHideRakat, onSelect = onGlassesHideRakat)
+                        ChoiceGrid(
+                            options = GlassesState.MEAL_LABELS.map { (id, name) -> name to id },
+                            current = settings.glassesMealLabel,
+                            onSelect = onGlassesMealLabel,
+                            columns = 3,
+                        )
+                    }
+                    if (settings.glassesMealLabel != GlassesState.MEAL_LABEL_OFF) {
+                        SettingGroup(
+                            label = "SATIR ARTSA DA EKLE",
+                            hint = "Kapalıyken ayet adı meale yeni satır ya da sayfa ekleyecekse eklenmez (sabit olmayan büyük " +
+                                "yazıda yazıyı küçültecekse de eklenmez) — meal eskisi gibi görünür. Açıkken satır artsa da her " +
+                                "mealde eklenir.",
+                        ) {
+                            OnOffRow(current = settings.glassesMealLabelGrow, onSelect = onGlassesMealLabelGrow)
+                        }
+                    }
+                    SettingGroup(
+                        label = "G2 BOŞ EKRANDA ÜST BİLGİYİ GİZLE",
+                        hint = "Ses kesilince (rükû, secde — SES KESİLİNCE METİN) gözlükte ayet kalkar. Açıkken ekran bomboş kalır; " +
+                            "kapalıyken üstte rekât ve duruş (ör. 1. REKÂT · RÜKÛ / SECDE) yazar.",
+                    ) {
+                        OnOffRow(current = settings.glassesHideBlankHeader, onSelect = onGlassesHideBlankHeader)
+                    }
+                    SettingGroup(
+                        label = "G2 DURUM YAZISINI GİZLE",
+                        hint = "Açıkken gözlükte \"Dinleme kapalı\", \"Dinleniyor\", \"Kamet · Fatiha bekleniyor\" gibi durum yazıları " +
+                            "çıkmaz, ekran bomboş kalır; ayet bulununca meal gelir. Zikir / ezan kartı yine gösterilir.",
+                    ) {
+                        OnOffRow(current = settings.glassesHideStatus, onSelect = onGlassesHideStatus)
+                    }
+                    SettingGroup(
+                        label = "G2'DE ARAPÇA",
+                        hint = "Varsayılan kapalı. Açıkken ayet metni de görüntü olarak çizilir (gözlük fontunda Arapça harf yok); " +
+                            "meal gözlüğün kendi yazısıyla, daha az satıra sığar.",
+                    ) {
+                        OnOffRow(current = settings.glassesArabic, onSelect = onGlassesArabic)
                     }
                 }
-                // Mealin basinda / sonunda ayet adi (layout.js mealWithLabel)
+
+                // === DEBUG TUNER ===
+                CategoryHeader("Gelişmiş", Icons.Filled.Tune, subtitle = "Test modu ve takip ayarları (tuner)")
+
+                // === Gelismis test modu: ust barda 🔬 ASR testi (varsayilan gizli) ===
                 SettingGroup(
-                    label = "G2 MEALDE AYET ADI",
-                    hint = "Gözlükte mealin hangi ayete ait olduğu: BAŞTA \"Bakara: 33 — meal…\", SONDA \"meal… — Bakara: 33\". " +
-                        "Telefonda ayet adı her ayetin üstünde zaten yazıyor." +
-                        (if (settings.glassesBigHeader) " Üst bilgi açıkken ayet adı üstte de yazar." else ""),
+                    label = "GELİŞMİŞ TEST MODU",
+                    hint = "Açıkken üst barda ASR testi (🔬) görünür: 5 sn mikrofon kaydı, ses tanıma sonucu durum satırında.",
                 ) {
-                    ChoiceGrid(
-                        options = GlassesState.MEAL_LABELS.map { (id, name) -> name to id },
-                        current = settings.glassesMealLabel,
-                        onSelect = onGlassesMealLabel,
-                        columns = 3,
+                    OnOffRow(current = settings.advancedTestMode, onSelect = onAdvancedTestMode)
+                }
+
+                // === ASR decoder ===
+                SettingGroup(label = "ASR DECODER") {
+                    DecoderRow(current = settings.asrDecoder, onSelect = onAsrDecoder)
+                }
+
+                // === Min confidence (kilitli iken) ===
+                SettingGroup(
+                    label = "GUVEN ESIGI (KILITLI)",
+                    trailing = "${settings.minConfidence}",
+                ) {
+                    AppSlider(
+                        value = settings.minConfidence.toFloat(),
+                        onValueChange = { onMinConfidence(it.toInt()) },
+                        valueRange = 30f..95f,
                     )
                 }
-                if (settings.glassesMealLabel != GlassesState.MEAL_LABEL_OFF) {
-                    SettingGroup(
-                        label = "SATIR ARTSA DA EKLE",
-                        hint = "Kapalıyken ayet adı meale yeni satır ya da sayfa ekleyecekse eklenmez (sabit olmayan büyük " +
-                            "yazıda yazıyı küçültecekse de eklenmez) — meal eskisi gibi görünür. Açıkken satır artsa da her " +
-                            "mealde eklenir.",
-                    ) {
-                        OnOffRow(current = settings.glassesMealLabelGrow, onSelect = onGlassesMealLabelGrow)
-                    }
-                }
+
+                // === Min confidence first lock ===
                 SettingGroup(
-                    label = "G2 BOŞ EKRANDA ÜST BİLGİYİ GİZLE",
-                    hint = "Ses kesilince (rükû, secde — SES KESİLİNCE METİN) gözlükte ayet kalkar. Açıkken ekran bomboş kalır; " +
-                        "kapalıyken üstte rekât ve duruş (ör. 1. REKÂT · RÜKÛ / SECDE) yazar.",
+                    label = "GUVEN ESIGI (ILK KILIT)",
+                    trailing = "${settings.minConfidenceFirstLock}",
                 ) {
-                    OnOffRow(current = settings.glassesHideBlankHeader, onSelect = onGlassesHideBlankHeader)
+                    AppSlider(
+                        value = settings.minConfidenceFirstLock.toFloat(),
+                        onValueChange = { onMinConfidenceFirstLock(it.toInt()) },
+                        valueRange = 50f..95f,
+                    )
                 }
+
+                // === Window slack ===
                 SettingGroup(
-                    label = "G2 DURUM YAZISINI GİZLE",
-                    hint = "Açıkken gözlükte \"Dinleme kapalı\", \"Dinleniyor\", \"Kamet · Fatiha bekleniyor\" gibi durum yazıları " +
-                        "çıkmaz, ekran bomboş kalır; ayet bulununca meal gelir. Zikir / ezan kartı yine gösterilir.",
+                    label = "ALIGNER PENCERE GENISLIGI",
+                    trailing = "±${settings.windowSlack}",
                 ) {
-                    OnOffRow(current = settings.glassesHideStatus, onSelect = onGlassesHideStatus)
-                }
-                SettingGroup(
-                    label = "G2'DE ARAPÇA",
-                    hint = "Varsayılan kapalı. Açıkken ayet metni de görüntü olarak çizilir (gözlük fontunda Arapça harf yok); " +
-                        "meal gözlüğün kendi yazısıyla, daha az satıra sığar.",
-                ) {
-                    OnOffRow(current = settings.glassesArabic, onSelect = onGlassesArabic)
+                    AppSlider(
+                        value = settings.windowSlack.toFloat(),
+                        onValueChange = { onWindowSlack(it.toInt()) },
+                        valueRange = 0f..5f,
+                    )
                 }
             }
-
-            // === DEBUG TUNER ===
-            CategoryHeader("Gelişmiş", Icons.Filled.Tune, subtitle = "Test modu ve takip ayarları (tuner)")
-
-            // === Gelismis test modu: ust barda 🔬 ASR testi (varsayilan gizli) ===
-            SettingGroup(
-                label = "GELİŞMİŞ TEST MODU",
-                hint = "Açıkken üst barda ASR testi (🔬) görünür: 5 sn mikrofon kaydı, ses tanıma sonucu durum satırında.",
-            ) {
-                OnOffRow(current = settings.advancedTestMode, onSelect = onAdvancedTestMode)
-            }
-
-            // === ASR decoder ===
-            SettingGroup(label = "ASR DECODER") {
-                DecoderRow(current = settings.asrDecoder, onSelect = onAsrDecoder)
-            }
-
-            // === Min confidence (kilitli iken) ===
-            SettingGroup(
-                label = "GUVEN ESIGI (KILITLI)",
-                trailing = "${settings.minConfidence}",
-            ) {
-                AppSlider(
-                    value = settings.minConfidence.toFloat(),
-                    onValueChange = { onMinConfidence(it.toInt()) },
-                    valueRange = 30f..95f,
-                )
-            }
-
-            // === Min confidence first lock ===
-            SettingGroup(
-                label = "GUVEN ESIGI (ILK KILIT)",
-                trailing = "${settings.minConfidenceFirstLock}",
-            ) {
-                AppSlider(
-                    value = settings.minConfidenceFirstLock.toFloat(),
-                    onValueChange = { onMinConfidenceFirstLock(it.toInt()) },
-                    valueRange = 50f..95f,
-                )
-            }
-
-            // === Window slack ===
-            SettingGroup(
-                label = "ALIGNER PENCERE GENISLIGI",
-                trailing = "±${settings.windowSlack}",
-            ) {
-                AppSlider(
-                    value = settings.windowSlack.toFloat(),
-                    onValueChange = { onWindowSlack(it.toInt()) },
-                    valueRange = 0f..5f,
-                )
-            }
+            DragScrollbar(scrollState = scrollState, modifier = Modifier.matchParentSize())
         }
     }
 }
