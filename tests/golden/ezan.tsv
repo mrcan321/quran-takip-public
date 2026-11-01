@@ -24,6 +24,12 @@ rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	5.0 OPEN EZAN · KAMET
 rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	15.0 CHANGED KAMET KAMET
 rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	20.0 CHANGED KAMET TEKBIR_SON
 rnnt	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	25.0 END_FINAL KAMET TEVHID
+rnnt	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	5.0 OPEN EZAN · KAMET SEHADET_TEVHID
+rnnt	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	20.0 CHANGED EZAN · KAMET SEHADET_RESUL
+rnnt	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	40.0 CHANGED EZAN · KAMET HAYYA_SALAH
+rnnt	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	65.0 CHANGED KAMET KAMET
+rnnt	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	70.0 CHANGED KAMET TEKBIR_SON
+rnnt	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	75.0 END_FINAL KAMET TEVHID
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	5.0 OPEN EZAN · KAMET SEHADET_TEVHID
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	15.0 CHANGED EZAN · KAMET SEHADET_RESUL
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	40.0 CHANGED KAMET KAMET
@@ -36,6 +42,11 @@ rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	240.0 CHANGED KAMET TEKBIR_S
 rnnt	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	250.0 END_FINAL KAMET TEVHID
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	10.0 OPEN EZAN · KAMET SEHADET_TEVHID
 rnnt	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	40.0 END_QURAN - -
+rnnt	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	10.0 OPEN EZAN · KAMET SEHADET_TEVHID
+rnnt	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	25.0 CHANGED EZAN · KAMET SEHADET_RESUL
+rnnt	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	55.0 CHANGED KAMET KAMET
+rnnt	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	60.0 CHANGED KAMET TEKBIR_SON
+rnnt	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	65.0 END_FINAL KAMET TEVHID
 rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	695.0 OPEN EZAN · KAMET SEHADET_TEVHID
 rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	705.0 CHANGED EZAN · KAMET SEHADET_RESUL
 rnnt	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	720.0 CHANGED EZAN · KAMET HAYYA_FELAH
@@ -67,6 +78,12 @@ rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	5.0 OPEN EZAN �
 rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	15.0 CHANGED KAMET KAMET
 rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	20.0 CHANGED KAMET TEKBIR_SON
 rnnt-hibrit	namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav	25.0 END_FINAL KAMET TEVHID
+rnnt-hibrit	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	5.0 OPEN EZAN · KAMET SEHADET_TEVHID
+rnnt-hibrit	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	20.0 CHANGED EZAN · KAMET SEHADET_RESUL
+rnnt-hibrit	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	40.0 CHANGED EZAN · KAMET HAYYA_SALAH
+rnnt-hibrit	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	65.0 CHANGED KAMET KAMET
+rnnt-hibrit	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	70.0 CHANGED KAMET TEKBIR_SON
+rnnt-hibrit	namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav	75.0 END_FINAL KAMET TEVHID
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	5.0 OPEN EZAN · KAMET SEHADET_TEVHID
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	15.0 CHANGED EZAN · KAMET SEHADET_RESUL
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	40.0 CHANGED KAMET KAMET
@@ -79,6 +96,11 @@ rnnt-hibrit	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	239.0 CHANGED KAMET T
 rnnt-hibrit	namaz_yatsi2_kamet_fatiha_taha_fatiha_taha.wav	249.0 END_FINAL KAMET TEVHID
 rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	10.0 OPEN EZAN · KAMET SEHADET_TEVHID
 rnnt-hibrit	namaz_yatsi3_kamet_fatiha_enbiya_fatiha_enbiya.wav	40.0 END_QURAN - -
+rnnt-hibrit	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	10.0 OPEN EZAN · KAMET SEHADET_TEVHID
+rnnt-hibrit	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	25.0 CHANGED EZAN · KAMET SEHADET_RESUL
+rnnt-hibrit	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	55.0 CHANGED KAMET KAMET
+rnnt-hibrit	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	60.0 CHANGED KAMET TEKBIR_SON
+rnnt-hibrit	namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav	65.0 END_FINAL KAMET TEVHID
 rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	698.8 OPEN EZAN · KAMET SEHADET_TEVHID
 rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	708.8 CHANGED EZAN · KAMET SEHADET_RESUL
 rnnt-hibrit	namaz_yatsi_kamet_fatiha_araf_fatiha_araf.wav	718.8 CHANGED EZAN · KAMET HAYYA_FELAH
