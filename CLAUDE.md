@@ -1720,7 +1720,7 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     للمتابعة"), 342 boş → pipeline'a alınmadı. Asıl çözüm cami verisiyle ince ayar (açık sorun 19: tekbir / semiallah / selam
     etiketleri).
 
-### 34. Namaz bitince dinlemeyi durdur, 📤 30 kayıt, ayar kategorileri, kaydırma çubuğu (APK build #133+, düzeltme #147+)
+### 34. Namaz bitince dinlemeyi durdur, 📤 30 kayıt, ayar kategorileri, kaydırma çubuğu (APK build #133+, düzeltme #148+)
 - Kullanıcı (30.10): (1) "namaz bitince selamdan sonra Allahümme ente's-selâm duasını algılayıp meali ekrandan kaybolduktan
   sonra mikrofonu stop et, stop düğmesine basılmış gibi; ayarlarda tercihe bağlı"; (2) "📤 yalnızca son kaydın log'unu ve
   sesini paylaşıyor; popupta en yeniden eskiye 30 kayıt, aşağı kaysın, çoklu seçilsin, seçtiklerini Drive'a / başka uygulamaya
@@ -1744,7 +1744,7 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   boyut, meal, meal boyutu, hareket, eski ayet soluk) · **Takip ekranı** (atlanan ayet, ses kesilince metin) · **Dinleme** (namaz
   bitince durdur, mute on recording, arka planda çalışma) · **Rapor** (namaz sayısı) · **G2 gözlük** · **Gelişmiş** (gelişmiş test
   modu + tuner; eski "TUNER (DEBUG)").
-- **Kaydırma çubuğu — Ayarlar sayfasında** (`ui/components/DragScrollbar`, APK #147+): APK #133'te yanlışlıkla ana ekrandaki Mushaf
+- **Kaydırma çubuğu — Ayarlar sayfasında** (`ui/components/DragScrollbar`, APK #148+): APK #133'te yanlışlıkla ana ekrandaki Mushaf
   listesine konmuştu (kullanıcı 01.11: "ayarlar kısmına istemiştim, ana ekrandakini geri al") → ana ekrandan kaldırıldı, ayar
   sayfasının (`ModalBottomSheet` içindeki `verticalScroll` Column) sağında 34 dp boydan boya dikme + 76 dp ikonlu tutamak
   (`UnfoldMore`); içerik sağdan 34 dp boşluk bırakır. Çubuğun herhangi bir yerinden sürükleme (kaydırma eşiğini geçince)
