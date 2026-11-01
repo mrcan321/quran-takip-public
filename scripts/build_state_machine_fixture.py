@@ -133,6 +133,20 @@ FRESH_JUMP_ANY_AYAH = True   # ayar denemesi "eski kural" anahtari — uygulamad
 # denendi: gurultu testinde rukû arasindaki cop eslesmeler gercek 2. Fatiha'yi 5-10 sn geciktirdi.)
 FATIHA_MIN_GAP_CHUNKS = 6
 FATIHA_EARLY_MAX_AYAH = 2
+# Ucuncu sesli Fatiha: farz namazda 3. / 4. rekatta Fatiha sessiz okunur; selam / kamet olmadan bu kadar sesli rekat
+# (Fatiha girisi) sonra gelen Fatiha eslesmesi hemen kilitlenmez, gorunmeyen aday olur, sonraki parca (<= 2) Fatiha'da
+# dogrularsa kilitlenir (vitir / selami kacan teravih bir parca gec). Yatsi 01.11: 2. rekatin semiallahi ASR'de bozuk
+# ("فدعاه الله لمن مهندًا"), 3. rekata kalkis tekbiri 6 sn parcada "الحمد لله أمرُ الله" (yarim sn kayinca "الله" / bos)
+# → ARA'da Fatiha yoklamasi 86.7 → "3. rekat (Fatiha)" kilidi, ekranda Fatiha 1:2. 0 = kapali.
+SILENT_RAKAT_FATIHAS = 2
+# ... ama bu skor ve ustu net Fatiha okumasi hemen kilitlenir (sentetik teravihte selam klibi ASR'de bos → sonraki namazin
+# "الحمد لله رب العالمين" 100 → aday olunca 3 ayet kacti; yatsi 01.11 uydurmasi 86.7)
+THIRD_FATIHA_DIRECT_SCORE = 95.0
+# Semiallah (rukû sinyali) parcasi kilit vermez: rukû okumanin bitmesinden >= 8-10 sn sonra, ayni parcada okuma olmaz.
+# Sabah 01.11: "سمع الله من حمده" → sinyal (ARA) ama kalan "سمع الله من" kalinan yerden devamla 35:27-28'e kilitlendi →
+# son zamm 35:26 yerine 35:28 → 2. rekatta devam penceresi 35:27'yi kapsamadi, "ألم تر أن الله أنزل من السماء" 22:63'e
+# (35:27 ile ayni basi) dogal gecis, 35:27'ye 17 sn sonra.
+RUKU_CHUNK_NO_MATCH = True
 # Gecis adayi varken (onceki parca) yeni parca adayin +-PENDING_VERIFY_AYAH_WINDOW ayetinde tum Kuran eslesmesinden en
 # fazla bu kadar kotu (ve >= ilk kilit esigi) eslesiyorsa aday dogrulanir. Ortak ifade tum Kuran'da baska yere oturuyordu:
 # Fatiha → bozuk Asr "الإنسان لفيه السوء" (103:2 adayi) → "الذين آمنوا وعملوا" 2:25'e dogal gecis (103:3 ayni skor).
@@ -279,6 +293,10 @@ class SessionState:
     last_match_chunk: Optional[int] = None
     # Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — bkz. FATIHA_MIN_GAP_CHUNKS
     last_solid_chunk: Optional[int] = None
+    # Selam / kamet / namaz basindan beri sesli rekat (Fatiha girisi) sayisi ve son girisin parca indeksi — bkz.
+    # SILENT_RAKAT_FATIHAS
+    fatiha_rakats: int = 0
+    last_fatiha_entry: Optional[int] = None
 
 
 def build_aux_maps(corpus):
@@ -769,6 +787,8 @@ def reset_for_new_namaz(state, chunk_index, hold_chunks):
     state.pending_match = None
     state.jump_candidate = None
     state.hold_until = chunk_index + hold_chunks
+    state.fatiha_rakats = 0
+    state.last_fatiha_entry = None
 
 
 def fatiha_range(ayah_to_range):
@@ -951,6 +971,17 @@ def early_fatiha(state, chunk_index, fatiha_ayah):
     return not (jc is not None and jc.surah == 1 and chunk_index - jc.chunk_index <= 2)
 
 
+def third_fatiha(state, chunk_index, score):
+    """Selam / kamet olmadan SILENT_RAKAT_FATIHAS sesli rekattan sonra THIRD_FATIHA_DIRECT_SCORE altinda Fatiha (farzin 3. / 4.
+    rekati sessiz) ve onceki parcalarda Fatiha adayi yok → once aday (bkz. SILENT_RAKAT_FATIHAS)."""
+    if not SILENT_RAKAT_FATIHAS or state.fatiha_rakats < SILENT_RAKAT_FATIHAS or score >= THIRD_FATIHA_DIRECT_SCORE:
+        return False
+    for c in (state.jump_candidate, state.pending_match):
+        if c is not None and c.surah == 1 and chunk_index - c.chunk_index <= 2:
+            return False
+    return True
+
+
 def content_word_count(match, besmele_pos):
     """Eslesmedeki besmele-disi kelime sayisi (sadece besmeleye oturan eslesme sure gecisi sayilmaz)."""
     return sum(1 for p in range(match.start_word_idx, match.end_word_idx + 1) if p not in besmele_pos)
@@ -1038,6 +1069,10 @@ def commit_match(state, match, score, word_count, chunk_index, state_before, jum
     first_surah, first_ayah = verses[0]
     last_surah, last_ayah = verses[-1]
     new_state = transition_state(state, True, first_surah, first_ayah)
+    if new_state == NamazState.FATIHA and state.state != NamazState.FATIHA and (
+            state.last_fatiha_entry is None or chunk_index - state.last_fatiha_entry >= FATIHA_MIN_GAP_CHUNKS):
+        state.fatiha_rakats += 1
+        state.last_fatiha_entry = chunk_index
     if new_state != state.state:
         state.state_transitions.append(f"{state.state.value} → {new_state.value}")
         state.state = new_state
@@ -1179,7 +1214,7 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     word_count = len([t for t in tokens if t])
     is_hot = state.state in (NamazState.FATIHA, NamazState.ZAMM)
     min_words = MIN_WORD_COUNT_HOT if is_hot else MIN_WORD_COUNT_COLD
-    if word_count < min_words:
+    if word_count < min_words or (signal == "ruku" and RUKU_CHUNK_NO_MATCH):
         return {"chunk_index": chunk_index, "state_before": state_before, "state": state.state.value, "status": "too_short", "word_count": word_count}
 
     preferred_range = compute_preferred_range(state, ayah_to_range, surah_counts)
@@ -1242,7 +1277,7 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             better = fs >= base + JUMP_MARGIN
         if fm and fs >= FATIHA_FAST_LOCK_MIN_SCORE and better:
             fv = collect_verses(corpus, fm.start_word_idx, fm.end_word_idx)[-1]
-            if early_fatiha(state, chunk_index, fv[1]):
+            if early_fatiha(state, chunk_index, fv[1]) or (not ara_like and third_fatiha(state, chunk_index, fs)):
                 fatiha_cand = PendingMatch(surah=1, ayah=fv[1], word_index=fm.end_word_idx, chunk_index=chunk_index)
             else:
                 match, score = fm, fs
@@ -1397,7 +1432,7 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             # Zamm sonundan Fatiha'ya dogal gecis en az FATIHA_FAST_LOCK_MIN_WORDS kelimeyle (Fatiha yoklamasindaki gibi):
             # sabah 21.10 sabit parca, Adiyat sonu "إن ربهم بهم" → ASR "إن رب العالمين" Fatiha 1:2'ye dogal gecis oldu (yeni
             # rekat rukû / secdeden sonra gelir — kilit kaybolmus zamm / ARA'da Fatiha yoklamasi 3 kelimeyle)
-            early = gfs == 1 and early_fatiha(state, chunk_index, gla)
+            early = gfs == 1 and (early_fatiha(state, chunk_index, gla) or third_fatiha(state, chunk_index, gs))
             if (natural and gfs == 1 and state.state == NamazState.ZAMM and not lock_abandoned
                     and word_count < FATIHA_FAST_LOCK_MIN_WORDS) or early:
                 natural = opening = False
@@ -1484,7 +1519,8 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     # 2 parcayla dogrulanmis gecis (ARA'da gecis adayi dogrulaninca bir de aday dogrulamasi bekleniyordu)
     relock_fast = relock and (
         jump == "verified"
-        or (first_surah == 1 and score >= FATIHA_FAST_LOCK_MIN_SCORE and word_count >= MIN_WORD_COUNT_FIRST_LOCK)
+        or (first_surah == 1 and score >= FATIHA_FAST_LOCK_MIN_SCORE and word_count >= MIN_WORD_COUNT_FIRST_LOCK
+            and not third_fatiha(state, chunk_index, score))
         or (first_surah == state.last_surah and state.last_ayah is not None
             and state.last_ayah - RESUME_BACK <= first_ayah <= state.last_ayah + PREFERRED_AYAH_WINDOW_ARA))
     # Tek parcada kilit (fark payi): sadece ilk kilit (BEKLEME, bekleme yokken) — bkz. UNIQUE_LOCK_*
@@ -1504,7 +1540,11 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             res = {"chunk_index": chunk_index, "state_before": state_before, "state": state.state.value, "status": "pending", "pending_surah": last_surah, "pending_ayah": last_ayah, "score": score}
             # Belirsiz aday: ikinci yer (araliga degmeyen) neredeyse ayni iyi → ekranda gosterilmez (bkz. AMBIGUOUS_MARGIN)
             ru = runner_up_match(transcribed_text, match, corpus)
-            if ru and score - score_transcription(transcribed_text, ru, vocab) < AMBIGUOUS_MARGIN:
+            if (relock and first_surah == 1 and SILENT_RAKAT_FATIHAS
+                    and state.fatiha_rakats >= SILENT_RAKAT_FATIHAS and score < THIRD_FATIHA_DIRECT_SCORE):
+                # Ucuncu sesli Fatiha adayi ekranda gosterilmez (bkz. SILENT_RAKAT_FATIHAS)
+                res["ambiguous"] = True
+            elif ru and score - score_transcription(transcribed_text, ru, vocab) < AMBIGUOUS_MARGIN:
                 res["ambiguous"] = True
                 ra = collect_verses(corpus, ru.start_word_idx, ru.end_word_idx)[-1]
                 state.pending_match.alt_surah, state.pending_match.alt_ayah = ra
@@ -2313,6 +2353,120 @@ SCENARIOS = [
             (0.0661, "لمَن حميده"),                         # 90: semiallah 'لمَن حميده' → rukû
             (0.0561, ""),
             (0.0282, ""),
+        ],
+    },
+
+    # ============ Senaryo 28: sabah 01.11 (APK #148 telefon parcalari) — semiallah parcasi kilit vermez ============
+    {
+        "description": "Fatiha → Fatir 35:25-26 → rukû tekbiri → 'سمع الله من حمده' (semiallah: kilit vermez; eskiden kalan "
+                       "'سمع الله من' 35:27-28'e kalinan yerden devam → son zamm 35:28) → 2. rekat Fatiha → 'ألم تر أن الله أنف' "
+                       "(22:63 / 35:27 ayni bas) devam penceresiyle 35:27",
+        "chunks": [
+            (0.0369, "الحمد لله رب العالمين الرحمن الرحيم"),          # 0: Fatiha hizli kilit
+            (0.0325, "مالك يوم الدين إياك نعبد وإياك نستعين"),
+            (0.0283, "اهدنا الصراط المستقيم صراط الذين أنعمت عليهم"),
+            (0.0306, "غير المغضوب عليهم ولا الضالين"),
+            (0.0315, "وَإِن يُكَذِّبُوكَ فَقَدْ كَذَّبَ الَّذِينَ مِنْ قَبْلِهِمْ"),   # 4: Fatir 35:25
+            (0.0380, "جَاءَتْهُمْ رُسُلُهُمْ بِالْبَيِّنَاتِ"),
+            (0.0270, "بالحياة وبالزهور وبالكتاب"),
+            (0.0286, "ثُمَّ أَخَذْتُ الَّذِينَ كَفَرُوا فَكَيْفَ كَانَ نَهِي؟"),  # 7: 35:26
+            (0.0213, "ي"),
+            (0.0338, "الله أكبر"),                                   # 9: rukû tekbiri
+            (0.0031, ""),
+            (0.0203, "سمع الله من حمده"),                            # 11: semiallah → ARA, kilit yok
+            (0.0345, "لمن حمل"),
+            (0.0427, ""),
+            (0.0271, "المصدر كتاب"),
+            (0.0333, ""),
+            (0.0041, ""),
+            (0.0257, "الله"),
+            (0.0219, "الحمد لله"),
+            (0.0333, "والحمد لله رب العالمين الرحمن الرحيم"),       # 19: 2. rekat Fatiha
+            (0.0298, "مَالِكِ يَومِ الدِّينِ إيّاكَ"),
+            (0.0208, "نعبد وإياك نستعين"),
+            (0.0278, "اهدنا الصراط المستقيم صراط الحين"),
+            (0.0274, "صِرَاطَ الَّذِينَ أَنعَمْتَ عَلَيْهِم غَيْرِ الْمَغْضُونِ"),
+            (0.0261, "وَالْمَغْضُوبِ عَلَيْهِمْ وَلَا الضالُّ"),
+            (0.0230, "شركة"),
+            (0.0319, ""),
+            (0.0242, "أَلَمْ تَرَ أَنَّ اللَّهَ أَنفِ"),                     # 27: devam: 35:27 (eskiden 22:63)
+            (0.0272, "أَنْزَلَ مِنَ السَّمَاءِ مَاءً"),
+            (0.0236, "المصدر كتاب"),
+            (0.0255, "فَأَخْرَجْنَا بِهِ ثَمَرَاتٍ مُخْتَلِفًا أَلْوَانُهَا"),
+            (0.0342, "وَمِنَ الْجِبَالِ جُدَدًا"),
+        ],
+    },
+
+    # ============ Senaryo 29: yatsi 01.11 (APK #148 telefon parcalari) — 3. rekata kalkis tekbiri "Fatiha" degil ============
+    {
+        "description": "Fatiha → Furkan 25:1-2 → semiallah → 2. rekat Fatiha → Furkan 25:20 → bozuk semiallah (sinyal yok) → "
+                       "kilit kayip (ARA) → 3. rekata kalkis tekbiri 'الحمد لله أمرُ الله' (2 sesli rekattan sonra: gorunmeyen aday, "
+                       "dogrulanmaz; eskiden 'yeni rekat' Fatiha kilidi) → selam → yeni namazda Fatiha hemen",
+        "chunks": [
+            (0.05, "الحمد لله رب العالمين الرحمن الرحيم"),          # 0: Fatiha hizli kilit (1. sesli rekat)
+            (0.05, "مالك يوم الدين إياك نعبد وإياك نستعين"),
+            (0.05, "اهدنا الصراط المستقيم صراط الذين أنعمت عليهم"),
+            (0.05, "غير المغضوب عليهم ولا الضالين"),
+            (0.05, "تبارك الذي نزل الفرقان على عبده ليكون للعالمين نذيرا"),   # 4: Furkan 25:1
+            (0.05, "الذي له ملك السماوات والأرض ولم يتخذ ولدا"),
+            (0.05, "الله أكبر"),
+            (0.0, ""),
+            (0.05, "سمع الله لمن حمده"),                             # 8: rukû → ARA
+            (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""),
+            (0.05, "الحمد لله رب العالمين الرحمن الرحيم"),          # 13: 2. rekat Fatiha (2. sesli rekat)
+            (0.05, "مالك يوم الدين إياك نعبد وإياك نستعين"),
+            (0.05, "اهدنا الصراط المستقيم صراط الذين أنعمت عليهم"),
+            (0.05, "غير المغضوب عليهم ولا الضالين"),
+            (0.0693, "وَمَا أَرْسَلْنَا قَبْلَكَ مِنَ الْمُرْسَلِينَ إِلَّا إِنَّهُمْ لَيَأْكُلُونَ"),  # 17: 25:20
+            (0.0593, "يَخْلُقُونَ الطَّعَامَ وَيَمْشُونَ فِي الْأَجْوَاقِ"),
+            (0.0596, "وَجَعَلْنَا بَعْضَكُمْ لِبَعْضٍ فِتْنَةً"),
+            (0.0444, "وَكَانَ رَبُّكَ بَصِيرًا"),
+            (0.0252, ""),
+            (0.0577, "فدعاه الله لمن مهندًا"),                       # 22: semiallah ASR'de bozuk
+            (0.0607, ""), (0.0453, ""), (0.0717, ""), (0.0529, ""), (0.0198, ""), (0.0654, ""), (0.0214, ""),
+            (0.0103, ""), (0.0077, "المصدر كتاب"), (0.0683, ""), (0.0228, ""),     # 33: kilit kayip → ARA
+            (0.0082, ""), (0.0064, ""), (0.0403, ""), (0.0251, ""),
+            (0.0601, "يا"),
+            (0.0522, "الحمد لله أمرُ الله"),                         # 39: 3. rekat tekbiri: gorunmeyen aday
+            (0.0380, ""), (0.0692, ""), (0.0510, ""), (0.0279, ""),
+            (0.05, "السلام عليكم ورحمة الله"),                       # 44: selam → sifirla
+            (0.0, ""),
+            (0.05, "الحمد لله رب العالمين الرحمن الرحيم"),          # 46: yeni namaz: Fatiha hemen (sayac sifir)
+        ],
+    },
+
+    # ============ Senaryo 30: vitir — 3. rekat da sesli (net Fatiha hemen, bozuk Fatiha bir parca dogrulamayla) ============
+    {
+        "description": "vitir: Fatiha → A'la → semiallah → Fatiha → Kafirun → oturus (selam yok) → 3. rekat bozuk Fatiha basi "
+                       "(2 sesli rekattan sonra, skor < 95: gorunmeyen aday, sonraki parca dogrular) → Ihlas; ikinci vitir gibi "
+                       "tekrar: net 'الحمد لله رب العالمين' (skor >= 95) hemen kilit",
+        "chunks": [
+            (0.05, "الحمد لله رب العالمين الرحمن الرحيم"),
+            (0.05, "مالك يوم الدين إياك نعبد وإياك نستعين"),
+            (0.05, "اهدنا الصراط المستقيم صراط الذين أنعمت عليهم"),
+            (0.05, "غير المغضوب عليهم ولا الضالين"),
+            (0.05, "سبح اسم ربك الأعلى الذي خلق فسوى"),            # 4: A'la 87:1-2
+            (0.05, "والذي قدر فهدى والذي أخرج المرعى"),
+            (0.05, "سمع الله لمن حمده"),                             # 6: rukû
+            (0.0, ""), (0.0, ""), (0.0, ""),
+            (0.05, "الحمد لله رب العالمين الرحمن الرحيم"),          # 10: 2. rekat
+            (0.05, "مالك يوم الدين إياك نعبد وإياك نستعين"),
+            (0.05, "اهدنا الصراط المستقيم صراط الذين أنعمت عليهم"),
+            (0.05, "غير المغضوب عليهم ولا الضالين"),
+            (0.05, "قل يا أيها الكافرون لا أعبد ما تعبدون"),        # 14: Kafirun
+            (0.05, "ولا أنتم عابدون ما أعبد"),
+            (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""),
+            (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""),   # oturus: kilit kayip → ARA
+            (0.05, "الحمد لله رب العالمي الرحمان"),                 # 28: 3. rekat bozuk Fatiha basi (< 95): gorunmeyen aday
+            (0.05, "مالك يوم الدين إياك نعبد وإياك نستعين"),        # 29: dogrulandi → FATIHA
+            (0.05, "اهدنا الصراط المستقيم صراط الذين أنعمت عليهم"),
+            (0.05, "غير المغضوب عليهم ولا الضالين"),
+            (0.05, "قل هو الله أحد الله الصمد"),                    # 32: Ihlas
+            (0.05, "لم يلد ولم يولد ولم يكن له كفوا أحد"),
+            (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""),
+            (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""),   # kilit kayip → ARA
+            (0.05, "الحمد لله رب العالمين الرحمن الرحيم"),          # 46: net Fatiha (>= 95): hemen kilit
+            (0.05, "مالك يوم الدين إياك نعبد وإياك نستعين"),
         ],
     },
 ]

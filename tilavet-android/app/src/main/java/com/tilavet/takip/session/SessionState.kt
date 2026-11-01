@@ -64,6 +64,10 @@ data class SessionState(
     var lastMatchChunk: Int? = null,
     /** Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — StateMachine.FATIHA_MIN_GAP_CHUNKS. */
     var lastSolidChunk: Int? = null,
+    /** Selam / kamet / namaz basindan beri sesli rekat (Fatiha girisi) sayisi — StateMachine.SILENT_RAKAT_FATIHAS. */
+    var fatihaRakats: Int = 0,
+    /** Son Fatiha girisinin parca indeksi (ayni rekatta iki kez sayilmasin). */
+    var lastFatihaEntry: Int? = null,
 )
 
 /**

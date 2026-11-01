@@ -230,6 +230,20 @@ class StateMachine(
         // ilerisine oturan eslesme denendi: gurultu testinde rukû arasindaki cop eslesmeler gercek 2. Fatiha'yi geciktirdi.)
         const val FATIHA_MIN_GAP_CHUNKS = 6
         const val FATIHA_EARLY_MAX_AYAH = 2
+        // Ucuncu sesli Fatiha: farz namazda 3. / 4. rekatta Fatiha sessiz okunur; selam / kamet olmadan bu kadar sesli rekat
+        // (Fatiha girisi) sonra gelen Fatiha eslesmesi hemen kilitlenmez, gorunmeyen aday olur, sonraki parca (<= 2) Fatiha'da
+        // dogrularsa kilitlenir (vitir / selami kacan teravih bir parca gec). Yatsi 01.11: 2. rekatin semiallahi ASR'de bozuk
+        // ("فدعاه الله لمن مهندًا"), 3. rekata kalkis tekbiri 6 sn parcada "الحمد لله أمرُ الله" (yarim sn kayinca "الله" / bos)
+        // → ARA'da Fatiha yoklamasi 86.7 → "3. rekat (Fatiha)" kilidi, ekranda Fatiha 1:2. 0 = kapali.
+        const val SILENT_RAKAT_FATIHAS = 2
+        // ... ama bu skor ve ustu net Fatiha okumasi hemen kilitlenir (sentetik teravihte selam klibi ASR'de bos → sonraki
+        // namazin "الحمد لله رب العالمين" 100 → aday olunca 3 ayet kacti; yatsi 01.11 uydurmasi 86.7)
+        const val THIRD_FATIHA_DIRECT_SCORE = 95.0
+        // Semiallah (rukû sinyali) parcasi kilit vermez: rukû okumanin bitmesinden >= 8-10 sn sonra, ayni parcada okuma olmaz.
+        // Sabah 01.11: "سمع الله من حمده" → sinyal (ARA) ama kalan "سمع الله من" kalinan yerden devamla 35:27-28'e kilitlendi →
+        // son zamm 35:26 yerine 35:28 → 2. rekatta devam penceresi 35:27'yi kapsamadi, "ألم تر أن الله أنزل من السماء" 22:63'e
+        // (35:27 ile ayni basi) dogal gecis, 35:27'ye 17 sn sonra.
+        const val RUKU_CHUNK_NO_MATCH = true
         // Gecis adayi varken (onceki parca) yeni parca adayin +-PENDING_VERIFY_AYAH_WINDOW ayetinde tum Kuran
         // eslesmesinden en fazla bu kadar kotu (ve >= ilk kilit esigi) eslesiyorsa aday dogrulanir. Ortak ifade tum
         // Kuran'da baska yere oturuyordu: Fatiha → bozuk Asr "الإنسان لفيه السوء" (103:2 adayi) → "الذين آمنوا وعملوا"
@@ -932,7 +946,7 @@ class StateMachine(
         val wordCount = tokens.size
         val isHot = state.state == NamazState.FATIHA || state.state == NamazState.ZAMM
         val minWords = if (isHot) MIN_WORD_COUNT_HOT else MIN_WORD_COUNT_COLD
-        if (wordCount < minWords) {
+        if (wordCount < minWords || (signal == "ruku" && RUKU_CHUNK_NO_MATCH)) {
             return ChunkResult(
                 chunkIndex = chunkIndex,
                 stateBefore = stateBefore,
@@ -941,7 +955,9 @@ class StateMachine(
                 rms = rms,
                 text = transcribedText,
                 wordCount = wordCount,
-                reason = withNotes("$wordCount kelime (min $minWords)", notes),
+                reason = withNotes(
+                    if (wordCount < minWords) "$wordCount kelime (min $minWords)" else "semiallah parcasi: kilit vermez", notes,
+                ),
             )
         }
 
@@ -1031,11 +1047,17 @@ class StateMachine(
             }
             if (fm != null && fs >= FATIHA_FAST_LOCK_MIN_SCORE && better) {
                 val (_, fa) = collectVerses(fm.startWordIdx, fm.endWordIdx).last()
-                if (earlyFatiha(state, chunkIndex, fa)) {
+                val third = !araLike && thirdFatiha(state, chunkIndex, fs)
+                if (earlyFatiha(state, chunkIndex, fa) || third) {
                     fatihaCand = PendingMatch(surah = 1, ayah = fa, wordIndex = fm.endWordIdx, chunkIndex = chunkIndex)
                     fatihaCandMatch = fm
-                    notes += "Fatiha yoklamasi ${"%.1f".format(fs)}: erken (son saglam eslesmeden " +
-                        "${chunkIndex - (state.lastSolidChunk ?: chunkIndex)} parca), gecis adayi"
+                    notes += if (third) {
+                        "Fatiha yoklamasi ${"%.1f".format(fs)}: ${state.fatihaRakats} sesli rekattan sonra (3. rekat sessiz " +
+                            "olmali), gecis adayi"
+                    } else {
+                        "Fatiha yoklamasi ${"%.1f".format(fs)}: erken (son saglam eslesmeden " +
+                            "${chunkIndex - (state.lastSolidChunk ?: chunkIndex)} parca), gecis adayi"
+                    }
                 } else {
                     match = fm
                     score = fs
@@ -1273,7 +1295,8 @@ class StateMachine(
                 // Zamm sonundan Fatiha'ya dogal gecis en az FATIHA_FAST_LOCK_MIN_WORDS kelimeyle (Fatiha yoklamasindaki gibi):
                 // sabah 21.10 sabit parca, Adiyat sonu "إن ربهم بهم" → ASR "إن رب العالمين" Fatiha 1:2'ye dogal gecis oldu
                 // (yeni rekat rukû / secdeden sonra gelir — kilit kaybolmus zamm / ARA'da Fatiha yoklamasi 3 kelimeyle)
-                val early = gfs == 1 && earlyFatiha(state, chunkIndex, gla)
+                val third = gfs == 1 && thirdFatiha(state, chunkIndex, gsc)
+                val early = gfs == 1 && (earlyFatiha(state, chunkIndex, gla) || third)
                 if (natural && gfs == 1 && state.state == NamazState.ZAMM && !lockAbandoned &&
                     wordCount < FATIHA_FAST_LOCK_MIN_WORDS) {
                     natural = false
@@ -1282,7 +1305,11 @@ class StateMachine(
                 } else if (early) {
                     natural = false
                     opening = false
-                    notes += "erken Fatiha (son saglam eslesmeden ${chunkIndex - (state.lastSolidChunk ?: chunkIndex)} parca): gecis adayi"
+                    notes += if (third) {
+                        "${state.fatihaRakats} sesli rekattan sonra Fatiha (3. rekat sessiz olmali): gecis adayi"
+                    } else {
+                        "erken Fatiha (son saglam eslesmeden ${chunkIndex - (state.lastSolidChunk ?: chunkIndex)} parca): gecis adayi"
+                    }
                 }
                 jump = when {
                     natural -> "natural"
@@ -1481,7 +1508,8 @@ class StateMachine(
         val prevAyah = state.lastAyah
         val relockFast = relock && (
             jump == "verified" ||
-                (firstSurah == 1 && score >= FATIHA_FAST_LOCK_MIN_SCORE && wordCount >= MIN_WORD_COUNT_FIRST_LOCK) ||
+                (firstSurah == 1 && score >= FATIHA_FAST_LOCK_MIN_SCORE && wordCount >= MIN_WORD_COUNT_FIRST_LOCK &&
+                    !thirdFatiha(state, chunkIndex, score)) ||
                 (firstSurah == state.lastSurah && prevAyah != null &&
                     firstAyah >= prevAyah - RESUME_BACK && firstAyah <= prevAyah + PREFERRED_AYAH_WINDOW_ARA)
             )
@@ -1494,10 +1522,14 @@ class StateMachine(
         val unique = uc?.unique == true
         if (((state.state == NamazState.BEKLEME && !fatihaFast) || (relock && !relockFast)) && !unique) {
             uc?.note?.let { notes += it }
+            // Ucuncu sesli Fatiha adayi ekranda gosterilmez (bkz. SILENT_RAKAT_FATIHAS)
+            val hiddenFatiha = relock && firstSurah == 1 && SILENT_RAKAT_FATIHAS > 0 &&
+                state.fatihaRakats >= SILENT_RAKAT_FATIHAS && score < THIRD_FATIHA_DIRECT_SCORE
+            if (hiddenFatiha) notes += "${state.fatihaRakats} sesli rekattan sonra Fatiha (3. rekat sessiz olmali)"
             val pm = state.pendingMatch
             if (pm == null) {
                 // Ilk match — pending olarak kaydet
-                val amb = ambiguity(cleanText, tokens, match, score)
+                val amb = if (hiddenFatiha) null else ambiguity(cleanText, tokens, match, score)
                 state.pendingMatch = PendingMatch(
                     surah = lastSurah, ayah = lastAyah,
                     wordIndex = match.endWordIdx, chunkIndex = chunkIndex,
@@ -1515,7 +1547,7 @@ class StateMachine(
                     confidence = score,
                     pendingSurah = lastSurah,
                     pendingAyah = lastAyah,
-                    ambiguous = amb != null,
+                    ambiguous = hiddenFatiha || amb != null,
                     // UI adayi (kilit oncesi) gosterebilsin diye — state machine karari etkilenmez
                     matchStartWordIdx = match.startWordIdx,
                     matchEndWordIdx = match.endWordIdx,
@@ -1539,7 +1571,7 @@ class StateMachine(
                 if (!verified) {
                     // Reddedildi, yeni aday
                     val oldPending = pm
-                    val amb = ambiguity(cleanText, tokens, match, score)
+                    val amb = if (hiddenFatiha) null else ambiguity(cleanText, tokens, match, score)
                     state.pendingMatch = PendingMatch(
                         surah = lastSurah, ayah = lastAyah,
                         wordIndex = match.endWordIdx, chunkIndex = chunkIndex,
@@ -1557,7 +1589,7 @@ class StateMachine(
                         confidence = score,
                         pendingSurah = lastSurah,
                         pendingAyah = lastAyah,
-                        ambiguous = amb != null,
+                        ambiguous = hiddenFatiha || amb != null,
                         matchStartWordIdx = match.startWordIdx,
                         matchEndWordIdx = match.endWordIdx,
                         reason = withNotes(
@@ -1613,7 +1645,16 @@ class StateMachine(
         val verses = collectVerses(match.startWordIdx, match.endWordIdx)
         val (firstSurah, firstAyah) = verses.first()
         val (lastSurah, lastAyah) = verses.last()
+        val prevState = state.state
         applyTransition(state, matched = true, firstSurah = firstSurah, firstAyah = firstAyah)
+        // Sesli rekat sayisi (Fatiha girisi) — bkz. SILENT_RAKAT_FATIHAS
+        val lastEntry = state.lastFatihaEntry
+        if (state.state == NamazState.FATIHA && prevState != NamazState.FATIHA &&
+            (lastEntry == null || chunkIndex - lastEntry >= FATIHA_MIN_GAP_CHUNKS)
+        ) {
+            state.fatihaRakats += 1
+            state.lastFatihaEntry = chunkIndex
+        }
         state.pendingMatch = null
         state.holdUntil = null
         // Aday, gecis yapildiysa ya da pencere emin eslestiyse biter; zayif pencere eslesmesinde bekler
@@ -1908,6 +1949,8 @@ class StateMachine(
         state.pendingMatch = null
         state.jumpCandidate = null
         state.holdUntil = chunkIndex + holdChunks
+        state.fatihaRakats = 0
+        state.lastFatihaEntry = null
     }
 
     private fun cleanupPendingIfStale(state: SessionState, chunkIndex: Int) {
@@ -2053,6 +2096,18 @@ class StateMachine(
         if (chunkIndex - solid >= FATIHA_MIN_GAP_CHUNKS) return false
         val jc = state.jumpCandidate
         return !(jc != null && jc.surah == 1 && chunkIndex - jc.chunkIndex <= 2)
+    }
+
+    /**
+     * Selam / kamet olmadan SILENT_RAKAT_FATIHAS sesli rekattan sonra THIRD_FATIHA_DIRECT_SCORE altinda Fatiha (farzin 3. / 4.
+     * rekati sessiz) ve onceki parcalarda Fatiha adayi yok → once aday (bkz. SILENT_RAKAT_FATIHAS).
+     */
+    private fun thirdFatiha(state: SessionState, chunkIndex: Int, score: Double): Boolean {
+        if (SILENT_RAKAT_FATIHAS <= 0 || state.fatihaRakats < SILENT_RAKAT_FATIHAS || score >= THIRD_FATIHA_DIRECT_SCORE) return false
+        for (c in listOf(state.jumpCandidate, state.pendingMatch)) {
+            if (c != null && c.surah == 1 && chunkIndex - c.chunkIndex <= 2) return false
+        }
+        return true
     }
 
     /** Eslesmedeki besmele-disi kelime sayisi. */

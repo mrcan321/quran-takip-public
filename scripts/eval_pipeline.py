@@ -140,6 +140,8 @@ EXPECTED = {
     # sessiz (semiallah 553) → selam 638 (bolunmus: "عليكم ورحمة الله") → dua 653-663. 2. rekatta 296-301 sn ASR bos.
     "namaz_yatsi6_fatiha_muminun_fatiha_muminun.wav": "coklu",
     "namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav": "coklu",
+    "namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav": "coklu",
+    "namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -232,6 +234,18 @@ TIMELINE = {
     # semiallah 255 ("من الحمد"), Fatiha 299, 23:93 (339.9) .. 23:104 (449), rukû 451, selam 553 / 563
     "namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav": [(0, None), (51.4, 1), (93.7, 23), (241, None), (299.1, 1),
                                                              (339.9, 23), (450, None)],
+    # sabah 01.11 (APK #148, cami, 11.2 dk; kelime zamanli dokum): kamet 0-63, iftitah 68, Fatiha 110.2, Fatir 35:15 (154.5)
+    # .. 35:26 (319 "نكير"), rukû 326, semiallah 335 ("سمع الله لمن حمده" — telefonda "سمع الله من حمده" → 35:27-28 devam
+    # kilidi, bkz. RUKU_CHUNK_NO_MATCH), Fatiha 372.1, 35:27 (406.5 enerji, "ألم تر أن الله أنزل" 22:63 ile ayni) .. 35:32 (552
+    # "الكبير"), rukû 558, 3-4. rekat sessiz, selam 636.8 / 648.6, dua 658-669
+    "namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav": [(0, None), (110, 1), (154.5, 35), (320, None), (372, 1),
+                                                         (406.5, 35), (553, None)],
+    # yatsi 01.11 (APK #148, cami, 11 dk): kamet 0-62, iftitah 87, Fatiha 100.8, Furkan 25:10 (145.8) .. 25:18 (275),
+    # semiallah ~285, Fatiha 320.5, amin ~356, 25:19 (359.5 enerji; dokum "فما" 363.5'ten) .. 25:20 (403.8), semiallah ~409 (ASR'de "فدعاه الله لمن مهندًا"),
+    # 3. rekata kalkis tekbiri ~499 (telefonda "الحمد لله أمرُ الله" → "3. rekat Fatiha" kilidi, bkz. SILENT_RAKAT_FATIHAS),
+    # selam 623.8 / 634.2, dua 646-658
+    "namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav": [(0, None), (100, 1), (145, 25), (277, None), (320, 1),
+                                                           (359.5, 25), (405, None)],
 }
 
 
@@ -553,6 +567,7 @@ def timeline_for(fn):
 # bu kayit degisiyor (16 cami namazi, iki zincir).
 PREV_ZAMM = {
     "namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav": (23, 77),   # yatsi 27.10 sonu
+    "namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav": (23, 50),       # telefon log'u: "onceki namazin kaldigi yer: 23:50"
 }
 
 

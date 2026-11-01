@@ -106,6 +106,18 @@
       "segments": [{"start": 51.4, "end": 93.2, "surah": 1, "ayahs": [2, 7]}, {"start": 93.7, "end": 241.0, "surah": 23, "ayahs": [78, 92]},
                    {"start": 299.1, "end": 330.4, "surah": 1, "ayahs": [2, 7]}, {"start": 339.9, "end": 449.8, "surah": 23, "ayahs": [93, 104]}],
       "phrases": [[36.1, 39.6, "tekbir"], [255.1, 260.9, "semiallah"], [262.5, 267.5, "tekbir"], [279.2, 283.3, "tekbir"], [450.6, 454.0, "tekbir"], [460.4, 465.6, "semiallah"]]
+    },
+    "namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav": {
+      "date": "2026-11-01", "namaz": "sabah", "imam": "imam-1", "split": "train",
+      "segments": [{"start": 110.0, "end": 140.2, "surah": 1, "ayahs": [2, 7]}, {"start": 154.0, "end": 320.0, "surah": 35, "ayahs": [15, 26]},
+                   {"start": 371.8, "end": 398.6, "surah": 1, "ayahs": [2, 7]}, {"start": 406.5, "end": 553.4, "surah": 35, "ayahs": [27, 32]}],
+      "phrases": [[97.6, 100.8, "tekbir"], [325.6, 328.8, "tekbir"], [335.0, 339.4, "semiallah"], [342.0, 344.8, "tekbir"], [557.9, 561.0, "tekbir"], [636.4, 643.0, "selam"]]
+    },
+    "namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav": {
+      "date": "2026-11-01", "namaz": "yatsi", "imam": "imam-1", "split": "test",
+      "segments": [{"start": 100.5, "end": 134.2, "surah": 1, "ayahs": [2, 7]}, {"start": 145.5, "end": 275.6, "surah": 25, "ayahs": [10, 18]},
+                   {"start": 320.2, "end": 349.8, "surah": 1, "ayahs": [2, 7]}, {"start": 359.5, "end": 404.6, "surah": 25, "ayahs": [19, 20]}],
+      "phrases": [[86.5, 89.8, "tekbir"], [464.1, 467.0, "tekbir"], [519.3, 522.4, "tekbir"], [623.4, 630.4, "selam"], [633.8, 640.4, "selam"]]
     }
   }
 }

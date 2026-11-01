@@ -152,6 +152,15 @@ FRESH_JUMP_MIN_SCORE = 80
 # "الحمد لله رب العالمين" → "yeni rekat")
 FATIHA_MIN_GAP_CHUNKS = 6
 FATIHA_EARLY_MAX_AYAH = 2
+# Ucuncu sesli Fatiha: farz namazda 3. / 4. rekatta Fatiha sessiz; selam / kamet olmadan bu kadar sesli rekat (Fatiha girisi)
+# sonra gelen Fatiha eslesmesi gorunmeyen aday olur, sonraki parca dogrularsa kilitlenir (yatsi 01.11: 3. rekata kalkis
+# tekbiri "الحمد لله أمرُ الله" → "3. rekat (Fatiha)" kilidi). 0 = kapali.
+SILENT_RAKAT_FATIHAS = 2
+# ... ama bu skor ve ustu net Fatiha okumasi hemen kilitlenir (selami kacan teravih: "الحمد لله رب العالمين" 100)
+THIRD_FATIHA_DIRECT_SCORE = 95.0
+# Semiallah (rukû sinyali) parcasi kilit vermez (sabah 01.11: "سمع الله من حمده" kalan "سمع الله من" → 35:27-28 devam kilidi,
+# 2. rekatta Fatir 35:27 yerine 22:63)
+RUKU_CHUNK_NO_MATCH = True
 # Gecis adayi varken yeni parca adayin +-PENDING_VERIFY_AYAH_WINDOW ayetinde tum Kuran eslesmesinden en fazla bu kadar
 # kotu (ve >= ilk kilit esigi) eslesiyorsa aday dogrulanir
 CANDIDATE_WINDOW_MARGIN = 2.0
@@ -217,6 +226,17 @@ def mark_ambiguous(result, text, match, score, pending):
     if ru and score - score_transcription(text, ru)[0] < AMBIGUOUS_MARGIN:
         result["ambiguous"] = True
         pending.alt_surah, pending.alt_ayah = collect_verses(ru.start_word_idx, ru.end_word_idx)[-1]
+
+
+def mark_pending_hidden(state, result, text, match, score, relock_fatiha):
+    """Ucuncu sesli Fatiha adayi (bkz. SILENT_RAKAT_FATIHAS) ya da belirsiz aday ekranda gosterilmez."""
+    if (relock_fatiha and SILENT_RAKAT_FATIHAS and state.fatiha_rakats >= SILENT_RAKAT_FATIHAS
+            and score < THIRD_FATIHA_DIRECT_SCORE):
+        result["ambiguous"] = True
+        result["third_fatiha"] = True
+        result["reason"] += f"; {state.fatiha_rakats} sesli rekattan sonra Fatiha (3. rekat sessiz olmali)"
+    else:
+        mark_ambiguous(result, text, match, score, state.pending_match)
 
 
 def is_unique_match(text, match, score, word_count):
@@ -293,6 +313,10 @@ class SessionState:
     last_match_chunk: Optional[int] = None
     # Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — bkz. FATIHA_MIN_GAP_CHUNKS
     last_solid_chunk: Optional[int] = None
+    # Selam / kamet / namaz basindan beri sesli rekat (Fatiha girisi) sayisi ve son girisin parca indeksi — bkz.
+    # SILENT_RAKAT_FATIHAS
+    fatiha_rakats: int = 0
+    last_fatiha_entry: Optional[int] = None
 
 
 # ============================================================
@@ -1017,6 +1041,8 @@ def reset_for_new_namaz(state: SessionState, chunk_index: int, hold_chunks: int)
     state.pending_match = None
     state.jump_candidate = None
     state.hold_until = chunk_index + hold_chunks
+    state.fatiha_rakats = 0
+    state.last_fatiha_entry = None
 
 
 FATIHA_RANGE = (AYAH_TO_CORPUS_RANGE[(1, 1)][0], AYAH_TO_CORPUS_RANGE[(1, 7)][1])
@@ -1104,6 +1130,17 @@ def early_fatiha(state: SessionState, chunk_index: int, fatiha_ayah: int) -> boo
     return not (jc is not None and jc.surah == 1 and chunk_index - jc.chunk_index <= 2)
 
 
+def third_fatiha(state: SessionState, chunk_index: int, score: float) -> bool:
+    """Selam / kamet olmadan SILENT_RAKAT_FATIHAS sesli rekattan sonra THIRD_FATIHA_DIRECT_SCORE altinda Fatiha (farzin 3. / 4.
+    rekati sessiz) ve onceki parcalarda Fatiha adayi yok → once aday (bkz. SILENT_RAKAT_FATIHAS)."""
+    if not SILENT_RAKAT_FATIHAS or state.fatiha_rakats < SILENT_RAKAT_FATIHAS or score >= THIRD_FATIHA_DIRECT_SCORE:
+        return False
+    for c in (state.jump_candidate, state.pending_match):
+        if c is not None and c.surah == 1 and chunk_index - c.chunk_index <= 2:
+            return False
+    return True
+
+
 def content_word_count(match) -> int:
     """Eslesmedeki besmele-disi kelime sayisi (sadece besmeleye oturan eslesme sure gecisi sayilmaz)."""
     return sum(1 for p in range(match.start_word_idx, match.end_word_idx + 1) if p not in BESMELE_POSITIONS)
@@ -1185,6 +1222,10 @@ def _commit_match(state: SessionState, match, score, jump, result):
     first_surah, first_ayah = verses[0] if verses else (None, None)
     last_surah, last_ayah = verses[-1] if verses else (None, None)
     new_state = transition_state(state, True, first_surah, first_ayah)
+    if new_state == NamazState.FATIHA and state.state != NamazState.FATIHA and (
+            state.last_fatiha_entry is None or result["index"] - state.last_fatiha_entry >= FATIHA_MIN_GAP_CHUNKS):
+        state.fatiha_rakats += 1
+        state.last_fatiha_entry = result["index"]
     if new_state != state.state:
         state.state_transitions.append(f"{state.state.value} → {new_state.value}")
         state.state = new_state
@@ -1368,9 +1409,10 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     word_count = len([t for t in tokens if t])
     is_hot = state.state in (NamazState.FATIHA, NamazState.ZAMM)
     min_words = MIN_WORD_COUNT_HOT if is_hot else MIN_WORD_COUNT_COLD
-    if word_count < min_words:
+    if word_count < min_words or (signal == "ruku" and RUKU_CHUNK_NO_MATCH):
         result["status"] = "too_short"
-        result["reason"] = f"{word_count} kelime (min {min_words})"
+        result["reason"] = (f"{word_count} kelime (min {min_words})" if word_count < min_words
+                            else "semiallah parcasi: kilit vermez")
         result["state"] = state.state.value
         timings["total"] = time.time() - t_start
         result["timings"] = timings
@@ -1441,9 +1483,10 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             better = fs >= base + JUMP_MARGIN
         if fm and fs >= FATIHA_FAST_LOCK_MIN_SCORE and better:
             fv = collect_verses(fm.start_word_idx, fm.end_word_idx)[-1]
-            if early_fatiha(state, chunk_index, fv[1]):
+            third = not ara_like and third_fatiha(state, chunk_index, fs)
+            if early_fatiha(state, chunk_index, fv[1]) or third:
                 fatiha_cand = PendingMatch(surah=1, ayah=fv[1], word_index=fm.end_word_idx, chunk_index=chunk_index)
-                result["early_fatiha"] = True
+                result["third_fatiha" if third else "early_fatiha"] = True
             else:
                 match, score, score_details = fm, fs, f_details
                 fatiha_jump = True
@@ -1600,11 +1643,12 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 result["opening_tie"] = True
             # Zamm sonundan Fatiha'ya dogal gecis en az FATIHA_FAST_LOCK_MIN_WORDS kelimeyle (sabah 21.10: Adiyat sonu
             # "إن ربهم بهم" → ASR "إن رب العالمين" → Fatiha 1:2)
-            early = gfs == 1 and early_fatiha(state, chunk_index, gla)
+            third = gfs == 1 and third_fatiha(state, chunk_index, gs)
+            early = gfs == 1 and (early_fatiha(state, chunk_index, gla) or third)
             if (natural and gfs == 1 and state.state == NamazState.ZAMM and not lock_abandoned
                     and word_count < FATIHA_FAST_LOCK_MIN_WORDS) or early:
                 natural = opening = False
-                result["fatiha_short_jump" if not early else "early_fatiha"] = True
+                result["fatiha_short_jump" if not early else ("third_fatiha" if third else "early_fatiha")] = True
             if natural:
                 jump = "natural"
             elif in_candidate:
@@ -1733,7 +1777,8 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     # 2 parcayla dogrulanmis gecis
     relock_fast = relock and (
         jump == "verified"
-        or (first_surah == 1 and score >= FATIHA_FAST_LOCK_MIN_SCORE and word_count >= MIN_WORD_COUNT_FIRST_LOCK)
+        or (first_surah == 1 and score >= FATIHA_FAST_LOCK_MIN_SCORE and word_count >= MIN_WORD_COUNT_FIRST_LOCK
+            and not third_fatiha(state, chunk_index, score))
         or (first_surah == state.last_surah and state.last_ayah is not None and first_ayah is not None
             and state.last_ayah - RESUME_BACK <= first_ayah <= state.last_ayah + PREFERRED_AYAH_WINDOW_ARA))
     if ((state.state == NamazState.BEKLEME and not fatiha_fast) or (relock and not relock_fast)) and not unique:
@@ -1748,7 +1793,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             result["pending_surah"] = last_surah
             result["pending_ayah"] = last_ayah
             result["state"] = state.state.value
-            mark_ambiguous(result, text, match, score, state.pending_match)
+            mark_pending_hidden(state, result, text, match, score, relock and first_surah == 1)
             timings["total"] = time.time() - t_start
             result["timings"] = timings
             return result
@@ -1775,7 +1820,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 result["pending_surah"] = last_surah
                 result["pending_ayah"] = last_ayah
                 result["state"] = state.state.value
-                mark_ambiguous(result, text, match, score, state.pending_match)
+                mark_pending_hidden(state, result, text, match, score, relock and first_surah == 1)
                 timings["total"] = time.time() - t_start
                 result["timings"] = timings
                 return result
