@@ -1958,6 +1958,13 @@ kuralı anlatan commit'in gövdesi APK #105'i onaysız derletti; `[tam-test]` de
    Kurulum kablosuz: telefonda linki aç → indir → dokun → kur (güncellemeler de üstüne kurulur).
 
 Notlar:
+- **`main` dalı (varsayılan) ayrı iş:** 20.10'daki "Ilk surum"dan ayrıldı; 31.10'dan beri orada "Namazda Anla" tanıtım video
+  commit'leri (başka oturum). Oradaki eski `android.yml` (`[apk]` onayı ve `BUILD_OFFSET` yok) her push'ta ilk kodla APK üretip
+  "Latest" yapıyor ve bu dalın APK release'ini siliyordu: build #36-#45 (`versionCode` 45 < 133 → telefon kurmaz), #133 silindi
+  → aynı kod #146 olarak yeniden yayınlandı. Kullanıcının onayıyla (01.11) `main`'deki `android.yml` push tetikleyicisine
+  `branches-ignore: ["main"]` (commit `e01e832`, `[skip ci]`) → main'de APK yok. Run numarası iki dalda ortak (#45'ten sonra
+  bu dalın ilk APK'sı #146). `surum-45` tag'i (→ `b772fa2`, main'in video commit'i) eski release silinirken geriye dönük
+  açıldı — uygulama sürümü değil.
 - APK ~500 MB → workflow artifact olarak **yüklenmiyor**; release asset'i olarak.
 - Build numarası `N` = GitHub run numarası + 100 (`BUILD_OFFSET`, `TILAVET_BUILD`): repo taşınınca run numarası 1'den başladı
   (eski repoda son build #53) — versionCode geri giderse Android üstüne kurmaz. `versionCode` = N, `versionName` = `0.2.0-ci<N>`,
