@@ -1790,6 +1790,10 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   → kısa; üçü gizli 1:1 adayıydı), 4'ü yukarıdaki düzeltmeler. Fixture: mevcut 27 senaryoda sadece 2 semiallah parçası değişti; 3 yeni
   senaryo (sabah 01.11 telefon parçaları, yatsı 01.11 telefon parçaları + selam sonrası yeni namaz, sesli 3. rekâtlı vitir: bozuk
   Fatiha başı aday + net Fatiha hemen) → 30 × 778.
+- CI test kapısı (`update_baseline`, run 10) baseline'ı yeni kayıtlarla güncelledi: gerçek kayıtlarda kilitli bölüm 101 → 109 / 109
+  (gecikme medyanı rnnt 5.9 → 5.3 sn). Zorlama S4'te (gürültü) hibrit yanlış kilitli parça 31 → 42 görünüyor ama gürültü kelime
+  listesi tüm transkriptlerden geldiği için yeni kayıtlar S4'ün tamamını yeniden çekiyor; **aynı veride** eski kod 60, yeni kod
+  42 (S5: 31 → 14) — farkların hepsi yeni iki kayıtta ve iyileşme.
 - `training/real_labels.json` 18 namaz (train 9: + sabah 01.11; test 9: + yatsı 01.11 — her 4. yeni kayıt test).
 
 ---
