@@ -134,6 +134,10 @@ CONTINUE_MARGIN = 2.0
 # Devam onceligi: devam penceresi >= ilk kilit esigi ve tum Kuran'dan en fazla bu kadar kotu ise (en iyi yer sure acilisi
 # degilse) devam (yatsi 21.10: 21:24 "أم اتطعتم من دونه" → Yunus 10:38 77.3, devam penceresi 72.2)
 CONTINUE_PRIOR_MARGIN = 6.0
+# Esitlikte hatim onceligi: gecis birden cok yerde esitse (CONTINUE_TIE_MARGIN) onceki zamm suresinde kalinan yerden en fazla
+# CONTINUE_FAR ayet ileride olani (arada kaydedilmeyen bir namaz kalabilir — yatsi 02.11: hafiza 25:45, yatsi 25:55'ten)
+CONTINUE_FAR = 40
+CONTINUE_TIE_MARGIN = 0.5
 # Fatiha sonunda sure acilisi onceligi: dogal gecis acilis olmayan yere oturduysa ilk kelimesi parcanin ilk 2 kelimesinden
 # biri olan surelerin acilisi (1-2. ayet) tum Kuran'dan en fazla bu kadar kotuyse acilis (aksam 22.10: "قل يا أيها الرحم"
 # 7:158 / 109:1 esit)
@@ -143,6 +147,13 @@ OPENING_PREFER_MARGIN = 1.0
 # parcasi o acilisa >= ilk kilit esigi oturuyorsa gecilir (aksam 22.10: "فما جاء النصر" 15:61 → "والله والفتح" 110:1)
 FRESH_JUMP_CHUNKS = 2
 FRESH_JUMP_MIN_SCORE = 80
+# Esit gecisin duzeltilmesi: taze gecis parcasi Kuran'da birebir 2..FRESH_TIE_MAX_PLACES yerde geciyorsa sonraki parcada pencere
+# FRESH_TIE_WINDOW_BELOW altindayken diger yerlerin devami (yer .. +FRESH_TIE_AHEAD ayet) aranir, pencereden FRESH_TIE_MARGIN iyiyse
+# duzeltilir (yatsi 02.11: "ويعبدون من دون الله" 10:18 / 16:73 / 22:71 / 25:55; telefondaki hizalayici tum Kuran'da 25:55'i bulmuyor)
+FRESH_TIE_MARGIN = 5.0
+FRESH_TIE_WINDOW_BELOW = 90.0   # pencere eslesmesi bunun altindaysa (JUMP_SEARCH_BELOW 75; yatsi 02.11 pencere 77.0)
+FRESH_TIE_MAX_PLACES = 8
+FRESH_TIE_AHEAD = 2
 # Taze gecis duzeltmesi sure ortasinda da: ayni ifade iki surede ayet basinda (sabah 28.10: "وهو الذي أنشأ" 6:141 / 23:78
 # ayni skor, Fatiha sonunda 6:141'e dogal gecis; imam dunku yatsinin kaldigi 23:78'den devam ediyordu). Sonraki parca tum
 # Kuran'da baska surenin 3+. ayetinde >= FRESH_JUMP_MIN_SCORE ve gecis parcasi o ayetin (ya da bir oncekinin) basina
@@ -309,6 +320,8 @@ class SessionState:
     last_tekbir_chunk: Optional[int] = None
     # Fatiha sonundaki taze (acilis / devam olmayan) dogal gecis: (parca indeksi, temiz metin) — bkz. FRESH_JUMP_CHUNKS
     fresh_jump: Optional[Tuple[int, str]] = None
+    # Taze gecis parcasi Kuran'da birden cok yerde esit miydi — bkz. FRESH_TIE_MARGIN
+    fresh_jump_places: list = field(default_factory=list)
     # Son kabul edilen eslesmenin parca indeksi — bkz. TILAVET_END_NAMAZ_GAP
     last_match_chunk: Optional[int] = None
     # Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — bkz. FATIHA_MIN_GAP_CHUNKS
@@ -665,6 +678,25 @@ def transition_state(state: SessionState, matched: bool,
 
 
 CORPUS_TOKENS = [t for w in CORPUS.words for t in w.normalized.split()]
+CORPUS_TOKEN_WORDS = [i for i, w in enumerate(CORPUS.words) for _t in w.normalized.split()]
+
+
+def phrase_places(text, limit: int = FRESH_TIE_MAX_PLACES + 1):
+    """Metnin korpusta birebir gectigi yerler → [(sure, ayet)] (mushaf sirasi, tekrarsiz) — bkz. FRESH_TIE_MARGIN."""
+    tokens = [t for t in (bare_token(w) for w in text.split()) if t]
+    out = []
+    n = len(tokens)
+    if n == 0:
+        return out
+    for i in range(len(CORPUS_TOKENS) - n + 1):
+        if CORPUS_TOKENS[i] == tokens[0] and CORPUS_TOKENS[i:i + n] == tokens:
+            w = CORPUS.words[CORPUS_TOKEN_WORDS[i]]
+            p = (w.surah, w.ayah)
+            if p not in out:
+                out.append(p)
+                if len(out) >= limit:
+                    break
+    return out
 
 
 def phrase_count(tokens, limit: int = 2) -> int:
@@ -906,6 +938,10 @@ STOCK_PHRASES = {("الحمد", "لله"), ("والحمد", "لله")}
 # Okumadan sonra tekbir duyulduysa (rukû) ZAMM'da kisa (< 3 kelime) eslesme ancak >= bu skorla okumanin devami (yatsi 22.10 sabit
 # parca: semiallah "لمن قبله" 21:82'ye 76 → 2. rekat devam penceresi 21:80'i kacirdi)
 TEKBIR_SHORT_MIN_SCORE = 90
+# ... ve uzunlugu ne olursa olsun bunun altindaki eslesme de (yatsi 02.11: semiallah "لم يعظ الله منه" → 25:61-62 55.2) —
+# tekbirle parca arasinda en az bir parca (rukû) varsa; tekbirin hemen arkasindaki parca okumanin devami olabilir (zorlama S5)
+TEKBIR_WEAK_MIN_SCORE = 70
+TEKBIR_WEAK_MIN_GAP = 2
 
 
 def is_tevhid(text: str) -> bool:
@@ -1539,11 +1575,25 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     # Taze gecisin yeniden kontrolu (bkz. FRESH_JUMP_CHUNKS): gecis parcasi da yeni surenin acilisina oturmali
     fresh_fix = False
     fj = state.fresh_jump
+    fj_tie = fj is not None and len(state.fresh_jump_places) >= 2
     if (not hold and state.state == NamazState.ZAMM and fj is not None and 0 < chunk_index - fj[0] <= FRESH_JUMP_CHUNKS
-            and not lock_abandoned and not fatiha_jump and fatiha_cand is None and (not match or score < MIN_CONFIDENCE)):
-        g = align_transcription(text, CORPUS, preferred_range=None, preferred_bonus=PREFERRED_BONUS)
-        gs, g_details = score_transcription(text, g)
-        if g and gs >= FRESH_JUMP_MIN_SCORE and gs >= (score if match else 0.0) + JUMP_MARGIN:
+            and not lock_abandoned and not fatiha_jump and fatiha_cand is None
+            and (not match or score < MIN_CONFIDENCE or (fj_tie and score < FRESH_TIE_WINDOW_BELOW))):
+        if fj_tie:
+            g, gs, g_details = None, 0.0, None
+            for ps, pa in state.fresh_jump_places:
+                if ps == state.last_surah:
+                    continue
+                w = (AYAH_TO_CORPUS_RANGE[(ps, pa)][0],
+                     AYAH_TO_CORPUS_RANGE[(ps, min(pa + FRESH_TIE_AHEAD, SURAH_AYAH_COUNTS[ps]))][1])
+                m = align_transcription(text, CORPUS, preferred_range=w, preferred_bonus=PREFERRED_BONUS)
+                ms, md = score_transcription(text, m)
+                if m and ms > gs:
+                    g, gs, g_details = m, ms, md
+        else:
+            g = align_transcription(text, CORPUS, preferred_range=None, preferred_bonus=PREFERRED_BONUS)
+            gs, g_details = score_transcription(text, g)
+        if g and gs >= FRESH_JUMP_MIN_SCORE and gs >= (score if match else 0.0) + (FRESH_TIE_MARGIN if fj_tie else JUMP_MARGIN):
             gfs, gfa = collect_verses(g.start_word_idx, g.end_word_idx)[0]
             if gfs != state.last_surah and gfa <= 2:
                 ow = (AYAH_TO_CORPUS_RANGE[(gfs, 1)][0], AYAH_TO_CORPUS_RANGE[(gfs, min(2, SURAH_AYAH_COUNTS[gfs]))][1])
@@ -1570,6 +1620,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
         result["jump"] = jump
     opening = False   # sure basi gecisi (bkz. OPENING_MIN_FUZZY)
     fresh = False
+    fresh_places = []
     short_jump = word_count == JUMP_SHORT_WORDS and at_transition_point(state)
     if (not hold and state.state in (NamazState.FATIHA, NamazState.ZAMM, NamazState.ARA) and preferred_range
             and not lock_abandoned and (word_count >= MIN_WORD_COUNT_FIRST_LOCK or short_jump)
@@ -1616,6 +1667,20 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                     gv = collect_verses(g.start_word_idx, g.end_word_idx)
                     (gfs, gfa), (gls, gla) = gv[0], gv[-1]
                     result["hatim_continue"] = True
+            if not cont and CONTINUE_FAR > CONTINUE_AHEAD:
+                # Esitlikte hatim onceligi (bkz. CONTINUE_FAR)
+                total = SURAH_AYAH_COUNTS.get(state.zamm_surah)
+                if total and (state.zamm_surah, state.zamm_ayah) in AYAH_TO_CORPUS_RANGE and not (
+                        state.zamm_surah == gfs and state.zamm_ayah <= gfa <= state.zamm_ayah + CONTINUE_FAR):
+                    fw = (AYAH_TO_CORPUS_RANGE[(state.zamm_surah, state.zamm_ayah)][0],
+                          AYAH_TO_CORPUS_RANGE[(state.zamm_surah, min(total, state.zamm_ayah + CONTINUE_FAR))][1])
+                    fm = align_transcription(text, CORPUS, preferred_range=fw, preferred_bonus=PREFERRED_BONUS)
+                    fs, f_details = score_transcription(text, fm)
+                    if fm and fs >= NATURAL_MIN_SCORE and fs >= gs - CONTINUE_TIE_MARGIN and starts_ayah(fm):
+                        g, gs, g_details, cont, opening = fm, fs, f_details, True, False
+                        gv = collect_verses(g.start_word_idx, g.end_word_idx)
+                        (gfs, gfa), (gls, gla) = gv[0], gv[-1]
+                        result["hatim_tie"] = True
         if ok:
             jc = state.jump_candidate
             if jc is not None and chunk_index - jc.chunk_index > 2:
@@ -1683,6 +1748,10 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 match, score, score_details = g, gs, g_details
             result["jump"] = jump
             fresh = jump == "natural" and state.state == NamazState.FATIHA and not opening and not cont
+            if fresh:
+                fresh_places = phrase_places(text)
+                if len(fresh_places) > FRESH_TIE_MAX_PLACES:
+                    fresh_places = []
     if fatiha_cand is not None:
         jump = "candidate"
         state.jump_candidate = fatiha_cand
@@ -1730,7 +1799,10 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                    and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
     # Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
     tekbir_weak = (state.state == NamazState.ZAMM and not relock and not opening and jump not in ("natural", "verified")
-                   and tekbir_after_reading(state) and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
+                   and tekbir_after_reading(state)
+                   and ((word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
+                        or (score < TEKBIR_WEAK_MIN_SCORE
+                            and chunk_index - state.last_tekbir_chunk >= TEKBIR_WEAK_MIN_GAP)))
     stock_weak = (state.state in (NamazState.FATIHA, NamazState.ZAMM) and not relock and jump not in ("natural", "verified")
                   and score < MIN_CONFIDENCE_FIRST_LOCK
                   and tuple(t for t in (bare_token(w) for w in text.split()) if t) in STOCK_PHRASES)
@@ -1740,7 +1812,8 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             or tekbir_weak:
         result["status"] = "low_confidence"
         if tekbir_weak and score >= effective_threshold and not stock_weak:
-            result["reason"] = f"tekbirden sonra kisa eslesme ({word_count} kelime, skor {score:.1f} < {TEKBIR_SHORT_MIN_SCORE})"
+            result["reason"] = (f"tekbirden sonra zayif eslesme ({word_count} kelime, skor {score:.1f} < "
+                                f"{TEKBIR_SHORT_MIN_SCORE if word_count < MIN_WORD_COUNT_FIRST_LOCK else TEKBIR_WEAK_MIN_SCORE})")
         elif stock_weak and score >= effective_threshold:
             result["reason"] = f"kalip ifade '{text}' zayif eslesme (skor {score:.1f} < {MIN_CONFIDENCE_FIRST_LOCK})"
         elif insufficient_words:
@@ -1843,6 +1916,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     _commit_match(state, match, score, jump, result)
     if fresh:
         state.fresh_jump = (chunk_index, text)
+        state.fresh_jump_places = fresh_places
 
     timings["total"] = time.time() - t_start
     timings["since_chunk_start"] = time.time() - chunk_start_time

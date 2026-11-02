@@ -101,6 +101,44 @@ class StateMachine(
         list.toTypedArray()
     }
 
+    /** corpusTokens'in her elemaninin kelime indeksi. */
+    private val corpusTokenWords: IntArray by lazy {
+        val list = ArrayList<Int>(index.wordCount + 512)
+        for (i in 0 until index.wordCount) {
+            for (part in index.getNormalized(i).split(' ')) {
+                if (part.isNotEmpty()) list.add(i)
+            }
+        }
+        list.toIntArray()
+    }
+
+    /**
+     * Metnin (normalize kelime dizisi) korpusta birebir gectigi yerler → (sure, ayet) (mushaf sirasi, tekrarsiz; limit'te
+     * durur) — Python phrase_places, bkz. FRESH_TIE_MARGIN.
+     */
+    private fun phrasePlaces(text: String, limit: Int = FRESH_TIE_MAX_PLACES + 1): List<Pair<Int, Int>> {
+        val phrase = text.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() }
+        val out = ArrayList<Pair<Int, Int>>()
+        if (phrase.isEmpty()) return out
+        val toks = corpusTokens
+        val widx = corpusTokenWords
+        val n = phrase.size
+        for (i in 0..toks.size - n) {
+            if (toks[i] != phrase[0]) continue
+            var all = true
+            for (k in 1 until n) if (toks[i + k] != phrase[k]) { all = false; break }
+            if (all) {
+                val w = index.getWord(widx[i])
+                val p = Pair(w.surah, w.ayah)
+                if (p !in out) {
+                    out.add(p)
+                    if (out.size >= limit) break
+                }
+            }
+        }
+        return out
+    }
+
     /** Normalize kelime dizisi korpusta birebir kac kez geciyor (limit'te durur). Python phrase_count. */
     private fun phraseCount(phrase: List<String>, limit: Int = 2): Int {
         if (phrase.isEmpty()) return 0
@@ -210,6 +248,12 @@ class StateMachine(
         // "أَمِ اتَّخَذُوا مِن دُونِهِ" (21:24) ASR'de "أم اتطعتم من دونه" → Yunus 10:38'e ("استطعتم من دون الله") 77.3 dogal gecis,
         // devam penceresi 21:24 72.2 (sozluk cezasi) → 2 parca ekranda yanlis sure.
         const val CONTINUE_PRIOR_MARGIN = 6.0
+        // Esitlikte hatim onceligi: Fatiha sonundaki gecis birden cok yerde esitse (CONTINUE_TIE_MARGIN) ve biri onceki zamm'in
+        // suresinde kalinan yerden en fazla CONTINUE_FAR ayet ileride ise o (devam penceresi CONTINUE_AHEAD'den genis: arada
+        // kaydedilmeyen bir namaz kalabilir — yatsi 02.11: hafiza 25:45 (sabah), aksam kaydi yok, yatsi 25:55'ten;
+        // "ويعبدون من دون الله" 10:18 / 16:73 / 22:71 / 25:55 hepsi 100 → 10:18'e gecmisti).
+        const val CONTINUE_FAR = 40
+        const val CONTINUE_TIE_MARGIN = 0.5
         // Fatiha sonunda sure acilisi onceligi: dogal gecis acilis olmayan bir yere oturduysa, ilk kelimesi parcanin ilk 2
         // kelimesinden biri olan surelerin acilisi (1-2. ayet) ayrica hizalanir; tum Kuran'daki en iyi yerden en fazla bu
         // kadar kotuyse acilis alinir. Aksam 22.10: "قل يا أيها الرحم" 7:158 / 62:6 / 109:1 esit 78.6 → 7:158'e gecti,
@@ -222,6 +266,16 @@ class StateMachine(
         // → 15:61 ("فلما جاء آل لوط") 90.5, 110:1 75.0; sonraki "والله والفتح" (2 kelime, 110:1 86.7) aranmadi, 20 sn Hicr.
         const val FRESH_JUMP_CHUNKS = 2
         const val FRESH_JUMP_MIN_SCORE = 80.0
+        // Esit gecisin duzeltilmesi: taze gecis parcasi Kuran'da birebir 2..FRESH_TIE_MAX_PLACES yerde geciyorsa (phrasePlaces)
+        // sonraki parcada pencere FRESH_TIE_WINDOW_BELOW altindayken (minConfidence degil) diger yerlerin devami (yer ..
+        // +FRESH_TIE_AHEAD ayet) aranir; en iyisi pencereden FRESH_TIE_MARGIN iyi ise duzeltilir. Yatsi 02.11: "ويعبدون من دون
+        // الله" 10:18 / 16:73 / 22:71 / 25:55 → 10:18; sonraki "ما لا ينفعه ولا يضره" 25:55 88.8, pencere (10:18) 77.0 (fark 11.8
+        // < JUMP_MARGIN) → 25:55'e ancak ucuncu parcada. Tum Kuran aramasi degil: bu hizalayicinin aday budamasi bu metinde tum
+        // Kuran'da 25:55'i bulmuyor (22:12 75.4); pencereli hizalama Python ile ayni.
+        const val FRESH_TIE_MARGIN = 5.0
+        const val FRESH_TIE_WINDOW_BELOW = 90.0   // pencere eslesmesi bunun altindaysa (JUMP_SEARCH_BELOW 75; yatsi 02.11 77.0)
+        const val FRESH_TIE_MAX_PLACES = 8        // daha cok yerde gecen ifade icin yapilmaz
+        const val FRESH_TIE_AHEAD = 2
         // Erken Fatiha: zamm'da kilit dusmeden, son saglam eslesmeden (>= 3 kelime, >= ilk kilit esigi) bu kadar parca
         // gecmeden gelen ve Fatiha'nin 1-2. ayetinde biten eslesme ("الحمد لله رب العالمين": dua / tesbihatta da gecen, ASR'nin
         // uydurdugu kalip) hemen gecmez, gecis adayi olur; sonraki parca Fatiha'da dogrularsa gecilir. Yeni rekat rukû + iki
@@ -295,6 +349,15 @@ class StateMachine(
         // ancak bu skorla okumanin devami. Yatsi 22.10 sabit parca: 21:79 bitti, rukû tekbiri, semiallah ASR'de "لمن قبله" →
         // 21:82'ye 76 → son zamm konumu 21:82 oldu, 2. rekatin devam penceresi 21:80'i kacirdi, 26:109'a dogal gecis.
         const val TEKBIR_SHORT_MIN_SCORE = 90.0
+        // ... ve uzunlugu ne olursa olsun TEKBIR_WEAK_MIN_SCORE altindaki eslesme de okumanin devami degil. Yatsi 02.11: 25:60
+        // bitti, rukû tekbiri (211.6 sn), semiallah ASR'de "لم يعظ الله منه" (4 kelime, kisa kurala girmedi) → 25:61-62'ye 55.2
+        // → rukûda ekranda 2. rekatta okunacak ayetler. Bozuk semiallah her seferinde baska ("لم يعد", "لم يعم", "فدعاه الله
+        // لمن", "لمن قبله") — kalip yerine tekbirden sonraki zayif eslesme reddedilir. Sadece tekbirle bu parca arasinda en az
+        // bir parca (rukû) varsa (TEKBIR_WEAK_MIN_GAP): okuma ortasinda uydurma / yanlis duyulan tekbirin hemen arkasindaki parca
+        // okumanin devami (zorlama S5: "طاقات الأرض وهو عزيز" 59:24 69.3 reddedilince kilit dustu); gercek rukûda tekbirden
+        // sonra bos parca geliyor (yatsi 02.11 216.6 sn).
+        const val TEKBIR_WEAK_MIN_SCORE = 70.0
+        const val TEKBIR_WEAK_MIN_GAP = 2
         // Belirsiz aday (UI): BEKLEME / kilit kaybi adayinda ikinci yer bu kadar yakinsa aday ekranda gosterilmez
         // (ChunkResult.ambiguous; state machine ayni, dogrulaninca kayar). 39 + 44 kayit (gercek, sentetik, dis kaynak)
         // × 2 zincir: ekrandaki 22 yanlis adayin farki 0-2.7 ("قل أعوذ برب" 113:1 / 114:1, "ألم تر كيف" 105:1 / 89:6 /
@@ -1129,12 +1192,30 @@ class StateMachine(
         // Taze gecisin yeniden kontrolu (bkz. FRESH_JUMP_CHUNKS): gecis parcasi da yeni surenin acilisina oturmali
         var freshFix = false
         val fj = state.freshJump
+        val fjTie = fj != null && state.freshJumpPlaces.size >= 2
         if (!hold && state.state == NamazState.ZAMM && fj != null && chunkIndex - fj.first in 1..FRESH_JUMP_CHUNKS &&
-            !lockAbandoned && !fatihaJump && fatihaCand == null && (match == null || score < minConfidence)
+            !lockAbandoned && !fatihaJump && fatihaCand == null &&
+            (match == null || score < minConfidence || (fjTie && score < FRESH_TIE_WINDOW_BELOW))
         ) {
-            val g = aligner.align(cleanText, preferredRange = null)
-            val gs = scoreTranscription(tokens, g)
-            if (g != null && gs >= FRESH_JUMP_MIN_SCORE && gs >= (if (match != null) score else 0.0) + JUMP_MARGIN) {
+            var g: AlignmentMatch? = null
+            var gs = 0.0
+            if (fjTie) {
+                // Esit gecis: diger yerlerin devami (bkz. FRESH_TIE_MARGIN)
+                for ((ps, pa) in state.freshJumpPlaces) {
+                    if (ps == state.lastSurah) continue
+                    val r0 = ayahToCorpusRange[Pair(ps, pa)] ?: continue
+                    val r1 = ayahToCorpusRange[Pair(ps, minOf(pa + FRESH_TIE_AHEAD, surahAyahCounts[ps] ?: pa))] ?: continue
+                    val m = aligner.align(cleanText, preferredRange = r0.first..r1.second)
+                    val ms = scoreTranscription(tokens, m)
+                    if (m != null && ms > gs) { g = m; gs = ms }
+                }
+            } else {
+                g = aligner.align(cleanText, preferredRange = null)
+                gs = scoreTranscription(tokens, g)
+            }
+            if (g != null && gs >= FRESH_JUMP_MIN_SCORE &&
+                gs >= (if (match != null) score else 0.0) + (if (fjTie) FRESH_TIE_MARGIN else JUMP_MARGIN)
+            ) {
                 val (gfs, gfa) = collectVerses(g.startWordIdx, g.endWordIdx).first()
                 val ow = openingWindow(gfs)
                 if (gfs != state.lastSurah && gfa <= 2 && ow != null) {
@@ -1176,6 +1257,7 @@ class StateMachine(
         var jumpCandidateMatch: AlignmentMatch? = null  // UI adayi gosterebilsin diye
         var opening = false   // sure basi gecisi (bkz. OPENING_MIN_FUZZY)
         var fresh = false
+        var freshPlaces: List<Pair<Int, Int>> = emptyList()
         val shortJump = wordCount == JUMP_SHORT_WORDS && atTransitionPoint(state)
         if (!hold && (state.state == NamazState.FATIHA || state.state == NamazState.ZAMM || state.state == NamazState.ARA) &&
             preferredRange != null && !lockAbandoned && (wordCount >= MIN_WORD_COUNT_FIRST_LOCK || shortJump) &&
@@ -1241,6 +1323,28 @@ class StateMachine(
                             opening = false
                             val (c0s, c0a) = gvv.first()
                             notes += "hatim devami: $c0s:$c0a ${"%.1f".format(cs)} (onceki zamm $zs:$za)"
+                        }
+                    }
+                    if (!cont && CONTINUE_FAR > CONTINUE_AHEAD) {
+                        // Esitlikte hatim onceligi (bkz. CONTINUE_FAR): onceki zamm suresinde daha ileride ayni skorlu yer
+                        val total = surahAyahCounts[zs]
+                        val (g0s, g0a) = gvv.first()
+                        val start = ayahToCorpusRange[Pair(zs, za)]
+                        if (total != null && start != null && !(zs == g0s && g0a in za..za + CONTINUE_FAR)) {
+                            val end = ayahToCorpusRange[Pair(zs, min(total, za + CONTINUE_FAR))]
+                            val fw = end?.let { start.first..it.second }
+                            val fm = if (fw != null) aligner.align(cleanText, preferredRange = fw) else null
+                            val fs = scoreTranscription(tokens, fm)
+                            if (fm != null && fs >= NATURAL_MIN_SCORE && fs >= gsc - CONTINUE_TIE_MARGIN && startsAyah(fm)) {
+                                gm = fm
+                                gsc = fs
+                                gvv = collectVerses(fm.startWordIdx, fm.endWordIdx)
+                                cont = true
+                                opening = false
+                                val (c0s, c0a) = gvv.first()
+                                notes += "esitlikte hatim onceligi: $c0s:$c0a ${"%.1f".format(fs)} ($g0s:$g0a ile esit; " +
+                                    "onceki zamm $zs:$za)"
+                            }
                         }
                     }
                 }
@@ -1362,6 +1466,7 @@ class StateMachine(
                     notes += if (opening) "sure basi gecisi" else if (cont) "hatim devami" else if (jump == "natural") "dogal gecis" else "gecis dogrulandi"
                 }
                 fresh = jump == "natural" && state.state == NamazState.FATIHA && !opening && !cont
+                if (fresh) freshPlaces = phrasePlaces(cleanText).let { if (it.size > FRESH_TIE_MAX_PLACES) emptyList() else it }
             }
         }
         if (fatihaCand != null) {
@@ -1421,7 +1526,9 @@ class StateMachine(
         val pausedWeak = state.state == NamazState.ZAMM && !relock && !opening && state.lostChunks >= PAUSE_LOST_CHUNKS &&
             wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < minConfidenceFirstLock
         val tekbirWeak = state.state == NamazState.ZAMM && !relock && !opening && jump != "natural" && jump != "verified" &&
-            tekbirAfterReading(state) && wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < TEKBIR_SHORT_MIN_SCORE
+            tekbirAfterReading(state) &&
+            ((wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < TEKBIR_SHORT_MIN_SCORE) ||
+                (score < TEKBIR_WEAK_MIN_SCORE && chunkIndex - (state.lastTekbirChunk ?: chunkIndex) >= TEKBIR_WEAK_MIN_GAP))
         // Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
         val stockWeak = (state.state == NamazState.FATIHA || state.state == NamazState.ZAMM) && !relock &&
             jump != "natural" && jump != "verified" && score < minConfidenceFirstLock &&
@@ -1439,8 +1546,8 @@ class StateMachine(
                 match == null -> "eslesme yok"
                 insufficientWords -> "yetersiz kelime ($wordCount<$requireMinWords)$where"
                 tekbirWeak && !stockWeak && score >= effectiveThreshold ->
-                    "tekbirden sonra kisa eslesme ($wordCount kelime, skor ${"%.1f".format(score)}$where < " +
-                        "${"%.0f".format(TEKBIR_SHORT_MIN_SCORE)})"
+                    "tekbirden sonra zayif eslesme ($wordCount kelime, skor ${"%.1f".format(score)}$where < " +
+                        "${"%.0f".format(if (wordCount < MIN_WORD_COUNT_FIRST_LOCK) TEKBIR_SHORT_MIN_SCORE else TEKBIR_WEAK_MIN_SCORE)})"
                 stockWeak && score >= effectiveThreshold ->
                     "kalip ifade '${cleanText.trim()}' zayif eslesme (skor ${"%.1f".format(score)}$where < " +
                         "${"%.0f".format(minConfidenceFirstLock)})"
@@ -1640,7 +1747,10 @@ class StateMachine(
             state, chunkIndex, match, score, wordCount, stateBefore, jump, rms, transcribedText, withNotes(acceptReason, notes),
             preferredRange, inPreferred, nearSurahEnd, lockAbandoned,
         )
-        if (fresh) state.freshJump = Pair(chunkIndex, cleanText)
+        if (fresh) {
+            state.freshJump = Pair(chunkIndex, cleanText)
+            state.freshJumpPlaces = freshPlaces
+        }
         return res
     }
 

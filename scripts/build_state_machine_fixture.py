@@ -125,6 +125,21 @@ FRESH_JUMP_MIN_SCORE = 80
 # Kuran'da baska surenin 3+. ayetinde >= FRESH_JUMP_MIN_SCORE ve gecis parcasi o ayetin (ya da bir oncekinin) basina
 # >= NATURAL_MIN_SCORE oturuyorsa (sirali) gecilir: iki parca ayni yeri gosteriyor. 6:141 ekranda 15 → 5 sn.
 FRESH_JUMP_ANY_AYAH = True   # ayar denemesi "eski kural" anahtari — uygulamada hep acik
+# Esit gecisin duzeltilmesi: taze gecis parcasi Kuran'da birebir 2..FRESH_TIE_MAX_PLACES yerde geciyorsa (phrase_places) sonraki
+# parcada pencere eslesmesi FRESH_TIE_WINDOW_BELOW altindayken (MIN_CONFIDENCE degil) diger yerlerin devami (yer .. +FRESH_TIE_AHEAD
+# ayet) aranir; oradaki en iyi eslesme pencereden FRESH_TIE_MARGIN iyi ise duzeltilir. Yatsi 02.11: "ويعبدون من دون الله" 10:18 /
+# 16:73 / 22:71 / 25:55 hepsi 100 → 10:18'e dogal gecis; sonraki "ما لا ينفعه ولا يضره" 25:55 88.8, pencere (10:18) 77.0 (fark
+# 11.8 < JUMP_MARGIN) → 25:55'e ancak ucuncu parcada (10 sn Yunus). Tum Kuran aramasi yerine yerlerin devami: telefondaki (Kotlin)
+# hizalayicinin aday budamasi bu metinde tum Kuran'da 25:55'i bulmuyor (22:12 75.4) — pencereli hizalama iki tarafta ayni.
+FRESH_TIE_MARGIN = 5.0
+FRESH_TIE_WINDOW_BELOW = 90.0   # pencere eslesmesi bunun altindaysa (JUMP_SEARCH_BELOW 75; yatsi 02.11 pencere 77.0)
+FRESH_TIE_MAX_PLACES = 8        # daha cok yerde gecen ifade (ozel bir ifade degil) icin yapilmaz
+FRESH_TIE_AHEAD = 2
+# Esitlikte hatim onceligi: Fatiha sonundaki gecis birden cok yerde esitse (CONTINUE_TIE_MARGIN) ve biri onceki zamm'in
+# suresinde kalinan yerden en fazla CONTINUE_FAR ayet ileride ise o (devam penceresi CONTINUE_AHEAD'den genis: kaydedilmeyen
+# bir namaz arada kalabilir — yatsi 02.11: hafiza 25:45 (sabah), aksam kaydi yok, yatsi 25:55'ten).
+CONTINUE_FAR = 40
+CONTINUE_TIE_MARGIN = 0.5
 # Erken Fatiha: zamm'da kilit dusmeden, son saglam eslesmeden (>= 3 kelime, >= ilk kilit esigi) bu kadar parca gecmeden
 # gelen ve Fatiha'nin 1-2. ayetinde biten eslesme ("الحمد لله رب العالمين": dua / tesbihatta da gecen, ASR'nin uydurdugu kalip)
 # hemen gecmez, gecis adayi olur; sonraki parca Fatiha'da dogrularsa gecilir. Yeni rekat rukû + iki secdeden sonra gelir
@@ -289,6 +304,8 @@ class SessionState:
     last_tekbir_chunk: Optional[int] = None
     # Fatiha sonundaki taze (acilis / devam olmayan) dogal gecis: (parca indeksi, temiz metin) — bkz. FRESH_JUMP_CHUNKS
     fresh_jump: Optional[Tuple[int, str]] = None
+    # Taze gecis parcasinin Kuran'da birebir gectigi yerler [(sure, ayet)] (2..FRESH_TIE_MAX_PLACES ise) — bkz. FRESH_TIE_MARGIN
+    fresh_jump_places: list = field(default_factory=list)
     # Son kabul edilen eslesmenin parca indeksi — bkz. TILAVET_END_NAMAZ_GAP
     last_match_chunk: Optional[int] = None
     # Son saglam (>= MIN_WORD_COUNT_FIRST_LOCK kelime, >= ilk kilit esigi) eslesmenin parca indeksi — bkz. FATIHA_MIN_GAP_CHUNKS
@@ -640,6 +657,15 @@ STOCK_PHRASES = {("الحمد", "لله"), ("والحمد", "لله")}
 # "لمن قبله" → 21:82'ye 76 → son zamm konumu 21:82 oldu, 2. rekatin devam penceresi (21:82..) 21:80'i kacirdi, "فهل أنتم يا
 # رب العالمين" 26:109'a dogal gecis (2 parca yanlis sure).
 TEKBIR_SHORT_MIN_SCORE = 90
+# ... ve uzunlugu ne olursa olsun TEKBIR_WEAK_MIN_SCORE altindaki eslesme de okumanin devami degil. Yatsi 02.11: 25:60 bitti,
+# rukû tekbiri (211.6 sn), semiallah ASR'de "لم يعظ الله منه" (4 kelime, kisa kurala girmedi) → 25:61-62'ye 55.2 → rukûda
+# ekranda 2. rekatta okunacak ayetler. Bozuk semiallah her seferinde baska ("لم يعد", "لم يعم", "فدعاه الله لمن", "لمن قبله")
+# — kalip yerine tekbirden sonraki zayif eslesme reddedilir. Sadece tekbirle bu parca arasinda en az bir parca (rukû) varsa
+# (TEKBIR_WEAK_MIN_GAP): okuma ortasinda uydurma / yanlis duyulan tekbirin hemen arkasindaki parca okumanin devami (zorlama S5:
+# "طاقات الأرض وهو عزيز" 59:24 69.3 reddedilince kilit dustu, Saffat bolumu kacti); gercek rukûda tekbirden sonra bos parca
+# geliyor (yatsi 02.11 216.6 sn bos, sentetik hatim 617.9 sn).
+TEKBIR_WEAK_MIN_SCORE = 70
+TEKBIR_WEAK_MIN_GAP = 2
 
 
 def is_tevhid(text):
@@ -858,12 +884,44 @@ def besmele_positions(corpus, ayah_to_range):
 _token_cache = {}
 
 
+_token_word_cache = {}
+
+
 def corpus_tokens(corpus):
     """Korpusun normalize kelime dizisi (imla'i iki kelimelik kayitlar bolunmus)."""
     key = id(corpus)
     if key not in _token_cache:
         _token_cache[key] = [t for w in corpus.words for t in w.normalized.split()]
     return _token_cache[key]
+
+
+def corpus_token_words(corpus):
+    """corpus_tokens'in her elemaninin kelime indeksi."""
+    key = id(corpus)
+    if key not in _token_word_cache:
+        _token_word_cache[key] = [i for i, w in enumerate(corpus.words) for _t in w.normalized.split()]
+    return _token_word_cache[key]
+
+
+def phrase_places(corpus, text, limit=FRESH_TIE_MAX_PLACES + 1):
+    """Metnin (normalize kelime dizisi) korpusta birebir gectigi yerler → [(sure, ayet)] (mushaf sirasi, tekrarsiz; limit'te
+    durur) — bkz. FRESH_TIE_MARGIN."""
+    tokens = [t for t in (bare_token(w) for w in text.split()) if t]
+    out = []
+    n = len(tokens)
+    if n == 0:
+        return out
+    toks = corpus_tokens(corpus)
+    widx = corpus_token_words(corpus)
+    for i in range(len(toks) - n + 1):
+        if toks[i] == tokens[0] and toks[i:i + n] == tokens:
+            w = corpus.words[widx[i]]
+            p = (w.surah, w.ayah)
+            if p not in out:
+                out.append(p)
+                if len(out) >= limit:
+                    break
+    return out
 
 
 def phrase_count(corpus, tokens, limit=2):
@@ -1335,11 +1393,25 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     # Taze gecisin yeniden kontrolu (bkz. FRESH_JUMP_CHUNKS): gecis parcasi da yeni surenin acilisina oturmali
     fresh_fix = False
     fj = state.fresh_jump
+    fj_tie = fj is not None and len(state.fresh_jump_places) >= 2
     if (not hold and state.state == NamazState.ZAMM and fj is not None and 0 < chunk_index - fj[0] <= FRESH_JUMP_CHUNKS
-            and not lock_abandoned and not fatiha_jump and fatiha_cand is None and (not match or score < MIN_CONFIDENCE)):
-        g = align_transcription(transcribed_text, corpus, preferred_range=None, preferred_bonus=PREFERRED_BONUS)
-        gs = score_transcription(transcribed_text, g, vocab)
-        if g and gs >= FRESH_JUMP_MIN_SCORE and gs >= (score if match else 0.0) + JUMP_MARGIN:
+            and not lock_abandoned and not fatiha_jump and fatiha_cand is None
+            and (not match or score < MIN_CONFIDENCE or (fj_tie and score < FRESH_TIE_WINDOW_BELOW))):
+        if fj_tie:
+            # Esit gecis: diger yerlerin devami (bkz. FRESH_TIE_MARGIN)
+            g, gs = None, 0.0
+            for ps, pa in state.fresh_jump_places:
+                if ps == state.last_surah:
+                    continue
+                w = (ayah_to_range[(ps, pa)][0], ayah_to_range[(ps, min(pa + FRESH_TIE_AHEAD, surah_counts[ps]))][1])
+                m = align_transcription(transcribed_text, corpus, preferred_range=w, preferred_bonus=PREFERRED_BONUS)
+                ms = score_transcription(transcribed_text, m, vocab)
+                if m and ms > gs:
+                    g, gs = m, ms
+        else:
+            g = align_transcription(transcribed_text, corpus, preferred_range=None, preferred_bonus=PREFERRED_BONUS)
+            gs = score_transcription(transcribed_text, g, vocab)
+        if g and gs >= FRESH_JUMP_MIN_SCORE and gs >= (score if match else 0.0) + (FRESH_TIE_MARGIN if fj_tie else JUMP_MARGIN):
             gfs, gfa = collect_verses(corpus, g.start_word_idx, g.end_word_idx)[0]
             if gfs != state.last_surah and gfa <= 2:
                 ow = (ayah_to_range[(gfs, 1)][0], ayah_to_range[(gfs, min(2, surah_counts[gfs]))][1])
@@ -1363,6 +1435,7 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
         jump = "verified"
     opening = False
     fresh = False
+    fresh_places = []
     short_jump = word_count == JUMP_SHORT_WORDS and at_transition_point(state, surah_counts)
     if (not hold and state.state in (NamazState.FATIHA, NamazState.ZAMM, NamazState.ARA) and preferred_range
             and not lock_abandoned and (word_count >= MIN_WORD_COUNT_FIRST_LOCK or short_jump)
@@ -1409,6 +1482,19 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                     g, gs, cont, opening = cm, cs, True, False
                     gv = collect_verses(corpus, g.start_word_idx, g.end_word_idx)
                     (gfs, gfa), (gls, gla) = gv[0], gv[-1]
+            if not cont and CONTINUE_FAR > CONTINUE_AHEAD:
+                # Esitlikte hatim onceligi (bkz. CONTINUE_FAR): onceki zamm suresinde daha ileride ayni skorlu yer
+                total = surah_counts.get(state.zamm_surah)
+                if total and (state.zamm_surah, state.zamm_ayah) in ayah_to_range and not (
+                        state.zamm_surah == gfs and state.zamm_ayah <= gfa <= state.zamm_ayah + CONTINUE_FAR):
+                    fw = (ayah_to_range[(state.zamm_surah, state.zamm_ayah)][0],
+                          ayah_to_range[(state.zamm_surah, min(total, state.zamm_ayah + CONTINUE_FAR))][1])
+                    fm = align_transcription(transcribed_text, corpus, preferred_range=fw, preferred_bonus=PREFERRED_BONUS)
+                    fs = score_transcription(transcribed_text, fm, vocab)
+                    if fm and fs >= NATURAL_MIN_SCORE and fs >= gs - CONTINUE_TIE_MARGIN and starts_ayah(fm, corpus, ayah_to_range):
+                        g, gs, cont, opening = fm, fs, True, False
+                        gv = collect_verses(corpus, g.start_word_idx, g.end_word_idx)
+                        (gfs, gfa), (gls, gla) = gv[0], gv[-1]
         if ok:
             jc = state.jump_candidate
             if jc and chunk_index - jc.chunk_index > 2:
@@ -1477,6 +1563,10 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             if jump != "candidate":
                 match, score = g, gs
             fresh = jump == "natural" and state.state == NamazState.FATIHA and not opening and not cont
+            if fresh:
+                fresh_places = phrase_places(corpus, transcribed_text)
+                if len(fresh_places) > FRESH_TIE_MAX_PLACES:
+                    fresh_places = []
     if fatiha_cand is not None:
         jump = "candidate"
         state.jump_candidate = fatiha_cand
@@ -1510,7 +1600,10 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                   and score < MIN_CONFIDENCE_FIRST_LOCK
                   and tuple(t for t in (bare_token(w) for w in transcribed_text.split()) if t) in STOCK_PHRASES)
     tekbir_weak = (state.state == NamazState.ZAMM and not relock and not opening and jump not in ("natural", "verified")
-                   and tekbir_after_reading(state) and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
+                   and tekbir_after_reading(state)
+                   and ((word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
+                        or (score < TEKBIR_WEAK_MIN_SCORE
+                            and chunk_index - state.last_tekbir_chunk >= TEKBIR_WEAK_MIN_GAP)))
     paused_weak = (state.state == NamazState.ZAMM and not relock and not opening and state.lost_chunks >= PAUSE_LOST_CHUNKS
                    and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
 
@@ -1573,6 +1666,7 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     res = commit_match(state, match, score, word_count, chunk_index, state_before, jump, corpus)
     if fresh:
         state.fresh_jump = (chunk_index, transcribed_text)
+        state.fresh_jump_places = fresh_places
     return res
 
 
@@ -2511,6 +2605,87 @@ SCENARIOS = [
             (0.0641, ""), (0.0079, ""),
             (0.0600, "لم يعد"),                                        # 20: tek basina da rukû
             (0.0765, "السلام عليكم"),                                  # 21: selam
+        ],
+    },
+
+    # ============ Senaryo 32: yatsi 02.11 (APK #152 telefon parcalari) — esitlikte hatim onceligi + tekbirden sonra zayif ============
+    {
+        "description": "1. rekat Furkan 25:43-45 (zamm hafizasi 25:45) → semiallah → 2. rekat Fatiha → 'ويعبدون من دون الله' (10:18 / "
+                       "16:73 / 22:71 / 25:55 esit 100; 25:55 hafizadan 10 ayet ileride → hatim onceligi, eskiden 10:18) → 25:55-60 → "
+                       "rukû tekbiri → 'لم يعظ الله منه' (4 kelime, 25:61-62'ye 55.2: tekbirden sonra zayif, kilit yok)",
+        "chunks": [
+            (0.05, "الحمد لله رب العالمين الرحمن الرحيم"),
+            (0.05, "مالك يوم الدين إياك نعبد وإياك نستعين"),
+            (0.05, "اهدنا الصراط المستقيم صراط الذين أنعمت عليهم"),
+            (0.05, "غير المغضوب عليهم ولا الضالين"),
+            (0.05, "أرأيت من اتخذ إلهه هواه أفأنت تكون عليه وكيلا"),   # 4: Furkan 25:43
+            (0.05, "أم تحسب أن أكثرهم يسمعون أو يعقلون"),
+            (0.05, "إن هم إلا كالأنعام بل هم أضل سبيلا"),
+            (0.05, "ألم تر إلى ربك كيف مد الظل"),                      # 7: 25:45
+            (0.05, "الله أكبر"),
+            (0.0, ""),
+            (0.05, "سمع الله لمن حمده"),                               # 10: rukû
+            (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""),
+            (0.0635, "الحمد لله رب العالمين نهاية الدرس"),            # 15: 2. rekat Fatiha
+            (0.0607, "الرَّحْمنُ مع العلمِ مَالِكِ يَوْمِ الدِّينِ"),
+            (0.0525, "إياك نعبد القيادي"),
+            (0.0519, "نعبد وإياك نستعين"),
+            (0.0503, "اهدِنَا الصِّرَاطَ المستقيم صراطَ الذين"),
+            (0.0515, "غير المُسلمين"),
+            (0.0599, "المغضوب عليهم ولو ضال"),
+            (0.0590, ""), (0.0547, ""),
+            (0.0483, "وَيَعْبُدُونَ مِن دُونِ اللَّهِ"),                 # 24: hatim onceligi → 25:55 (eskiden 10:18)
+            (0.0615, "الحمد لله ما لا ينفعُه ولا يضُرُّه"),
+            (0.0535, "وَكَانَ الْكَافِرُ عَلَى رَبِّهِ ظَهِيرًا"),
+            (0.0579, "وَمَا أَرْسَلْنَاكَ إِلَى محمد"),
+            (0.0577, "وما ذاك إلا مُبشرًا ونذيرًا"),
+            (0.0593, "قُل ما أَسْأَلُكُم عليه مِن أَجرٍ إِلّا مَر"),
+            (0.0569, "إِلَّا مَنْ شَاءَ أَن يَتَّخِذَ إِلَى رَبِّي سَبِيلًا"),
+            (0.0577, "وإذا قيل لهم اسجُدوا للرَّحمة"),
+            (0.0577, "للرحمن قالوا وما الرحمن."),
+            (0.0595, "أَنَسجُدُ لِمَا تَأْمُرُنَا وَزَادَهُمُ"),          # 33: 25:60
+            (0.0409, "عباده"),
+            (0.0644, "الله أكبر"),                                      # 35: rukû tekbiri
+            (0.0128, ""),
+            (0.0504, "لم يعظ الله منه"),                                # 37: tekbirden sonra zayif (eskiden 25:61-62)
+            (0.0457, ""), (0.0575, ""),
+        ],
+    },
+
+    # ============ Senaryo 33: esit gecisin duzeltilmesi (hafiza yok) ============
+    {
+        "description": "Fatiha → 'ويعبدون من دون الله' (10:18 / 16:73 / 22:71 / 25:55 esit; hafiza yok → 10:18) → 'ما لا ينفعه "
+                       "ولا يضره' (25:55 88.8, pencere 10:18 77.0: esit gecis duzeltmesi, eskiden 3. parcada) → 25:55",
+        "chunks": [
+            (0.0635, "الحمد لله رب العالمين نهاية الدرس"),
+            (0.0607, "الرَّحْمنُ مع العلمِ مَالِكِ يَوْمِ الدِّينِ"),
+            (0.0519, "نعبد وإياك نستعين"),
+            (0.0503, "اهدِنَا الصِّرَاطَ المستقيم صراطَ الذين"),
+            (0.0599, "المغضوب عليهم ولو ضال"),
+            (0.0590, ""),
+            (0.0483, "وَيَعْبُدُونَ مِن دُونِ اللَّهِ"),                 # 6: 10:18 (esit, hafiza yok)
+            (0.0615, "الحمد لله ما لا ينفعُه ولا يضُرُّه"),            # 7: esit gecis duzeltmesi → 25:55
+            (0.0535, "وَكَانَ الْكَافِرُ عَلَى رَبِّهِ ظَهِيرًا"),
+        ],
+    },
+
+    # ============ Senaryo 34: okuma ortasinda sahte tekbir — hemen arkasindaki zayif devam kilitte kalir ============
+    {
+        "description": "Hasr 59:23-24 (tilavet_hasr rnnt parcalari, zorlama S5 gibi okuma ortasinda sahte tekbir) → 'طاقات "
+                       "الأرض وهو عزيز' (59:24 69.3, tekbirin hemen arkasinda: TEKBIR_WEAK_MIN_GAP — okumanin devami, kilit "
+                       "kalir; gap 1 olsaydi reddedilip kilit dusuyordu)",
+        "chunks": [
+            (0.0206, "السلام الملك القدوس السلام"),
+            (0.0204, "اللَّه المؤمن المؤيمن العزيز الجبار"),
+            (0.0271, "جبار متكبر سرعان"),
+            (0.0302, "سبحان الله عما يشركون"),
+            (0.0324, ""),
+            (0.0269, "الصادق البارد المصوِّر له الاسم"),
+            (0.0231, "موسوعة النصيحة"),
+            (0.031, "الله أكبر"),                                       # 7: sahte tekbir (okuma ortasinda)
+            (0.0245, "طاقاتِ الأرض وهو عزيز"),                         # 8: 59:24 69.3 → kilit kalir
+            (0.0177, ""),
+            (0.0233, "صدق الله العظيم"),
         ],
     },
 ]

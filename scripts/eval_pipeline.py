@@ -143,6 +143,7 @@ EXPECTED = {
     "namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav": "coklu",
     "namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
     "namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
+    "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -253,6 +254,12 @@ TIMELINE = {
     # bkz. semiallah_open), selam ~617 / ~626, dua 634 ("اللهم أنت السلام" — 5 sn parcalarda tanınmadı)
     "namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav": [(0, None), (42, 1), (86.5, 25), (310, None), (366, 1),
                                                            (408.5, 25), (513, None)],
+    # yatsi 02.11 (APK #152, cami, 11 dk; kelime zamanli dokum): kamet 0-47, iftitah ~62, Fatiha 74.7, amin 108-118, Furkan
+    # 25:55 (120.0; "ويعبدون من دون الله" 10:18 / 16:73 / 22:71 / 25:55 ayni — telefonda 10:18, bkz. CONTINUE_FAR) .. 25:60
+    # (203.8), rukû 208.7, semiallah 218.3 (telefonda "لم يعظ الله منه" → 25:61-62, bkz. TEKBIR_WEAK_MIN_SCORE), Fatiha 258.1,
+    # 25:61 (300.9) .. 25:67 (382.2), semiallah 395, 3-4. rekat sessiz (semiallah 477 / 543), selam 635.8, dua 645.8
+    "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": [(0, None), (74, 1), (119.5, 25), (205, None), (258, 1),
+                                                           (300.5, 25), (383, None)],
 }
 
 
@@ -576,6 +583,7 @@ PREV_ZAMM = {
     "namaz_sabah3_kamet_fatiha_muminun_fatiha_muminun.wav": (23, 77),   # yatsi 27.10 sonu
     "namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav": (23, 50),       # telefon log'u: "onceki namazin kaldigi yer: 23:50"
     "namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav": (25, 20),     # telefon log'u: yatsi 01.11 sonu 25:20
+    "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": (25, 45),     # telefon log'u (sabahin rukûdaki 25:45 kilidi — APK #150)
 }
 
 
