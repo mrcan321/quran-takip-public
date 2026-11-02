@@ -1797,7 +1797,7 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   42 (S5: 31 → 14) — farkların hepsi yeni iki kayıtta ve iyileşme.
 - `training/real_labels.json` 18 namaz (train 9: + sabah 01.11; test 9: + yatsı 01.11 — her 4. yeni kayıt test).
 
-### 36. Sabah 02.11 (APK #150): rükûda bir ayet ileri, namaz sonu duası tanınmadı (APK build #151+)
+### 36. Sabah 02.11 (APK #150): rükûda bir ayet ileri, namaz sonu duası tanınmadı (APK build #152+)
 - `data/namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav` (camide telefon, 10.9 dk): kamet sonu → iftitah ~26 → Fatiha 42 → âmin →
   Furkân 25:21 (86.8) .. 25:37 (308.6) → rükû 313 → semiallah 323-327 → Fatiha 366 → 25:38 (408.6) .. 25:44 (512) → rükû 517 →
   semiallah 529-533 → selam ~617 / ~626 → dua 634 ("اللهم أنت السلام"). Önceki namazın kaldığı yer 25:20 (yatsı 01.11) → 25:21
@@ -1823,6 +1823,9 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     cuma 394 sn), sabah 02.11 643 sn; kartı olan 13 kayıtta da bulundu; dua dışında hiç tetiklenmedi (aksam 27.09, aksam 22.10,
     yatsı 25.10: dua duyulmuyor, yoklama da boş). Bedel: selamdan sonra parça başına ~1 sn ek ASR (en çok 90 sn).
     JVM `report` 42 → 60 kontrol (pencere / bindirme, yoklama penceresi, kart).
+- CI baseline (run 11): zorlama S1 / S3'te yanlış kilitli parça +1 (rnnt 0 → 1, hibrit 2 → 3) — aynı veride eski kod da aynı
+  (yeni kaydın kamet + Fatiha bileşimi), yeni kod orada ekranda yanlış adayı 1 → 0 indiriyor; S4 / S5'in tamamı yeni gürültü
+  çekimi (aynı veride eski / yeni: hibrit S4 yanlış aday 17 → 13, S5 6 → 1; rnnt S4 19 → 18, kilit / gecikme aynı).
 - `training/real_labels.json` 19 namaz (train 10: + sabah 02.11 — 193.5-206.8 imamın sürçmesi dışarıda).
 
 ---
