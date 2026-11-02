@@ -6,14 +6,14 @@
       "first_none": 0,
       "first_median": 10.0,
       "first_mean": 9.74,
-      "sections": 109,
-      "sections_locked": 109,
-      "delay_median": 5.3,
-      "delay_mean": 6.94,
+      "sections": 113,
+      "sections_locked": 113,
+      "delay_median": 5.2,
+      "delay_mean": 6.93,
       "wrong_chunks": 0,
       "shown_wrong": 1,
       "show_delay_median": 5.2,
-      "show_delay_mean": 6.57
+      "show_delay_mean": 6.58
     },
     "rnnt-hibrit": {
       "first_ok": 19,
@@ -21,24 +21,24 @@
       "first_none": 0,
       "first_median": 10.0,
       "first_mean": 9.74,
-      "sections": 109,
-      "sections_locked": 109,
+      "sections": 113,
+      "sections_locked": 113,
       "delay_median": 5.0,
-      "delay_mean": 6.77,
+      "delay_mean": 6.65,
       "wrong_chunks": 1,
       "shown_wrong": 0,
       "show_delay_median": 5.0,
-      "show_delay_mean": 6.45
+      "show_delay_mean": 6.34
     }
   },
   "stress": {
     "rnnt": {
       "S1": {
-        "sections": 83,
-        "sections_locked": 83,
+        "sections": 87,
+        "sections_locked": 87,
         "delay_median": 5.2,
-        "delay_mean": 6.84,
-        "wrong_chunks": 0,
+        "delay_mean": 6.9,
+        "wrong_chunks": 1,
         "shown_wrong": 1
       },
       "S2": {
@@ -50,37 +50,37 @@
         "shown_wrong": 0
       },
       "S3": {
-        "sections": 105,
-        "sections_locked": 105,
+        "sections": 110,
+        "sections_locked": 110,
         "delay_median": 6.0,
-        "delay_mean": 7.43,
-        "wrong_chunks": 0,
+        "delay_mean": 7.47,
+        "wrong_chunks": 1,
         "shown_wrong": 1
       },
       "S4": {
-        "sections": 545,
-        "sections_locked": 537,
-        "delay_median": 6.0,
-        "delay_mean": 8.05,
-        "wrong_chunks": 13,
-        "shown_wrong": 13
+        "sections": 565,
+        "sections_locked": 559,
+        "delay_median": 6.2,
+        "delay_mean": 8.0,
+        "wrong_chunks": 21,
+        "shown_wrong": 18
       },
       "S5": {
-        "sections": 545,
-        "sections_locked": 543,
+        "sections": 565,
+        "sections_locked": 562,
         "delay_median": 5.5,
-        "delay_mean": 7.15,
-        "wrong_chunks": 2,
+        "delay_mean": 7.13,
+        "wrong_chunks": 10,
         "shown_wrong": 5
       }
     },
     "rnnt-hibrit": {
       "S1": {
-        "sections": 83,
-        "sections_locked": 82,
+        "sections": 87,
+        "sections_locked": 86,
         "delay_median": 5.0,
-        "delay_mean": 6.14,
-        "wrong_chunks": 2,
+        "delay_mean": 6.07,
+        "wrong_chunks": 3,
         "shown_wrong": 1
       },
       "S2": {
@@ -92,27 +92,27 @@
         "shown_wrong": 0
       },
       "S3": {
-        "sections": 105,
-        "sections_locked": 104,
-        "delay_median": 5.7,
-        "delay_mean": 6.97,
-        "wrong_chunks": 2,
+        "sections": 110,
+        "sections_locked": 109,
+        "delay_median": 5.5,
+        "delay_mean": 6.91,
+        "wrong_chunks": 3,
         "shown_wrong": 1
       },
       "S4": {
-        "sections": 545,
-        "sections_locked": 539,
-        "delay_median": 5.9,
-        "delay_mean": 7.89,
-        "wrong_chunks": 42,
-        "shown_wrong": 11
+        "sections": 565,
+        "sections_locked": 551,
+        "delay_median": 5.5,
+        "delay_mean": 7.61,
+        "wrong_chunks": 30,
+        "shown_wrong": 13
       },
       "S5": {
-        "sections": 545,
-        "sections_locked": 542,
+        "sections": 565,
+        "sections_locked": 563,
         "delay_median": 5.0,
-        "delay_mean": 6.75,
-        "wrong_chunks": 14,
+        "delay_mean": 6.74,
+        "wrong_chunks": 15,
         "shown_wrong": 1
       }
     }
@@ -173,52 +173,52 @@
   },
   "signals": {
     "signal_false_alarms": 1,
-    "kamet_detected": 151,
-    "selam_detected": 130,
-    "ruku_detected": 114,
-    "texts_scanned": 9002,
+    "kamet_detected": 155,
+    "selam_detected": 131,
+    "ruku_detected": 129,
+    "texts_scanned": 9436,
     "ezan_detected": 0
   },
   "app": {
     "app_diffs": 0,
-    "chunks": 8860
+    "chunks": 9125
   },
   "kotlin": {
     "fuzzy_passed": 51,
     "fuzzy_total": 51,
     "aligner_passed": 41,
     "aligner_total": 43,
-    "state_machine_passed": 778,
-    "state_machine_total": 778,
+    "state_machine_passed": 800,
+    "state_machine_total": 800,
     "fixture_failures": 0,
     "kotlin_trace_diffs": 0,
-    "kotlin_trace_recordings": 340,
+    "kotlin_trace_recordings": 346,
     "golden_diffs": 0,
     "rakat_errors": 0,
     "namaz_errors": 0,
     "chunk_diffs": 0,
-    "chunk_cases": 102,
+    "chunk_cases": 104,
     "wav_diffs": 0,
-    "wav_cases": 39,
+    "wav_cases": 40,
     "synth_rakat_errors": 0,
     "synth_namaz_errors": 1,
     "ext_ezan_opened": 6,
     "ext_ezan_false_opened": 0,
     "ext_rakat_errors": 0,
     "zikir_false_alarms": 0,
-    "zikir_shown": 446,
+    "zikir_shown": 457,
     "glasses_passed": 72,
     "glasses_total": 72,
     "glasses_failures": 0,
     "hide_false": 1,
     "hide_missing": 0,
-    "hide_latency_median": 7.7,
+    "hide_latency_median": 7.8,
     "hide_latency_max": 21.0,
     "meals_passed": 59,
     "meals_total": 59,
     "meals_failures": 0,
-    "report_passed": 42,
-    "report_total": 42,
+    "report_passed": 60,
+    "report_total": 60,
     "report_failures": 0
   },
   "synth": {
