@@ -598,7 +598,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun handleZikir(pr: PipelineResult, ezanEvent: EzanEvent) {
         val r = pr.result
-        val zs = zikirTracker.onChunk(r, pr.audioEndSec)
+        val zs = zikirTracker.onChunk(r, pr.audioEndSec, pr.duaProbe)
         val quranLocked = r.status == ChunkStatus.MATCHED && (r.state == NamazState.FATIHA || r.state == NamazState.ZAMM)
         if (quranLocked) {
             stopAfterDua = false

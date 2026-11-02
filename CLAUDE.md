@@ -29,7 +29,7 @@ anahtarı (`debug.keystore`) bilerek repoda (Play Store yok; gerekirse değişti
 - `aligner.py`: **ana** — QuranCorpus, trigram index, align_transcription (fuzzy match). Kotlin port'u için referans. `ZERO_WIDTH` normalize eklenmiş.
 - `build_quran_assets.py`: `quran.bin` (3.5 MB) + `meal.bin` (~1 MB, Ali Bulaç meali) üretir. Android asset olarak kullanılır.
 - `build_aligner_fixture.py`: 43 test case üretir, `aligner_test_fixture.json`
-- `build_state_machine_fixture.py`: 30 senaryo × 778 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
+- `build_state_machine_fixture.py`: 31 senaryo × 800 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
   fixture telefon varsayılanlarıyla: ilk kilit 70, pencere ±2)
 - `onnx_full_export.py`: NeMo `nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0` → ONNX (opset 18, preprocessor+encoder+CTC birleşik)
 - `sp_manual_decoder.py`: SentencePiece manuel decoder (Android'de Java SentencePiece yok, protobuf ile decode)
@@ -85,8 +85,9 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
 │   ├── StateMachine.kt        — process_chunk port (app.py referans)
 │   ├── EzanTracker.kt         — ezan/kamet penceresi icin cumle takibi (UI; state machine'i etkilemez)
 │   ├── ZikirTracker.kt        — namaz zikirleri karti: tekbir, semiallah, rabbena, selam, namaz sonu duasi (UI, JVM'de test)
+│   ├── DuaProbe.kt            — selamdan sonra son 10 sn'yi ayrica tanima (namaz sonu duasi 5 sn parcalarda bolunuyor; JVM'de test)
 │   ├── RakatTracker.kt        — rekat sayaci + kaba durus (UI; state machine'i etkilemez, JVM'de test)
-│   └── StateMachineTestRunner.kt — 778 chunk × 30 senaryo test (5-8. = gerçek namaz akışları; 778/778; JVM'de)
+│   └── StateMachineTestRunner.kt — 800 chunk × 31 senaryo test (5-8. = gerçek namaz akışları; 800/800; JVM'de)
 ├── data/
 │   ├── MushafData.kt          — tum Kuran listesi: ayet/sure tablolari, liste satirlari, besmele gizleme
 │   ├── AppSettings.kt         — kullanıcı ayarları (SettingsRepository.kt içinde)
@@ -1796,6 +1797,34 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   42 (S5: 31 → 14) — farkların hepsi yeni iki kayıtta ve iyileşme.
 - `training/real_labels.json` 18 namaz (train 9: + sabah 01.11; test 9: + yatsı 01.11 — her 4. yeni kayıt test).
 
+### 36. Sabah 02.11 (APK #150): rükûda bir ayet ileri, namaz sonu duası tanınmadı (APK build #151+)
+- `data/namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav` (camide telefon, 10.9 dk): kamet sonu → iftitah ~26 → Fatiha 42 → âmin →
+  Furkân 25:21 (86.8) .. 25:37 (308.6) → rükû 313 → semiallah 323-327 → Fatiha 366 → 25:38 (408.6) .. 25:44 (512) → rükû 517 →
+  semiallah 529-533 → selam ~617 / ~626 → dua 634 ("اللهم أنت السلام"). Önceki namazın kaldığı yer 25:20 (yatsı 01.11) → 25:21
+  hatim devamıyla ilk parçada. Yerel hibrit zincir 550. sn'den sonra telefondan ~1 sn kayıyor (pause kesimi), selam parçası yerel
+  TRJSON'da yok — telefonun parça sınırları log'dan.
+- Kullanıcı: "2. rekâtta sanırım rükûdayken bir ayet ileri gitti; sondaki Allahümme ente's-selâm ve minke's-selâm'ı anlamadı".
+  - **Sonu kesik semiallah** (`semiallah_open`, Python ref + app.py + Kotlin birebir; namaz_signal / strip / ZikirTracker kartı):
+    534.8 sn "سمع الله لمن حمده" → ASR "لم يعُد الله لمن" ("حمده" parça dışında) → hiçbir kalıba uymadı, ZAMM'da 25:45'e 64.7 →
+    rükûda ekranda okunmamış ayet. Kuran'da "الله لمن" sadece 53:26'da ("ان ياذن الله لمن يشاء"), "لم يعد" hiç yok (korpus); tüm
+    transkriptlerde (gerçek + dış + sentetik, RNNT + CTC: 117 satır) ikisi de sadece semiallahta ("يدع / نفع / فدعاه الله لمن",
+    "لم يعد", "لم يعد الله للمسح"). Eski veride karar farkı 6 parça, hepsi semiallah parçası (düşük / gizli aday → kısa; sentetik
+    hatimde rükûda 20:8 kilidi gitti); yatsı 01.11'in bozuk semiallahı ("فدعاه الله لمن مهندًا") artık rükû. Fixture senaryo 31.
+  - 1. rekâtta 205.9 sn'deki 25:32 → 25:30 **hata değil**: imam 201.3'te 25:32'nin başını ("وقال الذين كفروا لولا نزل") okuyup
+    207.0'da 25:30'a döndü (kelime zamanlı döküm).
+  - **Namaz sonu duası yoklaması** (`session/DuaProbe`, `AudioPipeline`, `PipelineResult.duaProbe`, `ZikirTracker.onChunk(.., duaProbe)`;
+    UI — state machine aynı): telefonda selamdan sonra 5 sn'lik parçalar "المصدر كتاب" | "أحمد الله" | "السلام" | boş | boş — dua
+    parça sınırına bölündü, kart açılmadı, "namaz bitince dinlemeyi durdur" da çalışmadı (kullanıcı elle durdurdu). Aynı sesin 10 sn'lik
+    penceresi "اللهم أنت السلام إليك". Selam sinyalinden sonra 90 sn boyunca her sesli parçada son 10 sn (önceki + bu parça, 1 sn bindirme
+    atılarak) ayrıca tanınır; metin dua ise (`ZikirTracker.isDuaText`: "اللهم" / "يا ذا" açılışı, "أنت/منك السلام", "تباركت", "ذا
+    الجلال") NAMAZ SONU DUASI kartı. İlk duada, parçanın kendi metni dua olunca ya da Kuran kilitlenince (teravihte yeni namaz) biter.
+    Log: `[dua] yoklama t=643,2s (10,0 sn, 950ms): 'اللهم أنت السلام إليك' → dua`. Ölçüm (19 cami namazı, yerel ASR, hibrit parça
+    sonları): kartı hiç açılmayan 3 cumada dua bulundu (cuma #2 357 sn "اللهم أنت السلام", cuma #3 376 sn "تباركت يا ذا الجلال",
+    cuma 394 sn), sabah 02.11 643 sn; kartı olan 13 kayıtta da bulundu; dua dışında hiç tetiklenmedi (aksam 27.09, aksam 22.10,
+    yatsı 25.10: dua duyulmuyor, yoklama da boş). Bedel: selamdan sonra parça başına ~1 sn ek ASR (en çok 90 sn).
+    JVM `report` 42 → 60 kontrol (pencere / bindirme, yoklama penceresi, kart).
+- `training/real_labels.json` 19 namaz (train 10: + sabah 02.11 — 193.5-206.8 imamın sürçmesi dışarıda).
+
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)
@@ -1853,6 +1882,7 @@ STOCK_PHRASES = {(و)الحمد لله}   ← kilitliyken parça sadece bu ve pe
 TILAVET_END_NAMAZ_GAP=5   ← son eşleşmeden sonra tekbir + ≥5 parça → "صدق الله العظيم" kilidi bitirmez, sadece çıkarılır (bkz. 24)
 TEKBIR_SHORT_MIN_SCORE=90   ← okumadan sonra tekbir duyulduysa ZAMM'da <3 kelimelik eşleşme ancak ≥90 ile devam (bkz. 24)
 SEMIALLAH_TAIL={حمده, حميده}, "لمن حم…"   ← semiallah (rükû sinyali + strip + zikir kartı, bkz. 24)
+semiallah_open: "الله لمن" (53:26 "ياذن الله لمن يشاء" hariç), "لم يعد"   ← sonu kesik semiallah (rükû + strip + kart, bkz. 36)
 BEKLEME Fatiha önceliği   ← bekleme ve bekleyen aday yokken belirsiz eşleşme yerine Fatiha 1-3 (≥90, ≤ FATIHA_ARA_MARGIN kötü;
   bkz. 24); Fatiha
   sonunda devam penceresindeki en iyi yer ham hizalama ≥ OPENING_MIN_FUZZY ile de geçiş (bkz. 24)

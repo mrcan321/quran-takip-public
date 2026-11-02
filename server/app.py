@@ -781,6 +781,20 @@ def semiallah_pair(a, b):
     return (a == "لمن" and b.startswith("حم")) or (a in ("من", "لمن") and b == "الحمد")
 
 
+# Sonu kesik / bozuk semiallah basi (sabah 02.11: "لم يعُد الله لمن" → 25:45, rukûda ileri ayet): Kuran'da "الله لمن" sadece
+# 53:26'da ("ان ياذن الله لمن يشاء"), "لم يعد" hic yok; tum transkriptlerde ikisi de sadece semiallahta.
+def semiallah_open(toks, i):
+    """toks[i], toks[i + 1] bozuk semiallah basi mi: "الله لمن" (53:26 "ياذن الله لمن يشاء" haric) ya da "لم يعد"."""
+    if i + 1 >= len(toks):
+        return False
+    a, b = toks[i], toks[i + 1]
+    if a == "لم" and b == "يعد":
+        return True
+    if a == "الله" and b == "لمن":
+        return not ((i + 2 < len(toks) and toks[i + 2] == "يشاء") or (i > 0 and toks[i - 1] == "ياذن"))
+    return False
+
+
 KAMET_WORDS = {"الفلاح", "قامت", "محمدا"}
 KAMET_PAIRS = {("اشهد", "ان"), ("اشهد", "انه"), ("اشهد", "لا"), ("ان", "محمد"), ("الله", "محمد"), ("قد", "قام"),
                ("قام", "الصلاه"), ("قام", "بالصلاه"), ("حي", "علي"), ("حي", "الصلاه"), ("الصلاه", "حي"),
@@ -948,7 +962,7 @@ def strip_namaz_phrases(text: str) -> Tuple[str, int]:
                 k = 4 if i + 3 < n and norms[i + 3].startswith("حمد") else 3
         elif norms[i] == "ربنا" and i + 2 < n and norms[i + 1] in ("لك", "ولك") and norms[i + 2] == "الحمد":
             k = 3
-        elif i + 1 < n and semiallah_pair(norms[i], norms[i + 1]):
+        elif i + 1 < n and (semiallah_pair(norms[i], norms[i + 1]) or semiallah_open(norms, i)):
             k = 2
             back = 0
             while keep and back < SEMIALLAH_HEAD_MAX and len(bare_token(keep[-1])) <= SEMIALLAH_HEAD_LEN:
@@ -1023,7 +1037,8 @@ def namaz_signal(text: str) -> Optional[str]:
     if any((a == "السلام" and b in ("عليكم", "عليك")) or (a in ("عليكم", "عليك") and b in ("ورحمه", "رحمه"))
            for a, b in zip(toks, toks[1:])):
         return "selam"
-    if any(t in SEMIALLAH_TAIL for t in toks) or any(semiallah_pair(a, b) for a, b in zip(toks, toks[1:])):
+    if (any(t in SEMIALLAH_TAIL for t in toks) or any(semiallah_pair(a, b) for a, b in zip(toks, toks[1:]))
+            or any(semiallah_open(toks, i) for i in range(len(toks) - 1))):
         return "ruku"
     return None
 

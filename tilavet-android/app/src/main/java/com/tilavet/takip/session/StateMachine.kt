@@ -436,6 +436,23 @@ class StateMachine(
         /** Semiallah ikilisi: "لمن حم…" ya da "(ل)من الحمد" (Python semiallah_pair ile birebir). */
         fun semiallahPair(a: String, b: String): Boolean =
             (a == "لمن" && b.startsWith("حم")) || ((a == "من" || a == "لمن") && b == "الحمد")
+
+        /**
+         * Sonu kesik / bozuk semiallah basi: toks[i], toks[i + 1] = "الله لمن" (53:26 "ياذن الله لمن يشاء" haric) ya da "لم يعد".
+         * Sabah 02.11: "سمع الله لمن حمده" → ASR "لم يعُد الله لمن" ("حمده" parca disinda) → rukû sinyali yok, ZAMM'da 25:45'e
+         * 64.7 → rukûda ekranda henuz okunmamis ayet (2. rekat). Kuran'da "الله لمن" sadece 53:26'da, "لم يعد" hic yok (korpus);
+         * tum transkriptlerde (gercek + dis + sentetik, RNNT + CTC: 117 satir) ikisi de sadece semiallahta (Python semiallah_open).
+         */
+        fun semiallahOpen(toks: List<String>, i: Int): Boolean {
+            if (i + 1 >= toks.size) return false
+            val a = toks[i]
+            val b = toks[i + 1]
+            if (a == "لم" && b == "يعد") return true
+            if (a == "الله" && b == "لمن") {
+                return !((i + 2 < toks.size && toks[i + 2] == "يشاء") || (i > 0 && toks[i - 1] == "ياذن"))
+            }
+            return false
+        }
         // Kamet / ezan: Kuran'da HIC gecmeyen kelime ve ikililer (korpusla dogrulandi; eval'deki 33 kaydin RNNT +
         // CTC transkriptlerinde hic cikmadi). Cuma kameti: "أشهد ان لا إله", "الله محمد", "أن محمد", "الصلاة حي الصلاة",
         // "بل قام بالصلاة". "لا اله الا الله", "محمد رسول الله", "الله اكبر", "حي" (21:30, 8:42) Kuran'da var → isaret degil.
@@ -602,7 +619,7 @@ class StateMachine(
                     norms[i + 2] == "الحمد"
                 ) {
                     k = 3
-                } else if (i + 1 < n && semiallahPair(norms[i], norms[i + 1])) {
+                } else if (i + 1 < n && (semiallahPair(norms[i], norms[i + 1]) || semiallahOpen(norms, i))) {
                     k = 2
                     var back = 0
                     while (keep.isNotEmpty() && back < SEMIALLAH_HEAD_MAX && bareToken(keep.last()).length <= SEMIALLAH_HEAD_LEN) {
@@ -699,7 +716,9 @@ class StateMachine(
                 }) {
                 return "selam"
             }
-            if (toks.any { it in SEMIALLAH_TAIL } || (0 until toks.size - 1).any { semiallahPair(toks[it], toks[it + 1]) }) {
+            if (toks.any { it in SEMIALLAH_TAIL } || (0 until toks.size - 1).any { semiallahPair(toks[it], toks[it + 1]) } ||
+                (0 until toks.size - 1).any { semiallahOpen(toks, it) }
+            ) {
                 return "ruku"
             }
             return null

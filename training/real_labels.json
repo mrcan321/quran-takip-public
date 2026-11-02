@@ -118,6 +118,14 @@
       "segments": [{"start": 100.5, "end": 134.2, "surah": 1, "ayahs": [2, 7]}, {"start": 145.5, "end": 275.6, "surah": 25, "ayahs": [10, 18]},
                    {"start": 320.2, "end": 349.8, "surah": 1, "ayahs": [2, 7]}, {"start": 359.5, "end": 404.6, "surah": 25, "ayahs": [19, 20]}],
       "phrases": [[86.5, 89.8, "tekbir"], [464.1, 467.0, "tekbir"], [519.3, 522.4, "tekbir"], [623.4, 630.4, "selam"], [633.8, 640.4, "selam"]]
+    },
+    "namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav": {
+      "date": "2026-11-02", "namaz": "sabah", "imam": "imam-1", "split": "train",
+      "segments": [{"start": 42.0, "end": 74.6, "surah": 1, "ayahs": [2, 7]}, {"start": 86.5, "end": 193.5, "surah": 25, "ayahs": [21, 29]},
+                   {"start": 206.8, "end": 309.4, "surah": 25, "ayahs": [30, 37]},
+                   {"start": 366.0, "end": 397.4, "surah": 1, "ayahs": [2, 7]}, {"start": 408.5, "end": 512.8, "surah": 25, "ayahs": [38, 44]}],
+      "phrases": [[313.0, 315.6, "tekbir"], [355.8, 358.6, "tekbir"], [528.7, 534.0, "semiallah"], [546.9, 549.8, "tekbir"]],
+      "_not": "193.5-206.8 disarida: imam 25:29 sonunu tekrar edip 25:32'nin basini okudu, 207.0'da 25:30'a dondu"
     }
   }
 }

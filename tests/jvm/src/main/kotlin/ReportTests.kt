@@ -1,5 +1,11 @@
 import com.tilavet.takip.report.NamazReport
 import com.tilavet.takip.report.ReportHtml
+import com.tilavet.takip.session.ChunkResult
+import com.tilavet.takip.session.ChunkStatus
+import com.tilavet.takip.session.DuaProbe
+import com.tilavet.takip.session.NamazState
+import com.tilavet.takip.session.NamazZikri
+import com.tilavet.takip.session.ZikirTracker
 import com.tilavet.takip.util.RecordingMerge
 
 /**
@@ -187,6 +193,50 @@ fun reportTests(): Int {
     val many = (1..40).flatMap { d -> listOf(e("tilavet-202610%02d-0700%02d.wav".format(d % 28 + 1, d), big, "pub")) }
     ok("kayitlar: en fazla 30", RecordingMerge.merge(listOf(many)).size == 30)
     ok("kayitlar: bos", RecordingMerge.merge(listOf(emptyList<RecordingMerge.Entry<String>>())).isEmpty())
+
+    // Namaz sonu duasi yoklamasi (session/DuaProbe + ZikirTracker duaProbe) — sabah 02.11 telefon parcalari
+    run {
+        val sr = DuaProbe.SAMPLE_RATE
+        fun audio(sec: Double, v: Float) = FloatArray((sec * sr).toInt()) { v }
+        // Sabit 5 sn parca + 1 sn bindirme: onceki (6 sn, 617.2-623.2) + bu (6 sn, 622.2-628.2) → bindirme atilir, son 10 sn
+        val prev = audio(6.0, 1f)
+        val cur = audio(6.0, 2f)
+        val w = DuaProbe.window(prev, 623.2, cur, 628.2)
+        ok("dua yoklamasi: pencere 10 sn", w.size == 10 * sr) { "${w.size}" }
+        ok("dua yoklamasi: bindirme atildi", w.count { it == 1f } == 5 * sr && w.count { it == 2f } == 5 * sr) {
+            "${w.count { it == 1f }} / ${w.count { it == 2f }}"
+        }
+        ok("dua yoklamasi: onceki yok", DuaProbe.window(null, 0.0, cur, 6.0).size == 6 * sr)
+        // Duraklamada kesilen (bindirmesiz) parcalar
+        ok("dua yoklamasi: bindirmesiz", DuaProbe.window(audio(4.0, 1f), 100.0, audio(3.0, 2f), 103.0).size == 7 * sr)
+
+        val p = DuaProbe()
+        ok("dua yoklamasi: selamdan once yok", !p.shouldProbe("المصدر كتاب", false, false, 600.0))
+        ok("dua yoklamasi: selam parcasi yoklanmaz", !p.shouldProbe("السلام عليكم", false, false, 623.2))
+        ok("dua yoklamasi: selamdan sonra", p.shouldProbe("أحمد الله", false, false, 633.2))
+        ok("dua yoklamasi: sessiz parca yok", !p.shouldProbe("", false, true, 638.2))
+        ok("dua yoklamasi: dua degil → surer", !p.onProbeText("وَعَد السلام") && p.shouldProbe("", false, false, 643.2))
+        ok("dua yoklamasi: dua → biter", p.onProbeText("اللهم أنت السلام إليك") && !p.shouldProbe("", false, false, 648.2))
+        val q = DuaProbe()
+        q.shouldProbe("السلام عليكم", false, false, 100.0)
+        ok("dua yoklamasi: 90 sn sonra yok", !q.shouldProbe("x", false, false, 191.0))
+        q.shouldProbe("السلام عليكم", false, false, 200.0)
+        ok("dua yoklamasi: Kuran kilidi → biter", !q.shouldProbe("الحمد لله رب العالمين", true, false, 205.0) &&
+            !q.shouldProbe("x", false, false, 210.0))
+        q.shouldProbe("السلام عليكم", false, false, 300.0)
+        ok("dua yoklamasi: parca zaten dua → biter", !q.shouldProbe("السلام منك السلام", false, false, 305.0) &&
+            !q.shouldProbe("x", false, false, 310.0))
+
+        // ZikirTracker: selam karti → bos parcada yoklama metni dua → NAMAZ SONU DUASI
+        fun res(i: Int, text: String) = ChunkResult(i, NamazState.BEKLEME, NamazState.BEKLEME, ChunkStatus.EMPTY, 0.06, text)
+        val zt = ZikirTracker()
+        ok("dua karti: selam", zt.onChunk(res(0, "السلام عليكم"), 623.2) == listOf(NamazZikri.SELAM))
+        ok("dua karti: parca metni yetmez", zt.onChunk(res(1, "السلام"), 638.2).isEmpty())
+        ok("dua karti: yoklama dua degil", zt.onChunk(res(2, ""), 640.0, "وَعَد السلام").isEmpty())
+        ok("dua karti: yoklama dua", zt.onChunk(res(3, ""), 643.2, "اللهم أنت السلام إليك") == listOf(NamazZikri.DUA))
+        val zt2 = ZikirTracker()
+        ok("dua karti: selamsiz yoklama yok", zt2.onChunk(res(0, ""), 50.0, "اللهم أنت السلام").isEmpty())
+    }
     println("report: $passed/$total")
     return if (passed == total) 0 else 1
 }

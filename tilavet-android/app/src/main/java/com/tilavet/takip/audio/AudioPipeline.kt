@@ -5,6 +5,7 @@ import com.tilavet.takip.aligner.QuranIndex
 import com.tilavet.takip.asr.OnnxAsrEngine
 import com.tilavet.takip.session.ChunkResult
 import com.tilavet.takip.session.ChunkStatus
+import com.tilavet.takip.session.DuaProbe
 import com.tilavet.takip.session.NamazState
 import com.tilavet.takip.session.SessionState
 import com.tilavet.takip.session.StateMachine
@@ -35,6 +36,8 @@ data class PipelineResult(
     val audioEndSec: Double = 0.0,
     /** Parcadan sonra son zamm konumu (sure, ayet) — util/ZammMemory bir sonraki namaza saklar. */
     val zamm: Pair<Int, Int>? = null,
+    /** Selamdan sonra son 10 sn'nin ayrica taninan metni, dua ise (session/DuaProbe) — ZikirTracker NAMAZ SONU DUASI karti. */
+    val duaProbe: String? = null,
 )
 
 /** Pipeline'dan UI'a giden olaylar — sirali (son parca sonucu "bitti"den once gelir). */
@@ -92,6 +95,8 @@ class AudioPipeline(
 
     private val stateMachine = StateMachine(index, aligner)
     private val sessionState = SessionState()
+    /** Namaz sonu duasi yoklamasi: selamdan sonra son 10 sn ayrica taninir (5 sn parcalarda dua bolunuyor). */
+    private val duaProbe = DuaProbe()
 
     private val _levelFlow = MutableStateFlow(0f)
     val levelFlow: StateFlow<Float> = _levelFlow.asStateFlow()
@@ -127,6 +132,7 @@ class AudioPipeline(
                 "windowSlack=${aligner.defaultWindowSlack} decoder=${asrEngine.activeDecoder} parca=hibrit(kilitli: duraklama, degil: 5sn)")
 
         sessionState.reset()
+        duaProbe.reset()
         if (!source.isSimulation && initialZamm != null) {
             sessionState.zammSurah = initialZamm.first
             sessionState.zammAyah = initialZamm.second
@@ -186,6 +192,9 @@ class AudioPipeline(
         // 2. Chunk consumer: ASR + StateMachine
         val chunkJob = scope.launch {
             var chunkIndex = 0
+            // Dua yoklamasi icin onceki parca (son 10 sn = onceki + bu parca, bindirme cikarilarak)
+            var prevAudio: FloatArray? = null
+            var prevEndSec = 0.0
             try {
                 chunkChannel.consumeEach { chunk ->
                     val audio = chunk.audio
@@ -241,10 +250,36 @@ class AudioPipeline(
                                 " (parca=$cutStr rms=${"%.4f".format(rms)} asr=${asrMs}ms sm=${smMs}ms gecikme=${lagMs}ms " +
                                 "t=${"%.1f".format(chunk.endSec)}s) txt='${text.take(60)}'")
 
+                        // Namaz sonu duasi yoklamasi (bkz. DuaProbe): selamdan sonra sesli parcada son 10 sn ayrica taninir
+                        var probeText: String? = null
+                        val recitation = result.status == ChunkStatus.MATCHED &&
+                            (result.state == NamazState.FATIHA || result.state == NamazState.ZAMM)
+                        if (duaProbe.shouldProbe(text, recitation, rms < StateMachine.MIN_RMS_ENERGY, chunk.endSec)) {
+                            val window = DuaProbe.window(prevAudio, prevEndSec, audio, chunk.endSec)
+                            val tP = System.nanoTime()
+                            val pt = try {
+                                asrEngine.transcribe(window).text
+                            } catch (e: Throwable) {
+                                SessionLog.e(TAG, "Dua yoklamasi ASR hatasi (chunk $chunkIndex)", e)
+                                null
+                            }
+                            if (pt != null) {
+                                val dua = duaProbe.onProbeText(pt)
+                                SessionLog.d(TAG, "[dua] yoklama t=${"%.1f".format(chunk.endSec)}s " +
+                                        "(${"%.1f".format(window.size / SAMPLE_RATE.toDouble())} sn, " +
+                                        "${(System.nanoTime() - tP) / 1_000_000L}ms): '${pt.take(60)}'" + if (dua) " → dua" else "")
+                                if (dua) probeText = pt
+                            }
+                        }
+
                         val zamm = sessionState.zammSurah?.let { zs -> sessionState.zammAyah?.let { za -> zs to za } }
-                        _events.emit(PipelineEvent.Chunk(PipelineResult(result, chunk.endNanos, chunk.pauseCut, chunk.endSec, zamm)))
+                        _events.emit(PipelineEvent.Chunk(
+                            PipelineResult(result, chunk.endNanos, chunk.pauseCut, chunk.endSec, zamm, probeText),
+                        ))
                     }
 
+                    prevAudio = audio
+                    prevEndSec = chunk.endSec
                     chunkIndex++
                 }
                 // Kaynak bitti (stop() degil — o scope'u iptal eder): kalan parcalar islendi
@@ -319,5 +354,7 @@ class AudioPipeline(
         jumpCandidate = null
         maxAyah = null
         lastTekbirChunk = null
+        fatihaRakats = 0
+        lastFatihaEntry = null
     }
 }

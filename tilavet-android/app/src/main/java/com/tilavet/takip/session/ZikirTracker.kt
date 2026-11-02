@@ -7,7 +7,8 @@ package com.tilavet.takip.session
  * ezan/kametteki gibi popup olarak goster; esselamu aleykum de." Her parcanin ASR metninde aranir:
  *   - tekbir: parca agirlikla "الله أكبر" (tekbir ciftleri ve diger zikirler cikinca en fazla 1 kelime kalir) ve parca
  *     Kuran'a eslesmedi — "الله أكبر" Kuran'da 3 ayette ayet ortasinda geciyor (9:72, 29:45, 40:10)
- *   - semiallah: "سمع الله" + "قول" disi kelime, "استمع الله", bozuk "لمن حمد…" / "بمن حمده" / "ومن حمده"; tek basina "حمده"
+ *   - semiallah: "سمع الله" + "قول" disi kelime, "استمع الله", bozuk "لمن حمد…" / "بمن حمده" / "ومن حمده" / sonu kesik
+ *     "… الله لمن" / "لم يعد"; tek basina "حمده"
  *     sadece son okumadan en az [AFTER_RECITATION_SEC] sonra (namazSignal'de her zaman rukû)
  *   - "ربنا (و)لك الحمد"
  *   - selam ("السلام عليكم/عليك", bolunmus "عليكم ورحمة") ve namaz sonu duasi ("أنت السلام", "منك السلام", "تباركت",
@@ -70,6 +71,8 @@ class ZikirTracker {
                     // "أطعمهم" → ASR "الذي حمده منه" okuma ortasinda kart acti
                     // "(ل)من الحمد" (sabah 28.10; StateMachine.semiallahPair)
                     next != null && StateMachine.semiallahPair(w, next) -> add(NamazZikri.SEMIALLAH)
+                    // Sonu kesik "… الله لمن" / "لم يعد" (sabah 02.11 "لم يعُد الله لمن"; StateMachine.semiallahOpen)
+                    StateMachine.semiallahOpen(t, i) -> add(NamazZikri.SEMIALLAH)
                     // "بمن حمده" / "ومن حمده" (ASR, yatsi 22.10 telefon log'u; yatsi #3 "ومن حمده الله"): Kuran'da "حمده"
                     // hic yok, "من" + "حمد…" ikilisi de yok ("من حما / حمل / حميم" var — "حمد" ile baslamiyor)
                     w in MEN_WORDS && next != null && (next.startsWith("حمد") || next in StateMachine.SEMIALLAH_TAIL) ->
@@ -100,6 +103,15 @@ class ZikirTracker {
             val (cleaned, _) = StateMachine.stripNamazPhrases(rest.joinToString(" "))
             return tokens(cleaned).size <= 1
         }
+
+        /** Selamdan sonraki ilk dua parcasi ("اللهم ...", "يا ذا ...") — bkz. DUA_AFTER_SELAM_SEC. */
+        fun duaOpening(text: String?): Boolean {
+            val t = tokens(text)
+            return t.firstOrNull() == "اللهم" || (0 until t.size - 1).any { t[it] == "يا" && t[it + 1] == "ذا" }
+        }
+
+        /** Metin namaz sonu duasi mi (dua kaliplari ya da "اللهم" / "يا ذا" acilisi) — DuaProbe yoklamasi icin. */
+        fun isDuaText(text: String?): Boolean = NamazZikri.DUA in detect(text) || duaOpening(text)
     }
 
     private var lastRecitationSec = Double.NEGATIVE_INFINITY
@@ -112,17 +124,12 @@ class ZikirTracker {
         duaAfterSelam = false
     }
 
-    /** Selamdan sonraki ilk dua parcasi ("اللهم ...", "يا ذا ...") — bkz. DUA_AFTER_SELAM_SEC. */
-    private fun duaOpening(text: String?): Boolean {
-        val t = tokens(text)
-        return t.firstOrNull() == "اللهم" || (0 until t.size - 1).any { t[it] == "يا" && t[it + 1] == "ذا" }
-    }
-
     /**
      * Bir parcanin sonucu → gosterilecek zikirler (metin sirasiyla; bos = yok).
      * @param t parcanin oturumdaki bitis zamani (sn)
+     * @param duaProbe selamdan sonra son 10 sn'nin ayrica taninan metni (DuaProbe; sadece dua icin bakilir)
      */
-    fun onChunk(r: ChunkResult, t: Double): List<NamazZikri> {
+    fun onChunk(r: ChunkResult, t: Double, duaProbe: String? = null): List<NamazZikri> {
         val found = detect(r.text).toMutableList()
         // Tek basina "حمده" (yatsi 22.10, 4. rekat: ASR sadece "حمده"): okumadan en az AFTER_RECITATION_SEC sonra —
         // sentetik teravihte Kureys 106:4 "أطعمهم" → ASR "الذي حمده منه" okuma ortasinda (selamdaki kuralla ayni)
@@ -131,7 +138,8 @@ class ZikirTracker {
             found.add(0, NamazZikri.SEMIALLAH)
         }
         if (NamazZikri.DUA !in found && !duaAfterSelam && t - lastSelamSec in 0.0..DUA_AFTER_SELAM_SEC &&
-            r.status != ChunkStatus.MATCHED && duaOpening(r.text)) {
+            r.status != ChunkStatus.MATCHED && (duaOpening(r.text) || (duaProbe != null && isDuaText(duaProbe)))) {
+            // duaProbe: 5 sn parcalarda bolunen dua ("السلام" | bos), 10 sn'lik pencerede "اللهم أنت السلام" (sabah 02.11)
             found.add(NamazZikri.DUA)
         }
         // Dua basladiktan sonra (selamdan sonra DUA_AFTER_SELAM_SEC icinde) duadaki "السلام" selam karti acmaz: yatsi #2

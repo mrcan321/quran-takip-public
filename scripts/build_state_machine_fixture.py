@@ -475,6 +475,25 @@ def semiallah_pair(a, b):
     return (a == "لمن" and b.startswith("حم")) or (SEMIALLAH_MEN_HAMD and a in ("من", "لمن") and b == "الحمد")
 
 
+# Sonu kesik / bozuk semiallah basi (sabah 02.11): "سمع الله لمن حمده" → ASR "لم يعُد الله لمن" ("حمده" parca disinda) →
+# rukû sinyali yok, ZAMM'da 25:45'e 64.7 → rukûda ekranda henuz okunmamis ayet (2. rekat). Kuran'da "الله لمن" sadece 53:26'da
+# ("ان ياذن الله لمن يشاء"), "لم يعد" hic yok (korpus); tum transkriptlerde (gercek + dis + sentetik, RNNT + CTC: 117 satir)
+# ikisi de sadece semiallahta ("يدع الله لمن", "نفع الله لمن", "فدعاه الله لمن", "لم يعد", "لم يعد الله للمسح").
+SEMIALLAH_OPEN = True
+
+
+def semiallah_open(toks, i):
+    """toks[i], toks[i + 1] bozuk semiallah basi mi: "الله لمن" (53:26 "ياذن الله لمن يشاء" haric) ya da "لم يعد"."""
+    if not SEMIALLAH_OPEN or i + 1 >= len(toks):
+        return False
+    a, b = toks[i], toks[i + 1]
+    if a == "لم" and b == "يعد":
+        return True
+    if a == "الله" and b == "لمن":
+        return not ((i + 2 < len(toks) and toks[i + 2] == "يشاء") or (i > 0 and toks[i - 1] == "ياذن"))
+    return False
+
+
 # Kamet / ezan: Kuran'da HIC gecmeyen kelime ve ikililer (korpusla dogrulandi; eval'deki 33 kaydin RNNT + CTC
 # transkriptlerinde hic cikmadi). Cuma kameti: "أشهد ان لا إله", "الله محمد", "أن محمد", "الصلاة حي الصلاة",
 # "بل قام بالصلاة". "لا اله الا الله", "محمد رسول الله", "الله اكبر", "حي" (21:30, 8:42) Kuran'da var → isaret degil.
@@ -678,7 +697,7 @@ def strip_namaz_phrases(text):
                 k = 4 if i + 3 < n and norms[i + 3].startswith("حمد") else 3
         elif norms[i] == "ربنا" and i + 2 < n and norms[i + 1] in ("لك", "ولك") and norms[i + 2] == "الحمد":
             k = 3
-        elif i + 1 < n and semiallah_pair(norms[i], norms[i + 1]):
+        elif i + 1 < n and (semiallah_pair(norms[i], norms[i + 1]) or semiallah_open(norms, i)):
             k = 2
             back = 0
             while keep and back < SEMIALLAH_HEAD_MAX and len(bare_token(keep[-1])) <= SEMIALLAH_HEAD_LEN:
@@ -769,7 +788,8 @@ def namaz_signal(text):
            or (SELAM_SPLIT_SIGNAL and a in ("عليكم", "عليك") and b in ("ورحمه", "رحمه"))
            for a, b in zip(toks, toks[1:])):
         return "selam"
-    if any(t in SEMIALLAH_TAIL for t in toks) or any(semiallah_pair(a, b) for a, b in zip(toks, toks[1:])):
+    if (any(t in SEMIALLAH_TAIL for t in toks) or any(semiallah_pair(a, b) for a, b in zip(toks, toks[1:]))
+            or any(semiallah_open(toks, i) for i in range(len(toks) - 1))):
         return "ruku"
     return None
 
@@ -2467,6 +2487,30 @@ SCENARIOS = [
             (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""), (0.0, ""),   # kilit kayip → ARA
             (0.05, "الحمد لله رب العالمين الرحمن الرحيم"),          # 46: net Fatiha (>= 95): hemen kilit
             (0.05, "مالك يوم الدين إياك نعبد وإياك نستعين"),
+        ],
+    },
+
+    # ============ Senaryo 31: sabah 02.11 (APK #150 telefon parcalari) — sonu kesik semiallah "لم يعُد الله لمن" ============
+    {
+        "description": "Fatiha → Furkan 25:43-44 → rukû → 'لم يعُد الله لمن' (sonu kesik semiallah: rukû sinyali, kilit vermez; "
+                       "eskiden ZAMM'da 25:45'e 64.7 → rukûda okunmamis ayet) → 'لم يعد' tek basina da rukû → selam",
+        "chunks": [
+            (0.0526, "الحمد لله رب العالمين"),                       # 0: Fatiha hizli kilit
+            (0.0606, "مَالِكِ يَوْمِ الدِّينَ إيّاكَ نَعْبُدُ وَيُعِدُّونَ"),
+            (0.0640, "اهدنا الصراط المستقيم صراط الذين أنعمه"),
+            (0.0594, "عليهم و"),
+            (0.0674, "اله أرأيت من اتخذ إلهه هواه"),                  # 4: Furkan 25:43
+            (0.0604, "أَفَأَنتَ تَكُونُ عَلَيْهِمْ وَكِيلاً"),
+            (0.0595, "يوسف"),
+            (0.0643, "تَرهم يسمعون أو يُؤمنون"),
+            (0.0665, "إِن هُمْ إِلاَّ كَالْأَنْعَامِ بَتُهُمْ أَضَلُّ سَفَرًا"),   # 8: 25:44
+            (0.0558, ""), (0.0455, ""), (0.0088, ""), (0.0165, ""),
+            (0.0575, "لم يعُد الله لمن"),                              # 13: semiallah (eskiden 25:45)
+            (0.0522, ""), (0.0294, ""), (0.0550, ""),
+            (0.0636, "المصدر كتاب"),
+            (0.0641, ""), (0.0079, ""),
+            (0.0600, "لم يعد"),                                        # 20: tek basina da rukû
+            (0.0765, "السلام عليكم"),                                  # 21: selam
         ],
     },
 ]
