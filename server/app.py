@@ -942,6 +942,12 @@ TEKBIR_SHORT_MIN_SCORE = 90
 # tekbirle parca arasinda en az bir parca (rukû) varsa; tekbirin hemen arkasindaki parca okumanin devami olabilir (zorlama S5)
 TEKBIR_WEAK_MIN_SCORE = 70
 TEKBIR_WEAK_MIN_GAP = 2
+# Okuma surerken devam: ZAMM'da son eslesmeden hemen sonra (kayip <= SEQ_MAX_LOST) ileri giden, ayni / sonraki ayete oturan
+# >= SEQ_MIN_WORDS kelimelik eslesme SEQ_MIN_CONFIDENCE ile de kabul (yatsi 03.11: bozuk ASR, 26:63 50.7 reddedildi)
+SEQ_MIN_CONFIDENCE = 50
+SEQ_MAX_LOST = 1
+SEQ_MIN_WORDS = 3
+SEQ_AHEAD = 1
 
 
 def is_tevhid(text: str) -> bool:
@@ -956,6 +962,18 @@ def _drop_leading_tekbir(toks):
     while len(toks) > 1 and (toks[0] in TEKBIR_WORDS or (toks[0] == "الله" and toks[1] in TEKBIR_WORDS)):
         toks = toks[1:] if toks[0] in TEKBIR_WORDS else toks[2:]
     return toks
+
+
+# Sadece zikir kelimelerinden olusan parca (DHIKR_PHRASES / STOCK_PHRASES kelimeleri: "الحمد لله لا إله إلا الله") kilitliyken
+# sure gecisi adayi uretmez. Yatsi 03.11 rukû arasi: tum Kuran'da 37:35 91.1 / 47:19 90.0 (belirsiz) — anlamsiz aday; telefondaki
+# hizalayicinin aday budamasi ayni metinde 2:255'i buluyordu (Kotlin ≠ Python). Eski veride sadece bu parca degisiyor.
+DHIKR_WORDS = {t for ph in DHIKR_PHRASES for t in ph} | {t for ph in STOCK_PHRASES for t in ph}
+
+
+def dhikr_words_only(text: str) -> bool:
+    """Parca sadece zikir kelimelerinden mi — bkz. DHIKR_WORDS."""
+    toks = [t for t in (bare_token(w) for w in text.split()) if t]
+    return len(toks) > 0 and all(t in DHIKR_WORDS for t in toks)
 
 
 def dhikr_only(text: str) -> Tuple[bool, bool]:
@@ -1740,12 +1758,16 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 # Geri duzeltme: zayif pencere, ayni surede kalinan yerin 1-2 ayet gerisi cok daha iyi (yatsi 21.10: 21:24)
                 jump = "verified"
                 result["back_fix"] = True
+            elif dhikr_words_only(text):
+                jump = "dhikr"          # zikir parcasindan gecis adayi yok (bkz. DHIKR_WORDS)
             else:
                 jump = "candidate"
                 state.jump_candidate = PendingMatch(surah=gls, ayah=gla, word_index=g.end_word_idx,
                                                     chunk_index=chunk_index)
-            if jump != "candidate":
+            if jump not in ("candidate", "dhikr"):
                 match, score, score_details = g, gs, g_details
+            if jump == "dhikr":
+                jump = None
             result["jump"] = jump
             fresh = jump == "natural" and state.state == NamazState.FATIHA and not opening and not cont
             if fresh:
@@ -1792,6 +1814,13 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     else:
         effective_threshold = MIN_CONFIDENCE
         require_min_words = 0
+        # Okuma surerken devam (bkz. SEQ_MIN_CONFIDENCE)
+        if (state.state == NamazState.ZAMM and jump is None and match and SEQ_MIN_CONFIDENCE <= score < effective_threshold
+                and state.lost_chunks <= SEQ_MAX_LOST and word_count >= SEQ_MIN_WORDS and state.last_surah
+                and state.last_ayah and state.last_word_index is not None and match.end_word_idx > state.last_word_index):
+            sfs, sfa = collect_verses(match.start_word_idx, match.end_word_idx)[0]
+            if sfs == state.last_surah and state.last_ayah <= sfa <= state.last_ayah + SEQ_AHEAD:
+                effective_threshold = SEQ_MIN_CONFIDENCE
 
     insufficient_words = (require_min_words > 0 and word_count < require_min_words)
     # Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS

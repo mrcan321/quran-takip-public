@@ -666,6 +666,17 @@ TEKBIR_SHORT_MIN_SCORE = 90
 # geliyor (yatsi 02.11 216.6 sn bos, sentetik hatim 617.9 sn).
 TEKBIR_WEAK_MIN_SCORE = 70
 TEKBIR_WEAK_MIN_GAP = 2
+# Okuma surerken devam: kilitliyken (ZAMM) son eslesmeden hemen sonra (kayip parca <= SEQ_MAX_LOST) okunan yerden ileri giden
+# (eslesme sonu son eslesmenin sonundan ileride), ayni / sonraki ayete (SEQ_AHEAD) oturan >= SEQ_MIN_WORDS kelimelik eslesme
+# MIN_CONFIDENCE (55) yerine SEQ_MIN_CONFIDENCE ile de kabul. Yatsi 03.11: ASR imamin okuyusunu kotu yazdi (kilitliyken
+# parcalarin %33'u dusuk skor; onceki gunler %3-12) — "فان فلا أخيه في بوابة" 26:63 50.7, "كلمة قريب وإن نفلنا لخادقون" 26:54
+# 51.3, "من جلاتكم ولصلهم أجمعين" 26:49 53.0 reddedildi; 26:63 ekranda 21 sn gec. Esigi her yerde 50'ye cekmek (K6 oncesi)
+# zorlamada yanlis kilidi artiriyor (hibrit S4 40 → 48) ve rukû arasinda "أمر الله خير خلق" 26:53'e kilitliyor; bu kural eski
+# veride 16 parcayi (hepsi okunan surede dogru devam) degistiriyor, zorlama / dis / sentetik metrikleri ayni.
+SEQ_MIN_CONFIDENCE = 50
+SEQ_MAX_LOST = 1
+SEQ_MIN_WORDS = 3
+SEQ_AHEAD = 1
 
 
 def is_tevhid(text):
@@ -681,6 +692,18 @@ def _drop_leading_tekbir(toks):
     while len(toks) > 1 and (toks[0] in TEKBIR_WORDS or (toks[0] == "الله" and toks[1] in TEKBIR_WORDS)):
         toks = toks[1:] if toks[0] in TEKBIR_WORDS else toks[2:]
     return toks
+
+
+# Sadece zikir kelimelerinden olusan parca (DHIKR_PHRASES / STOCK_PHRASES kelimeleri: "الحمد لله لا إله إلا الله") kilitliyken
+# sure gecisi adayi uretmez. Yatsi 03.11 rukû arasi: tum Kuran'da 37:35 91.1 / 47:19 90.0 (belirsiz) — anlamsiz aday; telefondaki
+# hizalayicinin aday budamasi ayni metinde 2:255'i buluyordu (Kotlin ≠ Python). Eski veride sadece bu parca degisiyor.
+DHIKR_WORDS = {t for ph in DHIKR_PHRASES for t in ph} | {t for ph in STOCK_PHRASES for t in ph}
+
+
+def dhikr_words_only(text):
+    """Parca sadece zikir kelimelerinden mi — bkz. DHIKR_WORDS."""
+    toks = [t for t in (bare_token(w) for w in text.split()) if t]
+    return len(toks) > 0 and all(t in DHIKR_WORDS for t in toks)
 
 
 def dhikr_only(text):
@@ -1557,11 +1580,15 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                 # okunurken bozuk "بدأ يدع لنا" 21:25'e 65 ile esleşti; pencere (21:25-27) 21:24'u kapsamadigindan sonraki
                 # parcalar 21:27 / 21:28'e 50-57 ile kaydi (tum Kuran'da 21:24 84.5), sonra 21:25'e geri dondu.
                 jump = "verified"
+            elif dhikr_words_only(transcribed_text):
+                jump = "dhikr"          # zikir parcasindan gecis adayi yok (bkz. DHIKR_WORDS)
             else:
                 jump = "candidate"
                 state.jump_candidate = PendingMatch(surah=gls, ayah=gla, word_index=g.end_word_idx, chunk_index=chunk_index)
-            if jump != "candidate":
+            if jump not in ("candidate", "dhikr"):
                 match, score = g, gs
+            if jump == "dhikr":
+                jump = None
             fresh = jump == "natural" and state.state == NamazState.FATIHA and not opening and not cont
             if fresh:
                 fresh_places = phrase_places(corpus, transcribed_text)
@@ -1593,6 +1620,13 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     else:
         eff_thresh = MIN_CONFIDENCE
         req_min = 0
+        # Okuma surerken devam (bkz. SEQ_MIN_CONFIDENCE)
+        if (state.state == NamazState.ZAMM and jump is None and match and SEQ_MIN_CONFIDENCE <= score < eff_thresh
+                and state.lost_chunks <= SEQ_MAX_LOST and word_count >= SEQ_MIN_WORDS and state.last_surah
+                and state.last_ayah and state.last_word_index is not None and match.end_word_idx > state.last_word_index):
+            sfs, sfa = collect_verses(corpus, match.start_word_idx, match.end_word_idx)[0]
+            if sfs == state.last_surah and state.last_ayah <= sfa <= state.last_ayah + SEQ_AHEAD:
+                eff_thresh = SEQ_MIN_CONFIDENCE
     insufficient = req_min > 0 and word_count < req_min
     # Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS
     # Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
@@ -2686,6 +2720,63 @@ SCENARIOS = [
             (0.0245, "طاقاتِ الأرض وهو عزيز"),                         # 8: 59:24 69.3 → kilit kalir
             (0.0177, ""),
             (0.0233, "صدق الله العظيم"),
+        ],
+    },
+
+    # ============ Senaryo 35: yatsi 03.11 (APK #153 telefon parcalari) — okuma surerken devam (SEQ_MIN_CONFIDENCE) ============
+    {
+        "description": "2. rekat Fatiha → Suara 26:53-67 (ASR kotu: kilitliyken parcalarin ucte biri dusuk skor) — okunan yerin "
+                       "devamina 50-55 ile oturan >= 3 kelimelik parca kabul (26:54 51.3, 26:63 50.7; eskiden esik 55 ile red)",
+        "chunks": [
+            (0.0555, "الحمد لله رب العالمين الرحمن الرحيم"),
+            (0.0561, "بسم الله الرحمن الرحيم مالك يوم الدين"),
+            (0.0532, "إياك نعبُد وإياك فاستعِين"),
+            (0.0549, "اهدنا الصراط المستقيم صراط الأبين"),
+            (0.0546, "فَأَرْسَلَ فِرْعَوْنُ فِي الْمَدَائِنِ حَاشِرِينَ"),   # 4: 26:53
+            (0.0602, "إِنَّ هَؤُلَاءِ لَشِرْذَةٌ"),
+            (0.0617, "كَلِمَةٌ قَرِيبٌ وَإِنَّ نَفْلَنَا لَخَادِقُونَ"),   # 6: 26:54 51.3 — okuma devami (eskiden red)
+            (0.0637, "وإنا لجميع حكيم"),
+            (0.0598, "فَأَخْرَجْنَاهُمْ مِنْ جَنَّاتٍ وَعُيُونٍ"),
+            (0.0624, "وعروف وكروز ومقام كريم"),
+            (0.061, "أتارك ما عرفنا لي"),
+            (0.057, "فأجمعوه مُشركين"),
+            (0.0508, "فأتبعوهم مُشرقين"),
+            (0.0595, "فلما تبقى أنت"),
+            (0.0573, "أصحاب موسى ألدون قال كذا"),
+            (0.0585, "قال كَلَّا إِنَّ مَعِيَ رَبِّي سَيَهْدِينِ"),
+            (0.057, "فلما فتحها التم من قبل أصحابه"),
+            (0.0602, "قال أصحاب موسى إنا لم تعطوهم، قال"),
+            (0.0671, "قَالَ كَذَلِكَ إنَّ مَعِيَ رَبِّي سَيَهْدِينِ فَأُغْنِي"),
+            (0.0664, "فأمين بعشرة"),
+            (0.0629, "فان فلا أخيه في بوابة"),   # 20: 26:63 50.7 — okuma devami (eskiden 26:63 ekranda 21 sn gec)
+            (0.0634, "كالقمر العظيم و الأفكار الآخر"),
+            (0.0663, "وَأَنتَيْنَا مُوسَى مَعَهُ"),
+            (0.06, "إلا وأنتين سوءًا"),
+            (0.0648, "سبعين ثم غرقنا"),
+            (0.0675, "إن في ذلك لآية"),
+            (0.0657, "وما كان أكثرهم مؤمنين"),
+        ],
+    },
+
+    # ============ Senaryo 36: zikir parcasindan gecis adayi yok (DHIKR_WORDS, yatsi 03.11 rukû arasi) ============
+    {
+        "description": "Fatiha → Suara 26:53-57 → rukû arasi bos parcalar → 'الحمد لله لا إله إلا الله' (tum Kuran 37:35 / 47:19 "
+                       "belirsiz): sadece zikir kelimeleri, gecis adayi uretilmez",
+        "chunks": [
+            (0.0555, "الحمد لله رب العالمين الرحمن الرحيم"),
+            (0.0561, "بسم الله الرحمن الرحيم مالك يوم الدين"),
+            (0.0532, "إياك نعبُد وإياك فاستعِين"),
+            (0.0549, "اهدنا الصراط المستقيم صراط الأبين"),
+            (0.0546, "فَأَرْسَلَ فِرْعَوْنُ فِي الْمَدَائِنِ حَاشِرِينَ"),
+            (0.0602, "إِنَّ هَؤُلَاءِ لَشِرْذَةٌ"),
+            (0.0617, "كَلِمَةٌ قَرِيبٌ وَإِنَّ نَفْلَنَا لَخَادِقُونَ"),
+            (0.0637, "وإنا لجميع حكيم"),
+            (0.0598, "فَأَخْرَجْنَاهُمْ مِنْ جَنَّاتٍ وَعُيُونٍ"),
+            (0.0346, "المصدر كتاب"),
+            (0.0454, ""),
+            (0.0433, ""),
+            (0.0586, "الحمد لله لا إله إلا الله"),   # 12: zikir kelimeleri — gecis adayi yok (eskiden 37:35 adayi; telefonda 2:255)
+            (0.0574, ""),
         ],
     },
 ]

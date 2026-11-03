@@ -345,6 +345,9 @@ class StateMachine(
         // parca). Kuran'da 20+ yerde gecen kalip; ASR nefes / kuyruktan uyduruyor. Yatsi 22.10: Enbiya 21:79 bitti, 2.6 sn'lik
         // kuyruk parcasi "الحمد لله" → 21:80-81'e 62.1 → rukûda ekranda henuz okunmamis 21:80 / 21:81 (2. rekatta okundu).
         val STOCK_PHRASES = setOf(listOf("الحمد", "لله"), listOf("والحمد", "لله"))
+        // Sadece zikir kelimelerinden olusan parca ("الحمد لله لا إله إلا الله") kilitliyken sure gecisi adayi uretmez. Yatsi 03.11
+        // rukû arasi: Python 37:35 91.1 / 47:19 90.0 (belirsiz), bu hizalayicinin aday budamasi 2:255 — anlamsiz aday.
+        val DHIKR_WORDS: Set<String> = DHIKR_PHRASES.flatten().toSet() + STOCK_PHRASES.flatten().toSet()
         // Okumadan sonra tekbir duyulduysa (rukû; bkz. tekbirAfterReading) ZAMM'da kisa (< ilk kilit kelime sayisi) eslesme
         // ancak bu skorla okumanin devami. Yatsi 22.10 sabit parca: 21:79 bitti, rukû tekbiri, semiallah ASR'de "لمن قبله" →
         // 21:82'ye 76 → son zamm konumu 21:82 oldu, 2. rekatin devam penceresi 21:80'i kacirdi, 26:109'a dogal gecis.
@@ -358,6 +361,16 @@ class StateMachine(
         // sonra bos parca geliyor (yatsi 02.11 216.6 sn).
         const val TEKBIR_WEAK_MIN_SCORE = 70.0
         const val TEKBIR_WEAK_MIN_GAP = 2
+        // Okuma surerken devam: kilitliyken (ZAMM) son eslesmeden hemen sonra (kayip parca <= SEQ_MAX_LOST) okunan yerden ileri
+        // giden (eslesme sonu son eslesmenin sonundan ileride), ayni / sonraki ayete (SEQ_AHEAD) oturan >= SEQ_MIN_WORDS kelimelik
+        // eslesme minConfidence (55) yerine SEQ_MIN_CONFIDENCE ile de kabul. Yatsi 03.11: ASR imamin okuyusunu kotu yazdi
+        // (kilitliyken parcalarin %33'u dusuk skor) — "فان فلا أخيه في بوابة" 26:63 50.7 reddedildi, 26:63 ekranda 21 sn gec.
+        // Esigi her yerde 50'ye cekmek zorlamada yanlis kilidi artiriyor ve rukû arasinda kilit veriyor; bu kural eski veride
+        // sadece okunan surede dogru devamlari degistiriyor.
+        const val SEQ_MIN_CONFIDENCE = 50.0
+        const val SEQ_MAX_LOST = 1
+        const val SEQ_MIN_WORDS = 3
+        const val SEQ_AHEAD = 1
         // Belirsiz aday (UI): BEKLEME / kilit kaybi adayinda ikinci yer bu kadar yakinsa aday ekranda gosterilmez
         // (ChunkResult.ambiguous; state machine ayni, dogrulaninca kayar). 39 + 44 kayit (gercek, sentetik, dis kaynak)
         // × 2 zincir: ekrandaki 22 yanlis adayin farki 0-2.7 ("قل أعوذ برب" 113:1 / 114:1, "ألم تر كيف" 105:1 / 89:6 /
@@ -632,6 +645,12 @@ class StateMachine(
                 toks = if (toks[0] in TEKBIR_WORDS) toks.drop(1) else toks.drop(2)
             }
             return toks
+        }
+
+        /** Parca sadece zikir kelimelerinden mi — bkz. DHIKR_WORDS (Python dhikr_words_only). */
+        fun dhikrWordsOnly(text: String): Boolean {
+            val toks = text.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() }
+            return toks.isNotEmpty() && toks.all { it in DHIKR_WORDS }
         }
 
         fun dhikrOnly(text: String): Pair<Boolean, Boolean> {
@@ -1452,6 +1471,11 @@ class StateMachine(
                         notes += "geri duzeltme: $gls:$gla ${"%.1f".format(gsc)} (pencere ${"%.1f".format(score)})"
                         "verified"
                     }
+                    // Zikir parcasindan gecis adayi yok (bkz. DHIKR_WORDS)
+                    dhikrWordsOnly(cleanText) -> {
+                        notes += "zikir parcasi: gecis adayi yok"
+                        "dhikr"
+                    }
                     else -> {
                         state.jumpCandidate = PendingMatch(
                             surah = gls, ayah = gla, wordIndex = gm.endWordIdx, chunkIndex = chunkIndex,
@@ -1460,7 +1484,9 @@ class StateMachine(
                         "candidate"
                     }
                 }
-                if (jump != "candidate") {
+                if (jump == "dhikr") {
+                    jump = null
+                } else if (jump != "candidate") {
                     match = gm
                     score = gsc
                     notes += if (opening) "sure basi gecisi" else if (cont) "hatim devami" else if (jump == "natural") "dogal gecis" else "gecis dogrulandi"
@@ -1504,7 +1530,7 @@ class StateMachine(
         // Kilit kayboldu (6+ kayip chunk ya da ARA): yeniden kilit ilk kilit gibi. Eskiden ARA'da tum Kuran'da
         // 50 skorla tek chunk kilit veriyordu (gercek namaz: selam → 6:54, "سمع الله حمدا" → 3:181)
         val relock = lockAbandoned || state.state == NamazState.ARA
-        val effectiveThreshold: Double
+        var effectiveThreshold: Double
         val requireMinWords: Int
         when {
             relock -> {
@@ -1518,6 +1544,21 @@ class StateMachine(
             else -> {
                 effectiveThreshold = minConfidence
                 requireMinWords = 0
+                // Okuma surerken devam (bkz. SEQ_MIN_CONFIDENCE)
+                val m = match
+                val lw = state.lastWordIndex
+                val ls = state.lastSurah
+                val la = state.lastAyah
+                if (state.state == NamazState.ZAMM && jump == null && m != null && score >= SEQ_MIN_CONFIDENCE &&
+                    score < effectiveThreshold && state.lostChunks <= SEQ_MAX_LOST && wordCount >= SEQ_MIN_WORDS &&
+                    ls != null && la != null && lw != null && m.endWordIdx > lw
+                ) {
+                    val (sfs, sfa) = collectVerses(m.startWordIdx, m.endWordIdx).first()
+                    if (sfs == ls && sfa >= la && sfa <= la + SEQ_AHEAD) {
+                        effectiveThreshold = SEQ_MIN_CONFIDENCE
+                        notes += "okuma devami: skor ${"%.1f".format(score)} >= ${"%.0f".format(SEQ_MIN_CONFIDENCE)}"
+                    }
+                }
             }
         }
 

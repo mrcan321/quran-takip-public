@@ -133,6 +133,16 @@
                    {"start": 258.0, "end": 290.6, "surah": 1, "ayahs": [2, 7]}, {"start": 300.6, "end": 383.4, "surah": 25, "ayahs": [61, 67]}],
       "phrases": [[61.8, 64.6, "tekbir"], [208.4, 211.2, "tekbir"], [218.0, 222.6, "semiallah"], [248.3, 251.2, "tekbir"],
                   [476.7, 481.8, "semiallah"], [533.9, 536.4, "tekbir"], [542.7, 547.2, "semiallah"]]
+    },
+    "namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav": {
+      "date": "2026-11-03", "namaz": "yatsi", "imam": "imam-1", "split": "train",
+      "kamet": [0, 14],
+      "segments": [{"start": 40.0, "end": 72.0, "surah": 1, "ayahs": [2, 7]}, {"start": 81.5, "end": 160.7, "surah": 26, "ayahs": [34, 44]},
+                   {"start": 170.7, "end": 234.0, "surah": 26, "ayahs": [45, 51]},
+                   {"start": 285.2, "end": 313.9, "surah": 1, "ayahs": [2, 7]}, {"start": 325.3, "end": 393.8, "surah": 26, "ayahs": [52, 62]},
+                   {"start": 407.6, "end": 429.0, "surah": 26, "ayahs": [63, 65]}, {"start": 436.0, "end": 453.4, "surah": 26, "ayahs": [66, 68]}],
+      "phrases": [[25.4, 28.0, "tekbir"], [277.2, 279.1, "tekbir"], [456.5, 458.1, "tekbir"], [515.6, 517.5, "tekbir"]],
+      "_not": "disarida (imam tekrari): 160.7-170.7 26:44, 393.8-407.6 26:61-62, 429.0-436.0 26:65"
     }
   }
 }

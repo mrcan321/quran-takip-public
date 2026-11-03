@@ -144,6 +144,7 @@ EXPECTED = {
     "namaz_yatsi7_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
     "namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
     "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
+    "namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -260,6 +261,10 @@ TIMELINE = {
     # 25:61 (300.9) .. 25:67 (382.2), semiallah 395, 3-4. rekat sessiz (semiallah 477 / 543), selam 635.8, dua 645.8
     "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": [(0, None), (74, 1), (119.5, 25), (205, None), (258, 1),
                                                            (300.5, 25), (383, None)],
+    # yatsi 03.11 (APK #153, cami, 12 dk; kelime zamanli dokum): kamet 0-14, iftitah ~26, Fatiha 40.2, Suara 26:34 (81.7) ..
+    # 26:51 (233.6; 26:44 tekrar 160.9-170), rukû ~236, Fatiha 285.4, 26:52 (325.5) .. 26:68 (452.8; 26:61-62 ve 26:65 tekrar),
+    # rukû 456.7, 3-4. rekat sessiz, selam / dua ~695-707. ASR bu imamda kotu: kilitliyken parcalarin %33'u dusuk skor.
+    "namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav": [(0, None), (40, 1), (81, 26), (234, None), (285, 1), (325, 26), (454, None)],
 }
 
 
@@ -584,6 +589,7 @@ PREV_ZAMM = {
     "namaz_sabah4_kamet_fatiha_fatir_fatiha_fatir.wav": (23, 50),       # telefon log'u: "onceki namazin kaldigi yer: 23:50"
     "namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav": (25, 20),     # telefon log'u: yatsi 01.11 sonu 25:20
     "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": (25, 45),     # telefon log'u (sabahin rukûdaki 25:45 kilidi — APK #150)
+    "namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav": (25, 67),       # telefon log'u: yatsi 02.11 sonu 25:67 (imam 26:34'ten basladi)
 }
 
 

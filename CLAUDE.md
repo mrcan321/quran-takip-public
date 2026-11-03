@@ -29,7 +29,7 @@ anahtarı (`debug.keystore`) bilerek repoda (Play Store yok; gerekirse değişti
 - `aligner.py`: **ana** — QuranCorpus, trigram index, align_transcription (fuzzy match). Kotlin port'u için referans. `ZERO_WIDTH` normalize eklenmiş.
 - `build_quran_assets.py`: `quran.bin` (3.5 MB) + `meal.bin` (~1 MB, Ali Bulaç meali) üretir. Android asset olarak kullanılır.
 - `build_aligner_fixture.py`: 43 test case üretir, `aligner_test_fixture.json`
-- `build_state_machine_fixture.py`: 34 senaryo × 860 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
+- `build_state_machine_fixture.py`: 36 senaryo × 901 chunk üretir, `state_machine_fixture.json` (+ referans state machine;
   fixture telefon varsayılanlarıyla: ilk kilit 70, pencere ±2)
 - `onnx_full_export.py`: NeMo `nvidia/stt_ar_fastconformer_hybrid_large_pcd_v1.0` → ONNX (opset 18, preprocessor+encoder+CTC birleşik)
 - `sp_manual_decoder.py`: SentencePiece manuel decoder (Android'de Java SentencePiece yok, protobuf ile decode)
@@ -87,7 +87,7 @@ Build: GitHub Actions (`.github/workflows/android.yml`) → release APK. Kotlin/
 │   ├── ZikirTracker.kt        — namaz zikirleri karti: tekbir, semiallah, rabbena, selam, namaz sonu duasi (UI, JVM'de test)
 │   ├── DuaProbe.kt            — selamdan sonra son 10 sn'yi ayrica tanima (namaz sonu duasi 5 sn parcalarda bolunuyor; JVM'de test)
 │   ├── RakatTracker.kt        — rekat sayaci + kaba durus (UI; state machine'i etkilemez, JVM'de test)
-│   └── StateMachineTestRunner.kt — 860 chunk × 34 senaryo test (5-8. = gerçek namaz akışları; 860/860; JVM'de)
+│   └── StateMachineTestRunner.kt — 901 chunk × 36 senaryo test (5-8. = gerçek namaz akışları; 901/901; JVM'de)
 ├── data/
 │   ├── MushafData.kt          — tum Kuran listesi: ayet/sure tablolari, liste satirlari, besmele gizleme
 │   ├── AppSettings.kt         — kullanıcı ayarları (SettingsRepository.kt içinde)
@@ -1863,6 +1863,36 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   devam) → **34 × 860**.
 - `training/real_labels.json` 20 namaz (train 11: + yatsı 02.11).
 
+### 38. Yatsı 03.11 (APK #153): kilitler geç — bozuk ASR, son 5 commit kıyası, okuma sürerken devam (APK build #154+)
+- `data/namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav` (camide telefon, 12 dk): kamet 0-14 → iftitah ~26 → Fatiha 40.2 → Şuarâ
+  26:34 (81.7) .. 26:51 (233.6; 26:44 tekrar) → rükû → Fatiha 285.4 → 26:52 (325.5) .. 26:68 (452.8; 26:61-62, 26:65 tekrar) → rükû 456.7
+  → 3-4. rekât sessiz → dua ~695. Önceki namazın kaldığı yer 25:67, imam 26:34'ten başladı. Telefon kararları = Python referansı.
+- Kullanıcı: "kilitlenmeler çok geç oldu; arayüz dışı son 5 commit'i teste tut, eski kod daha mı iyiydi". Ayet ayet ölçüm (kelime zamanlı
+  döküm → imamın ayete başladığı an, telefonun parçaları): 47 ayetin 33'ü okunurken / bitince 4 sn içinde ekranda, medyan gecikme 5.8 sn;
+  26:44 23 sn, 26:63 21 sn, 26:59 15 sn, 26:36 13 sn geç, 26:52 hiç. **Sebep ASR:** kilitliyken (ZAMM) parçaların %33'ü düşük skor
+  (17/51; 01.11-02.11 kayıtlarında %3-12) — "باقوا حبالهم وعشتهم" (26:44, 45.7), "فان فلا أخيه في بوابة" (26:63, 50.7). Duraklama
+  kesimi ve sesli-boş parça oranı önceki günlerle aynı.
+- **Son 5 algoritma commit'i** (2380c18, 55c28b7, 6ab2179, 007f8a8, 80b8c6a) + K6 (f984645) bugünkü kayıtta **birebir aynı**
+  (33/47); fark sadece K6 öncesinde (4168671, güven eşiği 50: 36/47) — K6'nın diğer 3 parametresi etkisiz. Eski kayıtlarda (52 gerçek ×
+  2 zincir, dış kaynak, sentetik) yeni commit'ler aynı ya da daha iyi: yanlış kilitli parça rnnt 2 → 0, hibrit 6 → 1; bölüm kilit
+  gecikmesi ort. hibrit 6.90 → 6.58 sn; K6 öncesi dış kaynakta 9.80 / 10.07 → 9.58 / 9.85 sn.
+- Eşiği her yerde 50'ye çekmek reddedildi: bugün rükû arasında "أمر الله خير خلق" 50.3 → 26:53 kilidi (okunmamış ayet), zorlamada
+  yanlış kilitli parça rnnt S4 46 → 53, hibrit S4 40 → 48, S5 26 → 31, S1 / S3 +1.
+- **Okuma sürerken devam** (`SEQ_MIN_CONFIDENCE` 50, `SEQ_MAX_LOST` 1, `SEQ_MIN_WORDS` 3, `SEQ_AHEAD` 1; Python ref + app.py + Kotlin
+  birebir): ZAMM'da son eşleşmeden hemen sonra (≤ 1 kayıp parça), okunan yerden ileri giden (eşleşme sonu > son eşleşmenin sonu), aynı
+  ya da sonraki ayete oturan ≥ 3 kelimelik eşleşme 55 yerine 50 ile kabul (log `okuma devami: skor 50,7 >= 50`). Bugün 33 → **35/47**
+  (26:63 21 → 11.8 sn, 26:55 kaçan → 4.2 sn, 26:50 9.2 → 4.2 sn), rükû kilidi yok. Eski veride 11747 parçada 16 karar değişti, hepsi
+  okunan surede doğru devam ("يا ويلت ليتني نمات فلان" 25:28, "قال سأقتل أبناء" 7:127, "ما نجب في جيش" 111:5); gerçek / dış / sentetik
+  / zorlama (S1/S3/S4/S5, iki zincir) metrikleri aynı.
+- **Zikir parçasından geçiş adayı yok** (`DHIKR_WORDS` = DHIKR_PHRASES + STOCK_PHRASES kelimeleri, `dhikr_words_only`): yeni kaydın rnnt
+  zincirinde rükû arasındaki "الحمد لله لا إله إلا الله" tüm Kuran'da 37:35 91.1 / 47:19 90.0 (belirsiz) → Python 37:35, Kotlin 2:255
+  görünmeyen geçiş adayı (hizalayıcı aday budaması; aynı fark akşam 22.10'da da vardı) → Kotlin ≠ Python. Belirsiz adayı genel olarak
+  bastırmak denendi: geçiş noktası dahil Felak / Hicr geçişlerini, ≥ 2 kayıp parçayla sınırlı hâli okuma içindeki doğru 23:79 adayını
+  bozdu (hibrit S4 +1) → sadece tamamen zikir kelimelerinden oluşan parça; eski veride 12038 parçada sadece bu parça değişiyor,
+  zorlama aynı. Kotlin = Python 358 kayıt, app.py fark 0 / 9680 parça. Fixture senaryo 35-36 → **36 × 901**.
+- Açık: 1. rekât sonunda "الله سبحانه وتعالى" (240.6 sn) 26:52'ye 71.4 → rükûda okunmamış 26:52 bir an ekranda (tekbir duyulmadı).
+- `training/real_labels.json` 21 namaz (train 12: + yatsı 03.11; imam tekrarları dışarıda).
+
 ---
 
 ## Bilinen kritik detaylar (kolay unutulan)
@@ -1921,6 +1951,9 @@ TILAVET_END_NAMAZ_GAP=5   ← son eşleşmeden sonra tekbir + ≥5 parça → "�
 TEKBIR_SHORT_MIN_SCORE=90   ← okumadan sonra tekbir duyulduysa ZAMM'da <3 kelimelik eşleşme ancak ≥90 ile devam (bkz. 24)
 TEKBIR_WEAK_MIN_SCORE/GAP = 70/2   ← ... ve uzunluğu ne olursa olsun <70 eşleşme de devam değil — tekbirle parça arasında en az
   bir parça varsa (okuma ortasında sahte tekbirin hemen arkası devam sayılır; bkz. 37)
+DHIKR_WORDS   ← kilitliyken sadece zikir kelimelerinden ("الحمد لله لا إله إلا الله") oluşan parça sure geçişi adayı üretmez (bkz. 38)
+SEQ_MIN_CONFIDENCE/MAX_LOST/MIN_WORDS/AHEAD = 50/1/3/1   ← ZAMM'da okuma sürerken (≤1 kayıp parça) ileri giden, aynı / sonraki
+  ayete oturan ≥3 kelimelik eşleşme MIN_CONFIDENCE (55) yerine 50 ile kabul (bkz. 38)
 CONTINUE_FAR/TIE_MARGIN = 40/0.5   ← Fatiha sonunda eşit eşleşmede son zamm'ın suresinde kalınan yer..+40 ayetteki ayet başı (bkz. 37)
 FRESH_TIE_MARGIN/WINDOW_BELOW/MAX_PLACES/AHEAD = 5/90/8/2   ← taze geçiş parçası Kuran'da birebir 2-8 yerde geçiyorsa sonraki
   parçada pencere <90 iken diğer yerlerin devamı (yer..+2 ayet) pencereden ≥5 iyi → düzeltilir (bkz. 37)
