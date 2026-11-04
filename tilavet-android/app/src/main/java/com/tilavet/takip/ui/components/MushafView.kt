@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,13 +22,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tilavet.takip.data.MushafData
@@ -45,6 +50,9 @@ import com.tilavet.takip.ui.theme.QuranFontFamily
  * Zumrut temasi (ornate): sure basligi ustu kemerli beyaz kart (altin hat, amblem, soluk yildiz deseni, ayrac),
  * okunan ayet yesil isiltili yari saydam "HUD" karti (Arapca ustte, meal altta), diger ayetler arasinda ince altin
  * cizgi, ayet etiketi nane yesili hap. Klasik temalar eskisi gibi.
+ *
+ * Yazi boyutlari Float: Ayarlar → EKRANA SIĞDIR acikken okunan ayet sigmazsa iki boyut ayni oranda kuculur
+ * ([rememberFitScale]); [showArabic] / [showMeal] Ayarlar → EKRANDA METİN (data/TextMode).
  */
 @Composable
 fun MushafList(
@@ -54,12 +62,14 @@ fun MushafList(
     tentative: Boolean,
     hlStart: Int,
     hlEnd: Int,
-    arabicSizeSp: Int,
-    mealSizeSp: Int,
+    arabicSizeSp: Float,
+    mealSizeSp: Float,
     idleOpacity: Float,   // 0..1 — okunan ayet varken digerlerinin soluklugu
     motion: Float,        // 0..1
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
+    showArabic: Boolean = true,
+    showMeal: Boolean = true,
 ) {
     LazyColumn(
         state = listState,
@@ -73,7 +83,7 @@ fun MushafList(
         ) { i ->
             val item = mushaf.itemAt(i)
             if (item < 0) {
-                SurahHeader(mushaf = mushaf, surah = -item, arabicSizeSp = arabicSizeSp)
+                SurahHeader(mushaf = mushaf, surah = -item, arabicSizeSp = arabicSizeSp, showArabic = showArabic)
             } else {
                 AyahItem(
                     mushaf = mushaf,
@@ -87,21 +97,153 @@ fun MushafList(
                     mealSizeSp = mealSizeSp,
                     idleOpacity = idleOpacity,
                     motion = motion,
+                    showArabic = showArabic,
+                    showMeal = showMeal,
                 )
             }
         }
     }
 }
 
+// ============================================================
+// Ayet satirinin yazi stilleri ve olculeri — liste ile EKRANA SIĞDIR hesabi ayni degerleri kullanir
+// ============================================================
+
+/** Arapca ayet metni (KFGQPC; zumrutte satir araligi 2.0, klasikte 1.9). */
+private fun arabicTextStyle(sizeSp: Float, ornate: Boolean): TextStyle = TextStyle(
+    fontFamily = QuranFontFamily,
+    fontSize = (sizeSp * QURAN_FONT_SCALE).sp,
+    lineHeight = (sizeSp * QURAN_FONT_SCALE * (if (ornate) 2.0f else 1.9f)).sp,
+    textAlign = TextAlign.Start,
+    textDirection = TextDirection.Rtl,
+)
+
+/** Meal: tema govde yazisi; [base] = LocalTextStyle (Material Text'in varsayilani — harf araligi vb. ondan gelir). */
+private fun mealTextStyle(base: TextStyle, sizeSp: Float, style: AppStyle): TextStyle =
+    if (style.ornate) {
+        val sp = sizeSp * style.bodyScale
+        base.merge(TextStyle(fontFamily = style.body, fontWeight = FontWeight.Normal, fontSize = sp.sp, lineHeight = (sp * 1.55f).sp))
+    } else {
+        base.merge(TextStyle(fontFamily = style.body, fontWeight = FontWeight.Medium, fontSize = sizeSp.sp, lineHeight = (sizeSp * 1.45f).sp))
+    }
+
+/** Ayet etiketi ("Bakara: 255") yazisi. */
+private fun tagTextStyle(base: TextStyle, style: AppStyle): TextStyle =
+    if (style.ornate) {
+        base.merge(TextStyle(fontFamily = style.label, fontWeight = FontWeight.SemiBold, fontSize = 10.5.sp, letterSpacing = 0.5.sp))
+    } else {
+        base.merge(TextStyle(fontFamily = style.label, fontSize = 10.sp, letterSpacing = 0.6.sp))
+    }
+
+/** Zumrut ayet satiri: dis bosluk (yatay / dikey), kart ic boslugu (yatay / dikey), etiket hapi dikey boslugu. */
+private val ORNATE_OUTER_H = 12.dp
+private val ORNATE_OUTER_V = 6.dp
+private val ORNATE_INNER_H = 12.dp
+private val ORNATE_INNER_V = 14.dp
+private val ORNATE_PILL_V = 3.dp
+private val ORNATE_GAP_TAG = 10.dp     // etiket → ilk metin
+private val ORNATE_GAP_MEAL = 8.dp     // Arapca → meal
+/** Klasik ayet satiri: yatay / dikey bosluk, etiket kutusu dikey boslugu. */
+private val CLASSIC_PAD_H = 20.dp
+private val CLASSIC_PAD_V = 16.dp
+private val CLASSIC_TAG_V = 2.dp
+private val CLASSIC_GAP = 10.dp
+
+/** EKRANA SIĞDIR: en kucuk olcek (bundan da sigmazsa bu olcekte kalir — pratikte 2:282 yatayda bile ustunde). */
+const val FIT_MIN_SCALE = 0.15f
+
+/** EKRANA SIĞDIR olcumunde guvenlik payi (yazi tipi yuvarlamalari, cizgi / golge). */
+private val FIT_SAFETY = 6.dp
+
+/**
+ * Ayet metninin ekrandaki duz hali (vurgu yok; olcum icin): kelimeler + ayet sonu isareti — [AyahItem]'daki
+ * AnnotatedString ile ayni karakterler (vurgu sadece renk / zemin, satir kirilmasini degistirmez).
+ */
+private fun ayahPlainText(words: List<String>, ayahNo: Int): String =
+    buildString {
+        for (w in words) {
+            append(w)
+            append(' ')
+        }
+        append(arabicDigits(ayahNo))
+    }
+
+/** Ayet satirinin olculmus hali: toplam yukseklik (px) — EKRANA SIĞDIR hesabi ve ayetin ekrandaki yeri icin. */
+data class FitResult(val scale: Float, val itemHeightPx: Int)
+
+/**
+ * EKRANA SIĞDIR: okunan ayetin (etiket + Arapca + meal) [availableHeightPx]'e sigdigi en buyuk olcek (≤ 1). Arapca ve
+ * meal puntosu AYNI oranda kuculur (kullanici 04.11: "Arapca 20, Turkce 30 secilmisse yariya dusurmen gerekiyorsa
+ * 10 / 15"); sadece Arapca / sadece Turkce secildiyse o metin. Satir kirilmasi puntoyla dogrusal degismedigi icin
+ * olcek ikili aramayla bulunur (her adimda gercek yazi olcumu, TextMeasurer). Sigiyorsa 1.
+ *
+ * @param widthPx liste genisligi (ayet satirinin tam genisligi)
+ */
 @Composable
-private fun SurahHeader(mushaf: MushafData, surah: Int, arabicSizeSp: Int) {
+fun rememberFitScale(
+    mushaf: MushafData,
+    ayah: Int?,
+    widthPx: Int,
+    availableHeightPx: Int,
+    arabicSizeSp: Float,
+    mealSizeSp: Float,
+    showArabic: Boolean,
+    showMeal: Boolean,
+    enabled: Boolean,
+): FitResult? {
+    val style = LocalAppStyle.current
+    val density = LocalDensity.current
+    val base = LocalTextStyle.current
+    val measurer = rememberTextMeasurer(cacheSize = 32)
+    if (!enabled || ayah == null || widthPx <= 0 || availableHeightPx <= 0) return null
+    return remember(mushaf, ayah, widthPx, availableHeightPx, arabicSizeSp, mealSizeSp, showArabic, showMeal, style, density, base) {
+        val ornate = style.ornate
+        val arabic = if (showArabic) ayahPlainText(mushaf.words(ayah), mushaf.ayahNumber(ayah)) else null
+        val meal = if (showMeal) mushaf.meal(ayah)?.takeIf { it.isNotEmpty() } else null
+        with(density) {
+            val textW = (widthPx - (if (ornate) 2 * (ORNATE_OUTER_H + ORNATE_INNER_H) else 2 * CLASSIC_PAD_H).roundToPx())
+                .coerceAtLeast(1)
+            val tagH = measurer.measure(AnnotatedString(mushaf.ayahTag(ayah)), tagTextStyle(base, style)).size.height
+            // Olcekle degismeyen kisim: bosluklar + etiket satiri (+ Arapca → meal arasi)
+            val both = arabic != null && meal != null
+            val spacing = if (ornate) {
+                2 * ORNATE_OUTER_V + 2 * ORNATE_INNER_V + 2 * ORNATE_PILL_V + ORNATE_GAP_TAG +
+                    (if (both) ORNATE_GAP_MEAL else 0.dp) + 1.dp
+            } else {
+                1.dp + 2 * CLASSIC_PAD_V + 2 * CLASSIC_TAG_V + CLASSIC_GAP + (if (both) CLASSIC_GAP else 0.dp)
+            }
+            val fixed = (spacing + FIT_SAFETY).roundToPx() + tagH
+            val constraints = Constraints(maxWidth = textW)
+            fun heightAt(s: Float): Int {
+                var h = fixed
+                if (arabic != null) h += measurer.measure(AnnotatedString(arabic), arabicTextStyle(arabicSizeSp * s, ornate),
+                    constraints = constraints).size.height
+                if (meal != null) h += measurer.measure(AnnotatedString(meal), mealTextStyle(base, mealSizeSp * s, style),
+                    constraints = constraints).size.height
+                return h
+            }
+            val full = heightAt(1f)
+            if (full <= availableHeightPx) return@remember FitResult(1f, full)
+            var lo = FIT_MIN_SCALE
+            var hi = 1f
+            repeat(14) {
+                val mid = (lo + hi) / 2f
+                if (heightAt(mid) <= availableHeightPx) lo = mid else hi = mid
+            }
+            FitResult(lo, heightAt(lo))
+        }
+    }
+}
+
+@Composable
+private fun SurahHeader(mushaf: MushafData, surah: Int, arabicSizeSp: Float, showArabic: Boolean) {
     val palette = LocalAppPalette.current
     val style = LocalAppStyle.current
     val info = remember(mushaf, surah) { mushaf.surahInfo(surah) }
     val ayahCount = remember(mushaf, surah) { mushaf.surahAyahCount(surah) }
 
     if (style.ornate) {
-        OrnateSurahHeader(mushaf, surah, info?.nameTr ?: "Sure $surah", info?.nameAr, ayahCount, arabicSizeSp, palette, style)
+        OrnateSurahHeader(mushaf, surah, info?.nameTr ?: "Sure $surah", info?.nameAr, ayahCount, arabicSizeSp, showArabic, palette, style)
         return
     }
 
@@ -142,23 +284,19 @@ private fun SurahHeader(mushaf: MushafData, surah: Int, arabicSizeSp: Int) {
                     fontFamily = QuranFontFamily,
                     fontSize = (22 * QURAN_FONT_SCALE).sp,
                     color = palette.accent,
-                    style = androidx.compose.ui.text.TextStyle(textDirection = TextDirection.Rtl),
+                    style = TextStyle(textDirection = TextDirection.Rtl),
                 )
             }
         }
 
-        // Besmele: Fatiha'da 1. ayetin kendisi, Tevbe'de yok
-        if (surah != 1 && surah != 9 && mushaf.besmele.isNotEmpty()) {
+        // Besmele: Fatiha'da 1. ayetin kendisi, Tevbe'de yok; EKRANDA METİN: TÜRKÇE iken gizli
+        if (showArabic && surah != 1 && surah != 9 && mushaf.besmele.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             Text(
                 text = mushaf.besmele,
-                fontFamily = QuranFontFamily,
-                fontSize = (arabicSizeSp * QURAN_FONT_SCALE).sp,
-                lineHeight = (arabicSizeSp * QURAN_FONT_SCALE * 1.9).sp,
                 color = palette.fg,
-                textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
-                style = androidx.compose.ui.text.TextStyle(textDirection = TextDirection.Rtl),
+                style = arabicTextStyle(arabicSizeSp, ornate = false).copy(textAlign = TextAlign.Center),
             )
         }
     }
@@ -172,7 +310,8 @@ private fun OrnateSurahHeader(
     nameTr: String,
     nameAr: String?,
     ayahCount: Int,
-    arabicSizeSp: Int,
+    arabicSizeSp: Float,
+    showArabic: Boolean,
     palette: AppPalette,
     style: AppStyle,
 ) {
@@ -232,25 +371,22 @@ private fun OrnateSurahHeader(
                     fontFamily = QuranFontFamily,
                     fontSize = (22 * QURAN_FONT_SCALE).sp,
                     color = style.goldInk,
-                    style = androidx.compose.ui.text.TextStyle(textDirection = TextDirection.Rtl),
+                    style = TextStyle(textDirection = TextDirection.Rtl),
                 )
             }
             Spacer(Modifier.height(8.dp))
             OrnamentDivider(style.gold, width = 170.dp)
         }
 
-        // Besmele: Fatiha'da 1. ayetin kendisi, Tevbe'de yok
-        if (surah != 1 && surah != 9 && mushaf.besmele.isNotEmpty()) {
+        // Besmele: Fatiha'da 1. ayetin kendisi, Tevbe'de yok; EKRANDA METİN: TÜRKÇE iken gizli
+        if (showArabic && surah != 1 && surah != 9 && mushaf.besmele.isNotEmpty()) {
             Spacer(Modifier.height(18.dp))
             Text(
                 text = mushaf.besmele,
-                fontFamily = QuranFontFamily,
-                fontSize = (arabicSizeSp * QURAN_FONT_SCALE).sp,
-                lineHeight = (arabicSizeSp * QURAN_FONT_SCALE * 1.9).sp,
                 color = style.headerTop,
-                textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
-                style = androidx.compose.ui.text.TextStyle(textDirection = TextDirection.Rtl),
+                // besmele satir araligi eskisi gibi 1.9 (ayet metninde zumrut 2.0)
+                style = arabicTextStyle(arabicSizeSp, ornate = false).copy(textAlign = TextAlign.Center),
             )
         }
     }
@@ -265,10 +401,12 @@ private fun AyahItem(
     dimmed: Boolean,
     hlStart: Int,
     hlEnd: Int,
-    arabicSizeSp: Int,
-    mealSizeSp: Int,
+    arabicSizeSp: Float,
+    mealSizeSp: Float,
     idleOpacity: Float,
     motion: Float,
+    showArabic: Boolean,
+    showMeal: Boolean,
 ) {
     val palette = LocalAppPalette.current
     val style = LocalAppStyle.current
@@ -290,7 +428,7 @@ private fun AyahItem(
     // Ayet sonu isareti: klasikte vurgu rengi, zumrutte altin
     val markColor = if (style.ornate) style.goldInk else palette.accent
     // Vurgulu kelimeler tek parca bant: aradaki bosluk da vurgulanir (eskiden her kelime ayri kutu → "kelimeler
-    // ayri ayri" gorunuyordu)
+    // ayri ayri" gorunuyordu). Karakterler ayahPlainText ile ayni (EKRANA SIĞDIR olcumu).
     val annotated: AnnotatedString = remember(words, hlStart, hlEnd, tentative, palette, firstWord, ayahNo, markColor) {
         fun hl(pos: Int) = hlStart >= 0 && pos in hlStart..hlEnd
         buildAnnotatedString {
@@ -311,10 +449,11 @@ private fun AyahItem(
             withStyle(SpanStyle(color = markColor)) { append(arabicDigits(ayahNo)) }
         }
     }
+    val shownMeal = if (showMeal) meal?.takeIf { it.isNotEmpty() } else null
 
     if (style.ornate) {
         OrnateAyahItem(
-            tag = mushaf.ayahTag(ayah), annotated = annotated, meal = meal,
+            tag = mushaf.ayahTag(ayah), annotated = if (showArabic) annotated else null, meal = shownMeal,
             isCurrent = isCurrent, tentative = tentative, alpha = alpha, anim = anim,
             arabicSizeSp = arabicSizeSp, mealSizeSp = mealSizeSp, palette = palette, style = style,
         )
@@ -327,6 +466,7 @@ private fun AyahItem(
         label = "ayahBg",
     )
     val labelColor = if (isCurrent) palette.accent else palette.fgFaded
+    val base = LocalTextStyle.current
 
     Column(
         modifier = Modifier
@@ -335,19 +475,17 @@ private fun AyahItem(
             .alpha(alpha),
     ) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(palette.border))
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Column(Modifier.padding(horizontal = CLASSIC_PAD_H, vertical = CLASSIC_PAD_V)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .border(1.dp, labelColor, RoundedCornerShape(3.dp))
-                        .padding(horizontal = 7.dp, vertical = 2.dp)
+                        .padding(horizontal = 7.dp, vertical = CLASSIC_TAG_V)
                 ) {
                     Text(
                         text = mushaf.ayahTag(ayah),   // "İbrâhîm: 2"
-                        fontFamily = style.label,
-                        fontSize = 10.sp,
                         color = labelColor,
-                        letterSpacing = 0.6.sp,
+                        style = tagTextStyle(base, style),
                     )
                 }
                 if (isCurrent && tentative) {
@@ -362,27 +500,21 @@ private fun AyahItem(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-
-            Text(
-                text = annotated,
-                fontFamily = QuranFontFamily,
-                fontSize = (arabicSizeSp * QURAN_FONT_SCALE).sp,
-                lineHeight = (arabicSizeSp * QURAN_FONT_SCALE * 1.9).sp,
-                textAlign = TextAlign.Start,
-                style = androidx.compose.ui.text.TextStyle(textDirection = TextDirection.Rtl),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            if (!meal.isNullOrEmpty()) {
-                Spacer(Modifier.height(10.dp))
+            if (showArabic) {
+                Spacer(Modifier.height(CLASSIC_GAP))
                 Text(
-                    text = meal,
-                    fontFamily = style.body,
-                    fontSize = mealSizeSp.sp,
-                    lineHeight = (mealSizeSp * 1.45).sp,
-                    fontWeight = FontWeight.Medium,
+                    text = annotated,
+                    style = arabicTextStyle(arabicSizeSp, ornate = false),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            if (shownMeal != null) {
+                Spacer(Modifier.height(CLASSIC_GAP))
+                Text(
+                    text = shownMeal,
                     color = if (isCurrent) palette.fg else palette.fgDim,
+                    style = mealTextStyle(base, mealSizeSp, style),
                 )
             }
         }
@@ -392,19 +524,19 @@ private fun AyahItem(
 /**
  * Zumrut ayet satiri. Tum satirlar ayni yerlesimde (ic/dis bosluk sabit) — okunan ayet olunca sadece kart belirir,
  * metin yerinden oynamaz. Kart marka metnindeki "yari saydam yesil HUD": fildisi → cok acik yesil zemin, yumusak
- * yesil isilti (golge), ince orman yesili cerceve; Arapca ustte, meal altta.
+ * yesil isilti (golge), ince orman yesili cerceve; Arapca ustte, meal altta. [annotated] / [meal] null: EKRANDA METİN.
  */
 @Composable
 private fun OrnateAyahItem(
     tag: String,
-    annotated: AnnotatedString,
+    annotated: AnnotatedString?,
     meal: String?,
     isCurrent: Boolean,
     tentative: Boolean,
     alpha: Float,
     anim: Int,
-    arabicSizeSp: Int,
-    mealSizeSp: Int,
+    arabicSizeSp: Float,
+    mealSizeSp: Float,
     palette: AppPalette,
     style: AppStyle,
 ) {
@@ -414,7 +546,7 @@ private fun OrnateAyahItem(
         label = "ayahCard",
     )
     val shape = RoundedCornerShape(22.dp)
-    val mealSp = mealSizeSp * style.bodyScale
+    val base = LocalTextStyle.current
     val hudBrush = remember(card, palette, style) {
         Brush.verticalGradient(listOf(palette.bgElev.copy(alpha = 0.97f * card), style.hudTint.copy(alpha = 0.95f * card)))
     }
@@ -423,7 +555,7 @@ private fun OrnateAyahItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .padding(horizontal = ORNATE_OUTER_H, vertical = ORNATE_OUTER_V)
                 .then(
                     if (card > 0.01f) Modifier
                         .shadow(
@@ -434,7 +566,7 @@ private fun OrnateAyahItem(
                         .border(1.dp, style.hudGlow.copy(alpha = 0.30f * card), shape)
                     else Modifier
                 )
-                .padding(horizontal = 12.dp, vertical = 14.dp),
+                .padding(horizontal = ORNATE_INNER_H, vertical = ORNATE_INNER_V),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Ayet etiketi: nane yesili hap (zeytin yazi); okunan ayette dolu orman yesili
@@ -447,15 +579,12 @@ private fun OrnateAyahItem(
                 Box(
                     modifier = Modifier
                         .background(pillBg, RoundedCornerShape(50))
-                        .padding(horizontal = 11.dp, vertical = 3.dp)
+                        .padding(horizontal = 11.dp, vertical = ORNATE_PILL_V)
                 ) {
                     Text(
-                        text = tag,   // "14-İbrâhîm:2"
-                        fontFamily = style.label,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 10.5.sp,
+                        text = tag,   // "İbrâhîm: 2"
                         color = pillFg,
-                        letterSpacing = 0.5.sp,
+                        style = tagTextStyle(base, style),
                     )
                 }
                 if (isCurrent && tentative) {
@@ -471,28 +600,23 @@ private fun OrnateAyahItem(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(ORNATE_GAP_TAG))
 
             // Arapca: genis satir araligi (ferah, saygili)
-            Text(
-                text = annotated,
-                fontFamily = QuranFontFamily,
-                fontSize = (arabicSizeSp * QURAN_FONT_SCALE).sp,
-                lineHeight = (arabicSizeSp * QURAN_FONT_SCALE * 2.0).sp,
-                textAlign = TextAlign.Start,
-                style = androidx.compose.ui.text.TextStyle(textDirection = TextDirection.Rtl),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (annotated != null) {
+                Text(
+                    text = annotated,
+                    style = arabicTextStyle(arabicSizeSp, ornate = true),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
-            if (!meal.isNullOrEmpty()) {
-                Spacer(Modifier.height(8.dp))
+            if (meal != null) {
+                if (annotated != null) Spacer(Modifier.height(ORNATE_GAP_MEAL))
                 Text(
                     text = meal,
-                    fontFamily = style.body,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = mealSp.sp,
-                    lineHeight = (mealSp * 1.55).sp,
                     color = if (isCurrent) palette.fg else palette.fgDim,
+                    style = mealTextStyle(base, mealSizeSp, style),
                 )
             }
         }

@@ -12,10 +12,28 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "tilavet_settings")
 
+/**
+ * Ayarlar → EKRANDA METİN: ayet satirlarinda ne gosterilir (kullanici 04.11: yatay ekranda Arapca ve Turkce ayni anda
+ * sigmayabilir). Sadece telefon ekrani; G2 gozluk ve rapor kendi ayarlarinda.
+ */
+object TextMode {
+    const val BOTH = "ar_tr"
+    const val ARABIC = "ar"
+    const val TURKISH = "tr"
+    val ALL = listOf(BOTH, ARABIC, TURKISH)
+
+    fun showArabic(mode: String) = mode != TURKISH
+    fun showMeal(mode: String) = mode != ARABIC
+}
+
 data class AppSettings(
     val theme: AppTheme = AppTheme.DEFAULT,
     val arabicSize: Int = 26,
     val mealSize: Int = 21,
+    // Ayarlar → EKRANDA METİN (TextMode) ve EKRANA SIĞDIR: okunan ayet sigmazsa Arapca + meal puntosu ayni oranda kuculur
+    // (ui/components/MushafView.rememberFitScale) — ayetin tamami kaydirmadan okunur
+    val textMode: String = TextMode.BOTH,
+    val fitToScreen: Boolean = false,
     // Ayarlar → MEAL: secili meal (data/MealCatalog, scripts/build_meals.py; varsayilan Ali Bulac)
     val mealId: String = MealCatalog.DEFAULT_ID,
     val motion: Float = 1f,        // 0, 0.5, 1
@@ -83,6 +101,8 @@ class SettingsRepository(private val context: Context) {
         val THEME = stringPreferencesKey("theme_v2")
         val ARABIC_SIZE = intPreferencesKey("arabic_size")
         val MEAL_SIZE = intPreferencesKey("meal_size")
+        val TEXT_MODE = stringPreferencesKey("text_mode")
+        val FIT_TO_SCREEN = booleanPreferencesKey("fit_to_screen")
         val MEAL_ID = stringPreferencesKey("meal_id")
         val MOTION = floatPreferencesKey("motion")
         val IDLE_OPACITY = intPreferencesKey("idle_opacity")
@@ -121,6 +141,8 @@ class SettingsRepository(private val context: Context) {
             theme = AppTheme.fromKey(prefs[Keys.THEME]),
             arabicSize = prefs[Keys.ARABIC_SIZE] ?: 26,
             mealSize = prefs[Keys.MEAL_SIZE] ?: 21,
+            textMode = prefs[Keys.TEXT_MODE]?.takeIf { it in TextMode.ALL } ?: TextMode.BOTH,
+            fitToScreen = prefs[Keys.FIT_TO_SCREEN] ?: false,
             mealId = prefs[Keys.MEAL_ID] ?: MealCatalog.DEFAULT_ID,
             motion = prefs[Keys.MOTION] ?: 1f,
             idleOpacity = prefs[Keys.IDLE_OPACITY] ?: 42,
@@ -167,6 +189,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setMealSize(size: Int) {
         context.dataStore.edit { it[Keys.MEAL_SIZE] = size }
+    }
+
+    suspend fun setTextMode(mode: String) {
+        context.dataStore.edit { it[Keys.TEXT_MODE] = mode.takeIf { m -> m in TextMode.ALL } ?: TextMode.BOTH }
+    }
+
+    suspend fun setFitToScreen(value: Boolean) {
+        context.dataStore.edit { it[Keys.FIT_TO_SCREEN] = value }
     }
 
     suspend fun setMealId(id: String) {

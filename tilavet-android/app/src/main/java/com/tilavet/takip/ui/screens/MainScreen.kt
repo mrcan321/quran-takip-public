@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -32,7 +33,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -44,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tilavet.takip.SimRecording
 import com.tilavet.takip.UiState
+import com.tilavet.takip.data.TextMode
 import com.tilavet.takip.session.EzanView
 import com.tilavet.takip.session.NamazZikri
 import com.tilavet.takip.ui.components.*
@@ -63,6 +67,12 @@ private const val FAR_JUMP_ITEMS = 8
 
 /** Okunan ayetin ekrandaki yeri: liste alaninin ustunden bu kadar asagi (onceki ayetin sonu gorunsun). */
 private val CURRENT_AYAH_TOP_OFFSET = 90.dp
+
+/**
+ * EKRANA SIĞDIR: okunan ayet liste alaninin ustunden en az bu kadar asagida ve alt barin en az bu kadar ustunde
+ * biter. Sigan ayet eskisi gibi 90 dp asagida durur; uzun ayette yukari kayar (onceki ayetin sonu gorunmez).
+ */
+private val FIT_MARGIN = 8.dp
 
 /**
  * Ana ekran — ustten alta tek sutun:
@@ -92,12 +102,22 @@ fun MainScreen(
     onSimStop: () -> Unit = {},
     onEzanDismiss: () -> Unit = {},
     onZikirDismiss: () -> Unit = {},
+    // Ust bardaki dondur ikonu (MainActivity: sabit dikey / yatay, sensor yok); yatayda ust / alt bar kompakt
+    landscape: Boolean = false,
+    onRotate: (() -> Unit)? = null,
 ) {
     val palette = LocalAppPalette.current
     val style = LocalAppStyle.current
     val listState = rememberLazyListState()
     val mushaf = state.mushaf
-    val focusOffsetPx = with(LocalDensity.current) { CURRENT_AYAH_TOP_OFFSET.roundToPx() }
+    val density = LocalDensity.current
+    val defaultOffsetPx = with(density) { CURRENT_AYAH_TOP_OFFSET.roundToPx() }
+    val fitMarginPx = with(density) { FIT_MARGIN.roundToPx() }
+    val showArabic = TextMode.showArabic(state.settings.textMode)
+    val showMeal = TextMode.showMeal(state.settings.textMode)
+    // Liste alani ve (listenin ustune binen) alt bar olculeri — EKRANA SIĞDIR
+    var listArea by remember { mutableStateOf(IntSize.Zero) }
+    var footerHeightPx by remember { mutableStateOf(0) }
 
     // Sese gore takip (otomatik kaydirma). Kullanici listeyi parmakla kaydirinca DURUR ve kendiliginden
     // geri donmez (eskiden 1.5 sn sonra okunan ayete donuyordu — kullanici onceki/sonraki ayetlere bakarken
@@ -109,8 +129,29 @@ fun MainScreen(
     LaunchedEffect(dragged) { if (dragged) followPaused = true }
     LaunchedEffect(state.isListening) { if (state.isListening) followPaused = false }
 
+    // EKRANA SIĞDIR: okunan ayet (etiket + Arapca + meal) alt barin ustune sigmazsa iki punto ayni oranda kuculur. Ses
+    // kesilince (TextHold) metin vurgusu kalksa da olcek kalir (rukûda yazi buyuyup kuculmesin); elle kaydirirken
+    // (takip durdu) olcek donar — liste parmagin altinda yeniden dizilmesin.
+    var fitAyah by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(state.currentAyah, followPaused) { if (!followPaused) fitAyah = state.currentAyah }
+    val fit = if (mushaf != null) rememberFitScale(
+        mushaf = mushaf,
+        ayah = if (followPaused) fitAyah else state.currentAyah,
+        widthPx = listArea.width,
+        availableHeightPx = listArea.height - footerHeightPx - 2 * fitMarginPx,
+        arabicSizeSp = state.settings.arabicSize.toFloat(),
+        mealSizeSp = state.settings.mealSize.toFloat(),
+        showArabic = showArabic,
+        showMeal = showMeal,
+        enabled = state.settings.fitToScreen,
+    ) else null
+    val fitScale = fit?.scale ?: 1f
+    // Sigan ayet eskisi gibi 90 dp asagida; uzun ayet tamami gorunecek kadar yukari (en az FIT_MARGIN)
+    val focusOffsetPx = if (fit == null) defaultOffsetPx
+    else (listArea.height - footerHeightPx - fitMarginPx - fit.itemHeightPx).coerceIn(fitMarginPx, maxOf(fitMarginPx, defaultOffsetPx))
+
     val targetItem = if (mushaf != null && state.currentAyah != null) mushaf.listIndexOfAyah(state.currentAyah) else null
-    LaunchedEffect(targetItem, followPaused, mushaf) {
+    LaunchedEffect(targetItem, followPaused, mushaf, focusOffsetPx, fitScale) {
         if (targetItem == null || followPaused) return@LaunchedEffect
         scrollToCurrent(listState, targetItem, focusOffsetPx, animate = state.settings.motion > 0f)
     }
@@ -121,7 +162,13 @@ fun MainScreen(
     }
 
     val rootBg = if (style.ornate) Modifier.ornateBackground(palette, style) else Modifier.background(palette.bg)
-    Column(modifier = Modifier.fillMaxSize().then(rootBg)) {
+    // Yatayda sistem gezinme cubugu / kamera centigi yanda: icerik altina girmesin
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(rootBg)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
+    ) {
         if (style.ornate) {
             OrnateHeader(
                 statusText = if (state.isListening && state.micSilenced) "Mikrofon susturuldu" else state.statusText,
@@ -136,6 +183,8 @@ fun MainScreen(
                 showAsrTest = state.settings.advancedTestMode,
                 onLogExport = onLogExport,
                 onReport = onReport,
+                onRotate = onRotate,
+                compact = landscape,
             )
         } else {
             TopBar(
@@ -148,13 +197,15 @@ fun MainScreen(
                 showAsrTest = state.settings.advancedTestMode,
                 onLogExport = onLogExport,
                 onReport = onReport,
+                onRotate = onRotate,
+                compact = landscape,
             )
 
             StatusLine(info = statusLineInfo(state), buildLabel = buildLabel)
         }
 
         // Icerik alani: liste + alt bilgi. Liste bu alanin disina tasmaz.
-        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        Box(modifier = Modifier.fillMaxWidth().weight(1f).onSizeChanged { listArea = it }) {
             if (mushaf != null) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     MushafList(
@@ -165,11 +216,13 @@ fun MainScreen(
                         tentative = state.tentative,
                         hlStart = state.hlStart,
                         hlEnd = state.hlEnd,
-                        arabicSizeSp = state.settings.arabicSize,
-                        mealSizeSp = state.settings.mealSize,
+                        arabicSizeSp = state.settings.arabicSize * fitScale,
+                        mealSizeSp = state.settings.mealSize * fitScale,
                         idleOpacity = state.settings.idleOpacity / 100f,
                         motion = state.settings.motion.coerceAtLeast(0.001f),
                         contentPadding = PaddingValues(top = if (style.ornate) 4.dp else 8.dp, bottom = 150.dp),
+                        showArabic = showArabic,
+                        showMeal = showMeal,
                     )
                 }
             } else {
@@ -234,7 +287,8 @@ fun MainScreen(
                 onSimRecording = onSimRecording,
                 onSimPickFile = onSimPickFile,
                 onSimStop = onSimStop,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                compact = landscape,
+                modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged { footerHeightPx = it.height },
             )
         }
     }
@@ -345,6 +399,8 @@ private fun TopBar(
     showAsrTest: Boolean,
     onLogExport: () -> Unit,
     onReport: () -> Unit,
+    onRotate: (() -> Unit)?,
+    compact: Boolean,
 ) {
     val palette = LocalAppPalette.current
     val style = LocalAppStyle.current
@@ -357,7 +413,7 @@ private fun TopBar(
             .background(palette.bg)
             .statusBarsPadding()
             .padding(horizontal = 18.dp)
-            .padding(top = 14.dp, bottom = 10.dp)
+            .padding(top = if (compact) 6.dp else 14.dp, bottom = if (compact) 4.dp else 10.dp)
     ) {
         Column(
             modifier = Modifier.weight(1f).padding(end = 8.dp),
@@ -398,13 +454,14 @@ private fun TopBar(
             showAsrTest = showAsrTest,
             onLogExport = onLogExport,
             onReport = onReport,
+            onRotate = onRotate,
         )
     }
 }
 
 /**
- * Ust bar ikonlari: (🔬) 📄 📤 ⚙ — 📄 namaz raporu, 📤 log + son kayit paylas. 🔬 ASR testi sadece GELİŞMİŞ TEST MODU
- * acikken. Eski Σ # ▶ (Fuzzy / Aligner / StateMachine fixture testleri) kaldirildi (30.10): ayni testler her kod
+ * Ust bar ikonlari: (🔬) ⟳ 📄 📤 ⚙ — ⟳ ekrani dondur (dikey / yatay), 📄 namaz raporu, 📤 log + son kayit paylas.
+ * 🔬 ASR testi sadece GELİŞMİŞ TEST MODU acikken. Eski Σ # ▶ (Fuzzy / Aligner / StateMachine fixture testleri) kaldirildi (30.10): ayni testler her kod
  * degisikliginde CI'da JVM'de kosuyor (tests/jvm, test kapisi `kotlin`), telefonda yeni bilgi vermiyordu.
  */
 @Composable
@@ -415,6 +472,7 @@ private fun TestIcons(
     showAsrTest: Boolean,
     onLogExport: () -> Unit,
     onReport: () -> Unit,
+    onRotate: (() -> Unit)? = null,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -426,6 +484,14 @@ private fun TestIcons(
                 onClick = onAsrTest,
                 contentDescription = "ASR Test",
                 icon = Icons.Filled.Science,
+            )
+        }
+        // Ekrani dondur: dikey ↔ yatay (sadece bu dugmeyle; telefonun hareketi dondurmez — kullanici 04.11)
+        if (onRotate != null) {
+            IconBtn(
+                onClick = onRotate,
+                contentDescription = "Ekranı döndür (dikey / yatay)",
+                icon = Icons.Filled.ScreenRotation,
             )
         }
         // Namaz raporu: son N namazda okunan ayetler (Arapca + meal + tefsir; Ayarlar → RAPORDAKİ NAMAZ SAYISI)
@@ -469,20 +535,23 @@ private fun OrnateHeader(
     showAsrTest: Boolean,
     onLogExport: () -> Unit,
     onReport: () -> Unit,
+    onRotate: (() -> Unit)?,
+    compact: Boolean,
 ) {
     val style = LocalAppStyle.current
     val shape = RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)
+    // Yatay (compact): ayet alanina yer kalsin diye bant ince — bosluklar, logo ve sure adi kuculur
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(14.dp, shape, ambientColor = style.shadow, spotColor = style.shadow)
             .headerBackground(style)
             .statusBarsPadding()
-            .padding(start = 18.dp, end = 14.dp, top = 10.dp, bottom = 11.dp),
+            .padding(start = 18.dp, end = 14.dp, top = if (compact) 4.dp else 10.dp, bottom = if (compact) 6.dp else 11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Marka logosu: krem madalyon, ince altin halka
-            BrandLogo(Modifier.size(38.dp).border(1.dp, style.gold.copy(alpha = 0.7f), CircleShape))
+            BrandLogo(Modifier.size(if (compact) 30.dp else 38.dp).border(1.dp, style.gold.copy(alpha = 0.7f), CircleShape))
             Spacer(Modifier.width(11.dp))
             Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 Row(
@@ -510,18 +579,18 @@ private fun OrnateHeader(
                             color = style.gold, letterSpacing = 0.5.sp)) { append("  ·  $surahNo") }
                     }
                 }
-                // Sigmazsa (uzun sure adi, ikonlar yer kapliyor) 22 → 16 sp kuculur, yine sigmazsa "…"
-                var titleSp by remember(title) { mutableStateOf(22f) }
+                // Sigmazsa (uzun sure adi, ikonlar yer kapliyor) 22 → 16 sp kuculur, yine sigmazsa "…" (yatayda 18 → 14)
+                var titleSp by remember(title, compact) { mutableStateOf(if (compact) 18f else 22f) }
                 Text(
                     text = title,
                     fontFamily = style.display,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = titleSp.sp,
-                    lineHeight = 28.sp,
+                    lineHeight = if (compact) 22.sp else 28.sp,
                     color = style.onHeader,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    onTextLayout = { r -> if (r.hasVisualOverflow && titleSp > 16f) titleSp -= 1f },
+                    onTextLayout = { r -> if (r.hasVisualOverflow && titleSp > (if (compact) 14f else 16f)) titleSp -= 1f },
                 )
             }
             TestIcons(
@@ -531,9 +600,10 @@ private fun OrnateHeader(
                 showAsrTest = showAsrTest,
                 onLogExport = onLogExport,
                 onReport = onReport,
+                onRotate = onRotate,
             )
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(if (compact) 5.dp else 10.dp))
         Box(
             Modifier
                 .fillMaxWidth()
@@ -544,7 +614,7 @@ private fun OrnateHeader(
                     )
                 )
         )
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(if (compact) 4.dp else 7.dp))
         StatusRow(
             info = info,
             buildLabel = buildLabel,
@@ -675,11 +745,14 @@ private fun Footer(
     onSimRecording: (File) -> Unit,
     onSimPickFile: () -> Unit,
     onSimStop: () -> Unit,
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalAppPalette.current
     val style = LocalAppStyle.current
     var simMenu by remember { mutableStateOf(false) }
+    // Yatay (compact): bar ince (ayet alanina yer kalsin)
+    val padV = if (compact) 5.dp else 12.dp
 
     val surahLabel = label.ifEmpty { "—" } + if (label.isNotEmpty() && tentative) " (aday)" else ""
     val confidenceLabel = confidence?.let { "%$it" } ?: "—"
@@ -701,7 +774,7 @@ private fun Footer(
             )
         }
         .navigationBarsPadding()
-        .padding(start = 22.dp, end = 18.dp, top = 12.dp, bottom = 12.dp)
+        .padding(start = 22.dp, end = 18.dp, top = padV, bottom = padV)
     else Modifier
         .background(
             Brush.verticalGradient(
@@ -712,7 +785,7 @@ private fun Footer(
         )
         .navigationBarsPadding()
         .padding(horizontal = 18.dp)
-        .padding(top = 16.dp, bottom = 18.dp)
+        .padding(top = if (compact) 6.dp else 16.dp, bottom = if (compact) 6.dp else 18.dp)
 
     Row(
         modifier = modifier
@@ -729,6 +802,7 @@ private fun Footer(
                 audioLevel = audioLevel,
                 palette = palette,
                 style = style,
+                compact = compact,
                 modifier = Modifier.weight(1f),
             )
         } else {
@@ -841,6 +915,7 @@ private fun OrnateFooterInfo(
     audioLevel: Float,
     palette: AppPalette,
     style: AppStyle,
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val labelStyle = TextStyle(
@@ -861,7 +936,7 @@ private fun OrnateFooterInfo(
         }
         return
     }
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("SURE", style = labelStyle)
             Spacer(Modifier.width(10.dp))

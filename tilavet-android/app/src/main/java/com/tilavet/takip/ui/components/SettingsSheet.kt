@@ -39,6 +39,7 @@ import com.tilavet.takip.audio.TextHold
 import com.tilavet.takip.report.ReportHtml
 import com.tilavet.takip.data.AppSettings
 import com.tilavet.takip.data.MealCatalog
+import com.tilavet.takip.data.TextMode
 import com.tilavet.takip.glasses.GlassesState
 import com.tilavet.takip.ui.theme.AppTheme
 import com.tilavet.takip.ui.theme.LocalAppPalette
@@ -56,6 +57,8 @@ fun SettingsSheet(
     onArabicSize: (Int) -> Unit,
     onMealSize: (Int) -> Unit,
     onMotion: (Float) -> Unit,
+    onTextMode: (String) -> Unit = {},
+    onFitToScreen: (Boolean) -> Unit = {},
     meals: List<MealCatalog.MealEdition> = emptyList(),
     onMealId: (String) -> Unit = {},
     onIdleOpacity: (Int) -> Unit,
@@ -205,6 +208,33 @@ fun SettingsSheet(
                         onValueChange = { onMealSize(it.toInt()) },
                         valueRange = 14f..32f,
                     )
+                }
+
+                // === Ekranda metin: yatay ekranda Arapca + meal birlikte sigmayabilir (kullanici 04.11) ===
+                SettingGroup(
+                    label = "EKRANDA METİN",
+                    hint = "Ayetlerde ne gösterilsin. Yatay ekranda (üstteki döndür düğmesi) Arapça ve Türkçe birlikte " +
+                        "sığmayabilir — tek dil seçin ya da EKRANA SIĞDIR'ı açın. G2 gözlük kendi ayarlarıyla çalışır.",
+                ) {
+                    ChoiceGrid(
+                        // 2 sutun: ARAPÇA | TÜRKÇE, altta tam genislikte ARAPÇA + TÜRKÇE (uzun etiket ucte bire sigmiyor)
+                        options = listOf("ARAPÇA" to TextMode.ARABIC, "TÜRKÇE" to TextMode.TURKISH, "ARAPÇA + TÜRKÇE" to TextMode.BOTH),
+                        current = settings.textMode,
+                        onSelect = onTextMode,
+                        columns = 2,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+
+                // === Ekrana sigdir: okunan ayet sigmazsa iki punto ayni oranda kuculur (MushafView.rememberFitScale) ===
+                SettingGroup(
+                    label = "EKRANA SIĞDIR",
+                    hint = "Açıkken okunan ayet ekrana sığmazsa yazı boyutları aynı oranda küçülür (ör. Arapça 20, Türkçe 30 " +
+                        "px seçiliyse ve yarıya inmesi gerekiyorsa 10 ve 15 px): ayetin tamamı kaydırmadan okunur. Sığan " +
+                        "ayette ayardaki boyutlar kullanılır; her yeni ayette yeniden hesaplanır. EKRANDA METİN'de tek dil " +
+                        "seçiliyse sadece o dil. Kapalıyken yazı hep ayardaki boyutta.",
+                ) {
+                    OnOffRow(current = settings.fitToScreen, onSelect = onFitToScreen)
                 }
 
                 // === Motion ===

@@ -1,6 +1,8 @@
 package com.tilavet.takip
 
 import android.Manifest
+import android.content.Context
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -41,6 +43,28 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** Arka plan / bildirim izni bu surec icinde bir kez istenir (reddedilirse Ayarlar → ARKA PLANDA ÇALIŞMA uyarir). */
         private var askedPermissions = false
+
+        // Ekran yonu: SharedPreferences (DataStore asenkron — acilista once dikey cizilip sonra donmesin)
+        private const val UI_PREFS = "tilavet_ui"
+        private const val KEY_LANDSCAPE = "landscape"
+    }
+
+    /**
+     * Ekran yonu sadece ust bardaki dondur ikonuyla degisir (kullanici 04.11: "telefonun hareketiyle tetiklenmesin"):
+     * sabit PORTRAIT / LANDSCAPE (sensorLandscape degil — telefon ters cevrilince de donmez). Secim kalici.
+     * Manifest'te configChanges → aktivite yeniden olusmaz, dinleme / liste konumu / pencereler oldugu gibi kalir.
+     */
+    private var landscape by mutableStateOf(false)
+
+    private fun applyOrientation() {
+        requestedOrientation = if (landscape) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
+
+    private fun toggleOrientation() {
+        landscape = !landscape
+        getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_LANDSCAPE, landscape).apply()
+        applyOrientation()
     }
 
     override fun onStart() {
@@ -69,20 +93,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        landscape = getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE).getBoolean(KEY_LANDSCAPE, false)
+        applyOrientation()
 
         setContent {
             val viewModel: MainViewModel = viewModel()
             val state by viewModel.state.collectAsStateWithLifecycle()
 
             TilavetTheme(appTheme = state.settings.theme) {
-                AppRoot(viewModel = viewModel)
+                AppRoot(viewModel = viewModel, landscape = landscape, onRotate = { toggleOrientation() })
             }
         }
     }
 }
 
 @Composable
-private fun AppRoot(viewModel: MainViewModel) {
+private fun AppRoot(viewModel: MainViewModel, landscape: Boolean, onRotate: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val palette = LocalAppPalette.current
 
@@ -133,6 +159,8 @@ private fun AppRoot(viewModel: MainViewModel) {
             onSimRecording = { viewModel.startSimulation(it) },
             onSimPickFile = { wavPicker.launch(arrayOf("audio/*")) },
             onSimStop = { viewModel.toggleListening() },
+            landscape = landscape,
+            onRotate = onRotate,
         )
 
         state.reportFile?.let { f ->
@@ -159,6 +187,8 @@ private fun AppRoot(viewModel: MainViewModel) {
                 onTheme = { viewModel.setTheme(it) },
                 onArabicSize = { viewModel.setArabicSize(it) },
                 onMealSize = { viewModel.setMealSize(it) },
+                onTextMode = { viewModel.setTextMode(it) },
+                onFitToScreen = { viewModel.setFitToScreen(it) },
                 meals = state.meals,
                 onMealId = { viewModel.setMealId(it) },
                 onMotion = { viewModel.setMotion(it) },

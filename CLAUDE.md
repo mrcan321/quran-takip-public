@@ -548,6 +548,23 @@ telefona geçmiyordu.
   Ölçüm (34 kayıt, replay): ardışık kilitlerin ~%8'i aynı surede 2-3 ayet ileri (rnnt 27/227, hibrit 17/245; ör. 1:2→1:4,
   94:5→94:7, 107:1→107:3); cuma hibrit 1:2 → 1:5 (88 sn'deki "الرحمن الرحيم" parçası ASR'de boş döndü). Sebep: boş/kısa
   parça ya da tek parçaya iki kısa ayet sığması. Masaüstü Compose düzeneğinde 12 zamanlama senaryosu + ekran testi.
+- **Ekran döndürme + EKRANDA METİN + EKRANA SIĞDIR (APK #155+):** kullanıcı (04.11): "üstte döndürme butonu, yatay / dikey;
+  Arapça ve Türkçe aynı anda sığmayabilir — göster / gizle seçenekleri; otomatik ekrana sığdır: sığmıyorsa puntoları orantılı
+  küçült (Arapça 20 / Türkçe 30 → yarıya: 10 / 15), hepsi kaydırmadan okunabilir olmalı; telefonun hareketiyle dönmesin".
+  - Üst barda ⟳ (`TestIcons`, `Icons.Filled.ScreenRotation`): `MainActivity.toggleOrientation` → sabit `SCREEN_ORIENTATION_PORTRAIT` /
+    `LANDSCAPE` (sensör yok, ters çevirince de dönmez); seçim SharedPreferences `tilavet_ui/landscape` (DataStore asenkron —
+    açılışta önce dikey çizilmesin). Manifest `configChanges` (+ screenLayout, smallestScreenSize) → aktivite yeniden
+    oluşmaz, dinleme / liste / pencereler aynen.
+  - Yatayda (`compact`) üst bant ve alt bar ince (boşluklar, logo 38 → 30 dp, sure adı 18 → 14 sp); kök sütun
+    `WindowInsets.safeDrawing` yatay boşluğu (yandaki gezinme çubuğu / kamera çentiği).
+  - Ayarlar → **EKRANDA METİN** (`AppSettings.textMode`, `data/TextMode`: ARAPÇA + TÜRKÇE / ARAPÇA / TÜRKÇE): ayet satırında
+    Arapça ya da meal gizlenir (TÜRKÇE'de besmele de); G2 ve rapor etkilenmez.
+  - Ayarlar → **EKRANA SIĞDIR** (`fitToScreen`, varsayılan kapalı; `MushafView.rememberFitScale`): okunan ayet (etiket + Arapça +
+    meal, seçiliyse tek dil) alt barın üstüne sığmazsa iki punto AYNI oranda küçülür; ölçek ikili aramayla gerçek yazı ölçümüyle
+    (`TextMeasurer`, liste ile aynı `TextStyle`'lar: `arabicTextStyle` / `mealTextStyle` / `tagTextStyle`, aynı boşluk sabitleri)
+    bulunur, en az %15. Ölçek tüm listeye uygulanır (yan yana ayetler aynı boyutta), her yeni ayette yeniden hesaplanır; ses
+    kesilince (TextHold) ve elle kaydırırken donar. Sığan ayet eskisi gibi 90 dp aşağıda, uzun ayet tamamı görünecek kadar
+    yukarı (en az 8 dp).
 - **Ezan / kamet penceresi (APK #26+):** kamet/ezan sinyaliyle (`ChunkResult.kamet`, açık sorun 10'daki Kuran'da
   geçmeyen kalıplar) liste üstünde kart açılır: tüm cümleler Arapça + Türkçe anlamı (Diyanet), okunan cümle vurgulu
   (okunmuşlar normal, sonrakiler soluk); sabah ("الصلاة خير من النوم") ve kamet ("قد قامت الصلاة") satırları duyulunca

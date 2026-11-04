@@ -986,6 +986,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setArabicSize(size: Int) { viewModelScope.launch { settingsRepo.setArabicSize(size) } }
     fun setMealSize(size: Int) { viewModelScope.launch { settingsRepo.setMealSize(size) } }
     fun setMealId(id: String) { viewModelScope.launch { settingsRepo.setMealId(id) } }
+    fun setTextMode(mode: String) { viewModelScope.launch { settingsRepo.setTextMode(mode) } }
+    fun setFitToScreen(value: Boolean) { viewModelScope.launch { settingsRepo.setFitToScreen(value) } }
     fun setMotion(motion: Float) { viewModelScope.launch { settingsRepo.setMotion(motion) } }
     fun setIdleOpacity(opacity: Int) { viewModelScope.launch { settingsRepo.setIdleOpacity(opacity) } }
     fun setSkippedAyahTenths(value: Int) { viewModelScope.launch { settingsRepo.setSkippedAyahTenths(value) } }
