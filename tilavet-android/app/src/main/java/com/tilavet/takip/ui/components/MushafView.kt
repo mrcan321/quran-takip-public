@@ -70,11 +70,14 @@ fun MushafList(
     modifier: Modifier = Modifier,
     showArabic: Boolean = true,
     showMeal: Boolean = true,
+    // Yatayda false: liste elle kaydirilmaz (namazda ekrana dokunulmaz), sadece takip kaydirir
+    userScrollEnabled: Boolean = true,
 ) {
     LazyColumn(
         state = listState,
         contentPadding = contentPadding,
         modifier = modifier.fillMaxSize(),
+        userScrollEnabled = userScrollEnabled,
     ) {
         items(
             count = mushaf.itemCount,

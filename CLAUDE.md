@@ -555,16 +555,25 @@ telefona geçmiyordu.
     `LANDSCAPE` (sensör yok, ters çevirince de dönmez); seçim SharedPreferences `tilavet_ui/landscape` (DataStore asenkron —
     açılışta önce dikey çizilmesin). Manifest `configChanges` (+ screenLayout, smallestScreenSize) → aktivite yeniden
     oluşmaz, dinleme / liste / pencereler aynen.
-  - Yatayda (`compact`) üst bant ve alt bar ince (boşluklar, logo 38 → 30 dp, sure adı 18 → 14 sp); kök sütun
-    `WindowInsets.safeDrawing` yatay boşluğu (yandaki gezinme çubuğu / kamera çentiği).
+  - **Yatay = tek üst satır (APK #157+):** kullanıcı (#156 ekran görüntüsü): "sabit bilgiler yüzünden ayete çok az yer kalıyor;
+    yatayda minimum bilgi ve buton, her birini tek tek sor, gerekli dediklerimi en üstte tek satıra". Seçimler (öğe öğe):
+    `MainScreen.LandscapeBar` = dinlerken **kırmızı yanıp sönen nokta** (`Controls.RecordingDot`; durunca görünmez, yer tutar),
+    **okunan ayet etiketi** (`currentLabel`, aday "(aday)", ses kesilince boş), **ses çubuğu**, **küçük mikrofon**
+    (`MicButton(small = true)` 38 / 36 dp), **döndür**. Yatayda YOK: alt bar (Footer), sure adı, durum metni, rekât / duruş,
+    güven, model durumu / gecikme, build etiketi, SİM konumu, logo, ayarlar / rapor / paylaş / simülasyon / ASR test, ezan /
+    kamet penceresi ve zikir kartı (dikeyde aynen). Liste elle kaydırılmaz (`MushafList(userScrollEnabled = false)`; "namazda
+    ekrana dokunulmamalı"), yataya geçince takip devam eder (takibe dön oku yok); okunan ayet listenin 12 dp altında
+    (`LANDSCAPE_AYAH_TOP_OFFSET`, dikeyde 90). Sistem çubukları yatayda gizli (`MainActivity.applySystemBars`: immersive,
+    kenardan kaydırınca geçici; `onResume`'da yeniden). Kök sütun `WindowInsets.safeDrawing` yatay boşluğu (kamera çentiği).
+    Dikey ekran değişmedi (#155-156'daki ince yatay üst / alt bar — `compact` — kaldırıldı).
   - Ayarlar → **EKRANDA METİN** (`AppSettings.textMode`, `data/TextMode`: ARAPÇA + TÜRKÇE / ARAPÇA / TÜRKÇE): ayet satırında
     Arapça ya da meal gizlenir (TÜRKÇE'de besmele de); G2 ve rapor etkilenmez.
   - Ayarlar → **EKRANA SIĞDIR** (`fitToScreen`, varsayılan kapalı; `MushafView.rememberFitScale`): okunan ayet (etiket + Arapça +
     meal, seçiliyse tek dil) alt barın üstüne sığmazsa iki punto AYNI oranda küçülür; ölçek ikili aramayla gerçek yazı ölçümüyle
     (`TextMeasurer`, liste ile aynı `TextStyle`'lar: `arabicTextStyle` / `mealTextStyle` / `tagTextStyle`, aynı boşluk sabitleri)
     bulunur, en az %15. Ölçek tüm listeye uygulanır (yan yana ayetler aynı boyutta), her yeni ayette yeniden hesaplanır; ses
-    kesilince (TextHold) ve elle kaydırırken donar. Sığan ayet eskisi gibi 90 dp aşağıda, uzun ayet tamamı görünecek kadar
-    yukarı (en az 8 dp).
+    kesilince (TextHold) ve elle kaydırırken donar. Sığan ayet eskisi gibi 90 dp (yatayda 12 dp) aşağıda, uzun ayet tamamı
+    görünecek kadar yukarı (en az 8 dp); yatayda alt bar olmadığı için alanın tamamı.
 - **Ezan / kamet penceresi (APK #26+):** kamet/ezan sinyaliyle (`ChunkResult.kamet`, açık sorun 10'daki Kuran'da
   geçmeyen kalıplar) liste üstünde kart açılır: tüm cümleler Arapça + Türkçe anlamı (Diyanet), okunan cümle vurgulu
   (okunmuşlar normal, sonrakiler soluk); sabah ("الصلاة خير من النوم") ve kamet ("قد قامت الصلاة") satırları duyulunca

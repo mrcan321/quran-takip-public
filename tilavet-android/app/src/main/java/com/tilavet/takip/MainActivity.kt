@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tilavet.takip.ui.components.ReportDialog
@@ -59,6 +61,27 @@ class MainActivity : ComponentActivity() {
     private fun applyOrientation() {
         requestedOrientation = if (landscape) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        applySystemBars()
+    }
+
+    /**
+     * Yatayda tam ekran (kullanici 04.11): ustteki saat / bildirim / pil ve yandaki gezinme tuslari gizli, ayetlere yer
+     * kalsin; kenardan kaydirinca birkac saniye gorunup yine gizlenir. Dikeyde sistem cubuklari normal.
+     */
+    private fun applySystemBars() {
+        val ctl = WindowCompat.getInsetsController(window, window.decorView)
+        if (landscape) {
+            ctl.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            ctl.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            ctl.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Baska uygulamadan / kilit ekranindan donunce bazi telefonlarda cubuklar geri geliyor: yatayda yine gizle
+        if (landscape) applySystemBars()
     }
 
     private fun toggleOrientation() {

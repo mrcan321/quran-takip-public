@@ -39,6 +39,8 @@ fun MicButton(
     isListening: Boolean,
     motion: Float,
     onToggle: () -> Unit,
+    // Yatay ust satir: kucuk (38 / 36 dp; dikeyde 58 / 56 dp); dinlerken dalga halkasi dugmenin boyunda baslar (satir yuksekligini buyutmez)
+    small: Boolean = false,
 ) {
     val palette = LocalAppPalette.current
     val style = LocalAppStyle.current
@@ -78,15 +80,15 @@ fun MicButton(
             if (isListening && motion > 0f) {
                 Box(
                     Modifier
-                        .size(64.dp)
+                        .size(if (small) 38.dp else 64.dp)
                         .scale(ringScale)
                         .border(1.5.dp, style.gold.copy(alpha = ringAlpha * 1.6f), CircleShape)
                 )
             }
             Box(
                 modifier = Modifier
-                    .size(58.dp)
-                    .shadow(10.dp, CircleShape, ambientColor = style.shadow, spotColor = style.shadow)
+                    .size(if (small) 38.dp else 58.dp)
+                    .shadow(if (small) 4.dp else 10.dp, CircleShape, ambientColor = style.shadow, spotColor = style.shadow)
                     .background(Brush.verticalGradient(listOf(style.headerBottom, palette.accent)), CircleShape)
                     .border(1.dp, style.gold.copy(alpha = if (isListening) 0.95f else 0.6f), CircleShape)
                     .then(clickable),
@@ -96,7 +98,7 @@ fun MicButton(
                     imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
                     contentDescription = "Başlat/Durdur",
                     tint = style.onHeader,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(if (small) 18.dp else 24.dp)
                 )
             }
         }
@@ -107,7 +109,7 @@ fun MicButton(
         if (isListening && motion > 0f) {
             Box(
                 Modifier
-                    .size(64.dp)
+                    .size(if (small) 36.dp else 64.dp)
                     .scale(ringScale)
                     .border(1.dp, palette.accent.copy(alpha = ringAlpha), CircleShape)
             )
@@ -115,7 +117,7 @@ fun MicButton(
 
         Box(
             modifier = Modifier
-                .size(56.dp)
+                .size(if (small) 36.dp else 56.dp)
                 .background(
                     color = if (isListening) palette.accent else palette.bgElev,
                     shape = CircleShape,
@@ -132,7 +134,7 @@ fun MicButton(
                 imageVector = if (isListening) Icons.Filled.Stop else Icons.Filled.Mic,
                 contentDescription = "Başlat/Durdur",
                 tint = if (isListening) palette.bg else palette.fg,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(if (small) 17.dp else 22.dp)
             )
         }
     }
@@ -278,6 +280,32 @@ fun IconBtn(
             modifier = Modifier.size(16.dp),
         )
     }
+}
+
+/* ============================================================
+ * Kayit noktasi (yatay ust satir): dinlerken kirmizi yanip soner, durunca gorunmez (yer tutar — yanindaki
+ * etiket kaymaz). Kullanici 04.11: "sadece kirmizi yanip sonen nokta, durunca nokta hic yok". Hareket ayarindan
+ * bagimsiz (durum gostergesi).
+ * ============================================================ */
+private val REC_RED = Color(0xFFE53935)
+
+@Composable
+fun RecordingDot(active: Boolean) {
+    val infinite = rememberInfiniteTransition(label = "recDot")
+    val blink by infinite.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "recBlink"
+    )
+    Box(
+        Modifier
+            .size(10.dp)
+            .background(REC_RED.copy(alpha = if (active) blink else 0f), CircleShape)
+    )
 }
 
 /* ============================================================
