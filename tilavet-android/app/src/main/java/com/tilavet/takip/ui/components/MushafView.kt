@@ -201,16 +201,16 @@ fun rememberFitScale(
         val arabic = if (showArabic) ayahPlainText(mushaf.words(ayah), mushaf.ayahNumber(ayah)) else null
         val meal = if (showMeal) mushaf.meal(ayah)?.takeIf { it.isNotEmpty() } else null
         with(density) {
-            val textW = (widthPx - (if (ornate) 2 * (ORNATE_OUTER_H + ORNATE_INNER_H) else 2 * CLASSIC_PAD_H).roundToPx())
+            val textW = (widthPx - (if (ornate) (ORNATE_OUTER_H + ORNATE_INNER_H) * 2 else CLASSIC_PAD_H * 2).roundToPx())
                 .coerceAtLeast(1)
             val tagH = measurer.measure(AnnotatedString(mushaf.ayahTag(ayah)), tagTextStyle(base, style)).size.height
             // Olcekle degismeyen kisim: bosluklar + etiket satiri (+ Arapca → meal arasi)
             val both = arabic != null && meal != null
             val spacing = if (ornate) {
-                2 * ORNATE_OUTER_V + 2 * ORNATE_INNER_V + 2 * ORNATE_PILL_V + ORNATE_GAP_TAG +
+                ORNATE_OUTER_V * 2 + ORNATE_INNER_V * 2 + ORNATE_PILL_V * 2 + ORNATE_GAP_TAG +
                     (if (both) ORNATE_GAP_MEAL else 0.dp) + 1.dp
             } else {
-                1.dp + 2 * CLASSIC_PAD_V + 2 * CLASSIC_TAG_V + CLASSIC_GAP + (if (both) CLASSIC_GAP else 0.dp)
+                1.dp + CLASSIC_PAD_V * 2 + CLASSIC_TAG_V * 2 + CLASSIC_GAP + (if (both) CLASSIC_GAP else 0.dp)
             }
             val fixed = (spacing + FIT_SAFETY).roundToPx() + tagH
             val constraints = Constraints(maxWidth = textW)
