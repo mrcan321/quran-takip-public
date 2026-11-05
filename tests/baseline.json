@@ -103,8 +103,8 @@
         "sections": 620,
         "sections_locked": 606,
         "delay_median": 5.5,
-        "delay_mean": 8.05,
-        "wrong_chunks": 52,
+        "delay_mean": 7.99,
+        "wrong_chunks": 54,
         "shown_wrong": 15
       },
       "S5": {
