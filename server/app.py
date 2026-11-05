@@ -899,8 +899,10 @@ def is_noise_break(toks) -> bool:
 
 
 def fatiha_finished(state) -> bool:
-    """FATIHA'da Fatiha bitmis olabilir mi: son FATIHA_TAIL_WORDS kelimeye ulasildi ya da son eslesmeden sonra parca gecti."""
-    return state.fatiha_tail or state.last_match_chunk is None or state.now_chunk - state.last_match_chunk >= 2
+    """FATIHA'da Fatiha bitmis olabilir mi: son FATIHA_TAIL_WORDS kelimeye ulasildi, son eslesmeden sonra parca gecti ya da
+    son saglam eslesmeden FATIHA_TAIL_CHUNKS parca gecti."""
+    return (state.fatiha_tail or state.last_match_chunk is None or state.now_chunk - state.last_match_chunk >= 2
+            or state.last_solid_chunk is None or state.now_chunk - state.last_solid_chunk >= FATIHA_TAIL_CHUNKS)
 
 
 def strip_tilavet_end(text: str) -> Tuple[str, bool]:
@@ -978,6 +980,8 @@ NOISE_BREAK_EXTRA = 1
 # Fatiha bitmeden zamm yok: FATIHA'da eslesmeler son FATIHA_TAIL_WORDS kelimeye ulasmadiysa ve son eslesmenin hemen ardindaki
 # parcadaysak dogal gecis noktasi degil, fark payiyla da gecilmez (sabah 05.11: 1:7 ortasinda "إذا كنتم" → 10:22 dogal gecis)
 FATIHA_TAIL_WORDS = 5
+# ... ya da son saglam eslesmeden FATIHA_TAIL_CHUNKS parca sonra (zorlama S4: gurultu Fatiha sonunu sildi, zayif "تبارك الذي" 1:7)
+FATIHA_TAIL_CHUNKS = 3
 
 
 def is_tevhid(text: str) -> bool:

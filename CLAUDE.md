@@ -1940,12 +1940,20 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
   - **Fatiha bitmeden zamm yok** (`FATIHA_TAIL_WORDS` 5, `fatiha_finished`, `fatiha_tail`, `now_chunk`): FATIHA'da eşleşmeler Fatiha'nın son
     5 kelimesine ("غير المغضوب عليهم ولا الضالين") ulaşmadıysa ve son eşleşmenin hemen ardındaki parçadaysak (araya âmin / boş parça
     girmedi) doğal geçiş noktası değil (2 kelimelik atlama, açılış / devam / doğal geçiş yok) ve fark payıyla da geçilmez; başka yere
-    ancak 2 parçayla doğrulanan (görünmez) aday olarak. ASR Fatiha sonunu kaçırırsa bir parça ara yeter.
+    ancak 2 parçayla doğrulanan (görünmez) aday olarak. ASR Fatiha sonunu kaçırırsa bir parça ara ya da son sağlam eşleşmeden
+    (≥ 3 kelime, ≥ ilk kilit eşiği) `FATIHA_TAIL_CHUNKS` (3) parça geçmesi yeter: zorlama S4'te gürültü 1:6-1:7'yi silince zammın ilk
+    parçası "تبارك الذي" 1:7 başına zayıf eşleşiyor, 25:10 kilidi 15 sn gecikiyordu (ilk sürümde "1:6'ya ulaşılalı 3 parça" kuralı
+    3 tohumun 2'sini kurtarıyordu).
 - Sonuç (bugünkü kayıt, hibrit / telefon parçaları): rükû / secdede yanlış gösterim yok (26:207-208 görünmez aday, "أمر الله" red), 2.
   rekât zamm 26:207 295.7 sn'de (imam 292.0; eskiden 10:22 → 300.7'de 26:207), yanlış surede kilitli parça 2 → 0. Eski kayıtlarda
   12038 parçada (gerçek + dış kaynak + sentetik, iki zincir) tek değişiklik: sentetik hatimde okuma dışındaki görünür 47:12 kilidi →
-  görünmez aday. Replay / bileşik / dış / sentetik / sinyal / zorlama metrikleri aynı (rnnt'deki küçük fark sadece yeni kaydın ortalamaya
-  katılması). Fixture senaryo 37-38 → **38 × 934**.
+  görünmez aday. Replay / bileşik / dış / sentetik / sinyal metrikleri aynı (rnnt'deki küçük fark sadece yeni kaydın ortalamaya
+  katılması). Zorlama (aynı veride eski / yeni kod; yeni kayıt S4 gürültü kelime havuzunu değiştirdiği için baseline'la doğrudan
+  kıyaslanmaz): rnnt S1-S3 / S5 aynı, S4 yanlış kilitli 55 → 53; hibrit S1 6 → 4, S3 6 → 4, S4 59 → 54, S5 36 → 26; tek kötüleşme
+  hibrit S4'te ekranda yanlış aday 14 → 15 (yeni kaydın bir gürültü tohumunda kilit rükûda doğru şekilde düşüyor, sonraki gürültü
+  parçası görünür kilit kaybı adayı oluyor; eskiden 26:208 / 26:213 yanlış eşleşmeleri kilidi canlı tutuyordu). "Rükû işaretinden sonra
+  kilit kaybı adayı Fatiha değilse gösterme" denendi: gerçek veride Hasr 2:163 yanlış kilidi + doğru Felak adayı gizlendi → alınmadı.
+  Fixture senaryo 37-38 → **38 × 934**.
 - `training/real_labels.json` 22 namaz (yeni kayıt test: her 4. yeni kayıt; imamın 26:221 atlaması dışarıda).
 
 ---
@@ -2010,8 +2018,8 @@ DHIKR_WORDS   ← kilitliyken sadece zikir kelimelerinden ("الحمد لله ل
 SEQ_MIN_CONFIDENCE/MAX_LOST/MIN_WORDS/AHEAD = 50/1/3/1   ← ZAMM'da okuma sürerken (≤1 kayıp parça) ileri giden, aynı / sonraki
   ayete oturan ≥3 kelimelik eşleşme MIN_CONFIDENCE (55) yerine 50 ile kabul (bkz. 38)
 NOISE_BREAK_EXTRA=1   ← "المصدر" (+≤1 kelime) parçası da okuma arası: ondan sonra (araya ≥1 parça) <70 eşleşme ZAMM'da devam değil (bkz. 39)
-FATIHA_TAIL_WORDS=5   ← FATIHA'da son 5 kelimeye ulaşılmadıysa ve son eşleşmenin hemen ardındaki parçadaysak doğal geçiş / fark payıyla
-  geçiş yok, sadece aday (bkz. 39)
+FATIHA_TAIL_WORDS/CHUNKS = 5/3   ← FATIHA'da son 5 kelimeye ulaşılmadıysa, son eşleşmenin hemen ardındaki parçadaysak ve son sağlam
+  eşleşmeden 3 parça geçmediyse doğal geçiş / fark payıyla geçiş yok, sadece aday (bkz. 39)
 CONTINUE_FAR/TIE_MARGIN = 40/0.5   ← Fatiha sonunda eşit eşleşmede son zamm'ın suresinde kalınan yer..+40 ayetteki ayet başı (bkz. 37)
 FRESH_TIE_MARGIN/WINDOW_BELOW/MAX_PLACES/AHEAD = 5/90/8/2   ← taze geçiş parçası Kuran'da birebir 2-8 yerde geçiyorsa sonraki
   parçada pencere <90 iken diğer yerlerin devamı (yer..+2 ayet) pencereden ≥5 iyi → düzeltilir (bkz. 37)

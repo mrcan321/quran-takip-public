@@ -595,9 +595,10 @@ def is_noise_break(toks):
 
 
 def fatiha_finished(state):
-    """FATIHA'da Fatiha okunup bitmis olabilir mi: son FATIHA_TAIL_WORDS kelimeye ulasildi ya da son eslesmeden sonra en az bir
-    parca (amin / ara) gecti — bkz. FATIHA_TAIL_WORDS."""
-    return state.fatiha_tail or state.last_match_chunk is None or state.now_chunk - state.last_match_chunk >= 2
+    """FATIHA'da Fatiha okunup bitmis olabilir mi: son FATIHA_TAIL_WORDS kelimeye ulasildi, son eslesmeden sonra en az bir parca
+    (amin / ara) gecti ya da son saglam eslesmeden FATIHA_TAIL_CHUNKS parca gecti — bkz. FATIHA_TAIL_WORDS."""
+    return (state.fatiha_tail or state.last_match_chunk is None or state.now_chunk - state.last_match_chunk >= 2
+            or state.last_solid_chunk is None or state.now_chunk - state.last_solid_chunk >= FATIHA_TAIL_CHUNKS)
 
 
 def strip_tilavet_end(text):
@@ -714,7 +715,11 @@ NOISE_BREAK_EXTRA = 1
 # (araya amin / bos parca girmedi) imam hala 1:7'yi okuyor: dogal gecis noktasi degil, fark payiyla da gecilmez; baska yere ancak
 # 2 parcayla dogrulanan aday olarak. Sabah 05.11, 2. rekat: 1:7 basi "صراط الذين" (270 sn), sonraki parca 1:7'nin devami ASR'de
 # "إذا كنتم" → Kuran'da tek yerde gecen 2 kelime → 10:22'ye dogal gecis (100) → 23 sn ekranda Yunus suresi.
+# Son saglam eslesmeden (>= ilk kilit kelime sayisi ve esigi) FATIHA_TAIL_CHUNKS parca sonra da Fatiha bitmis sayilir: zorlama
+# S4'te (yatsi 01.11, gurultu Fatiha'nin 1:6-1:7'sini sildi) zammin ilk parcasi "تبارك الذي" (2 kelime) 1:7 basina zayif eslesti,
+# son saglam Fatiha eslesmesinden 6-7 parca sonra gelen "خيرا من ذلك" (25:10) dogal gecis yerine aday oldu, kilit 15 sn gecikti.
 FATIHA_TAIL_WORDS = 5
+FATIHA_TAIL_CHUNKS = 3
 
 
 def is_tevhid(text):

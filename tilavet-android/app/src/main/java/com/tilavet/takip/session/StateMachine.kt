@@ -384,6 +384,10 @@ class StateMachine(
         // da gecilmez; baska yere ancak 2 parcayla dogrulanan aday olarak. Sabah 05.11, 2. rekat: 1:7 basi (270 sn), sonraki
         // parca 1:7'nin devami ASR'de "إذا كنتم" → Kuran'da tek yerde gecen 2 kelime → 10:22'ye dogal gecis → 23 sn ekranda Yunus.
         const val FATIHA_TAIL_WORDS = 5
+        // ... ya da son saglam eslesmeden (>= ilk kilit kelime sayisi ve esigi) FATIHA_TAIL_CHUNKS parca sonra: zorlama S4'te
+        // (gurultu Fatiha'nin 1:6-1:7'sini sildi) zammin ilk parcasi "تبارك الذي" 1:7 basina zayif eslesti, son saglam Fatiha
+        // eslesmesinden 6-7 parca sonra gelen "خيرا من ذلك" (25:10) dogal gecis yerine aday oldu.
+        const val FATIHA_TAIL_CHUNKS = 3
         // Belirsiz aday (UI): BEKLEME / kilit kaybi adayinda ikinci yer bu kadar yakinsa aday ekranda gosterilmez
         // (ChunkResult.ambiguous; state machine ayni, dogrulaninca kayar). 39 + 44 kayit (gercek, sentetik, dis kaynak)
         // × 2 zincir: ekrandaki 22 yanlis adayin farki 0-2.7 ("قل أعوذ برب" 113:1 / 114:1, "ألم تر كيف" 105:1 / 89:6 /
@@ -2259,12 +2263,13 @@ class StateMachine(
     }
 
     /**
-     * FATIHA'da Fatiha okunup bitmis olabilir mi: son FATIHA_TAIL_WORDS kelimeye ulasildi ya da son eslesmeden sonra en az bir
-     * parca (amin / ara) gecti — bkz. FATIHA_TAIL_WORDS.
+     * FATIHA'da Fatiha okunup bitmis olabilir mi: son FATIHA_TAIL_WORDS kelimeye ulasildi, son eslesmeden sonra en az bir parca
+     * (amin / ara) gecti ya da son saglam eslesmeden FATIHA_TAIL_CHUNKS parca gecti — bkz. FATIHA_TAIL_WORDS.
      */
     private fun fatihaFinished(state: SessionState): Boolean {
         val lm = state.lastMatchChunk ?: return true
-        return state.fatihaTail || state.nowChunk - lm >= 2
+        val ls = state.lastSolidChunk ?: return true
+        return state.fatihaTail || state.nowChunk - lm >= 2 || state.nowChunk - ls >= FATIHA_TAIL_CHUNKS
     }
 
     /** Sure no → acilisin (1. ayet, besmele disi) ilk kelimesinin ilk parcasi (bare) — Python opening_first_tokens. */
