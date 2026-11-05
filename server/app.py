@@ -330,6 +330,12 @@ class SessionState:
     # SILENT_RAKAT_FATIHAS
     fatiha_rakats: int = 0
     last_fatiha_entry: Optional[int] = None
+    # Son "المصدر" gurultu parcasinin indeksi — bkz. NOISE_BREAK_EXTRA
+    last_noise_chunk: Optional[int] = None
+    # Bu Fatiha'da son FATIHA_TAIL_WORDS kelimeye ulasan eslesme oldu mu — bkz. FATIHA_TAIL_WORDS
+    fatiha_tail: bool = False
+    # Islenmekte olan parcanin indeksi — bkz. FATIHA_TAIL_WORDS
+    now_chunk: int = 0
 
 
 # ============================================================
@@ -717,7 +723,7 @@ def at_transition_point(state: SessionState) -> bool:
     """Kilitli surede dogal gecis noktasinda miyiz: Fatiha sonu ya da zamm suresinin son ayetleri."""
     far = state.max_ayah or state.last_ayah or 0
     if state.state == NamazState.FATIHA:
-        return state.last_surah == 1 and far >= FATIHA_END_AYAH
+        return state.last_surah == 1 and far >= FATIHA_END_AYAH and fatiha_finished(state)
     if state.state == NamazState.ZAMM and state.last_surah and far:
         return is_near_surah_end(state.last_surah, far)
     return False
@@ -728,7 +734,7 @@ def is_natural_transition(state: SessionState, surah: int, ayah: int) -> bool:
     Fatiha sonu → baska herhangi bir yer (zamm suresi), sure sonu → bir surenin 1-2. ayeti."""
     far = state.max_ayah or state.last_ayah or 0
     if state.state == NamazState.FATIHA:
-        return surah != 1 and state.last_surah == 1 and far >= FATIHA_END_AYAH
+        return surah != 1 and state.last_surah == 1 and far >= FATIHA_END_AYAH and fatiha_finished(state)
     if state.state in (NamazState.ZAMM, NamazState.ARA) and state.last_surah and far:
         return ayah <= 2 and is_near_surah_end(state.last_surah, far)
     return False
@@ -880,6 +886,23 @@ def tekbir_after_reading(state) -> bool:
             and state.last_tekbir_chunk > state.last_solid_chunk)
 
 
+def noise_after_reading(state) -> bool:
+    """Son saglam eslesmeden sonra "المصدر" gurultu parcasi geldi mi — bkz. NOISE_BREAK_EXTRA."""
+    return (state.last_noise_chunk is not None and state.last_solid_chunk is not None
+            and state.last_noise_chunk > state.last_solid_chunk)
+
+
+def is_noise_break(toks) -> bool:
+    """Parca "المصدر" + en fazla NOISE_BREAK_EXTRA kelime mi ("المصدر كتاب")."""
+    rest = [t for t in toks if t not in ASR_NOISE_WORDS]
+    return len(rest) < len(toks) and len(rest) <= NOISE_BREAK_EXTRA
+
+
+def fatiha_finished(state) -> bool:
+    """FATIHA'da Fatiha bitmis olabilir mi: son FATIHA_TAIL_WORDS kelimeye ulasildi ya da son eslesmeden sonra parca gecti."""
+    return state.fatiha_tail or state.last_match_chunk is None or state.now_chunk - state.last_match_chunk >= 2
+
+
 def strip_tilavet_end(text: str) -> Tuple[str, bool]:
     words = text.split()
     toks = [bare_token(w) for w in words]
@@ -948,6 +971,13 @@ SEQ_MIN_CONFIDENCE = 50
 SEQ_MAX_LOST = 1
 SEQ_MIN_WORDS = 3
 SEQ_AHEAD = 1
+# ASR gurultu uydurmasi "المصدر" (+ en fazla NOISE_BREAK_EXTRA kelime: "المصدر كتاب") da okuma arasi isareti: ondan sonra (aradaki
+# en az bir parcayla) gelen TEKBIR_WEAK_MIN_SCORE altindaki eslesme okumanin devami degil (sabah 05.11: rukû tekbiri "المصدر كتاب",
+# semiallah "فنعم الله إذًا" 26:207-208'e 62.9). Kisa eslesme kurali sadece gercek tekbirden sonra.
+NOISE_BREAK_EXTRA = 1
+# Fatiha bitmeden zamm yok: FATIHA'da eslesmeler son FATIHA_TAIL_WORDS kelimeye ulasmadiysa ve son eslesmenin hemen ardindaki
+# parcadaysak dogal gecis noktasi degil, fark payiyla da gecilmez (sabah 05.11: 1:7 ortasinda "إذا كنتم" → 10:22 dogal gecis)
+FATIHA_TAIL_WORDS = 5
 
 
 def is_tevhid(text: str) -> bool:
@@ -1310,6 +1340,11 @@ def _commit_match(state: SessionState, match, score, jump, result):
         state.max_ayah = last_ayah
     else:
         state.max_ayah = max(state.max_ayah or 0, last_ayah)
+    # Fatiha sonu goruldu mu (bkz. FATIHA_TAIL_WORDS): Fatiha'ya yeni girince sifirdan
+    if state.state == NamazState.FATIHA:
+        e = match.end_word_idx + FATIHA_TAIL_WORDS
+        tail = last_surah == 1 and (e >= len(CORPUS.words) or CORPUS.words[e].surah != 1)
+        state.fatiha_tail = tail if result["state_before"] != NamazState.FATIHA.value else (state.fatiha_tail or tail)
 
     gap_filled_count = 0
     if verses and state.last_surah is not None and state.last_ayah is not None:
@@ -1357,6 +1392,7 @@ def _commit_match(state: SessionState, match, score, jump, result):
 def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_time: float):
     t_start = time.time()
     state.total_chunks += 1
+    state.now_chunk = chunk_index
     timings = {}
     result = {"type": "chunk", "index": chunk_index, "state_before": state.state.value}
 
@@ -1425,8 +1461,11 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     tekbir_tevhid = (dhikr and not in_hold and (state.state in (NamazState.BEKLEME, NamazState.ARA) or abandoned)
                      and state.last_tekbir_chunk is not None
                      and chunk_index - state.last_tekbir_chunk <= TEKBIR_TEVHID_CHUNKS and is_tevhid(text))
-    if is_tekbir_only([t for t in (bare_token(w) for w in text.split()) if t]):
+    toks0 = [t for t in (bare_token(w) for w in text.split()) if t]
+    if is_tekbir_only(toks0):
         state.last_tekbir_chunk = chunk_index
+    elif is_noise_break(toks0):
+        state.last_noise_chunk = chunk_index
     if (dhikr and sehadet and state.state == NamazState.BEKLEME) or tekbir_tevhid:
         signal = "kamet"
     if signal:
@@ -1751,7 +1790,8 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 jump = "natural"
             elif in_candidate:
                 jump = "verified"
-            elif not tie and not early and is_unique_match(text, g, gs, word_count):
+            elif (not tie and not early and not (state.state == NamazState.FATIHA and not fatiha_finished(state))
+                  and is_unique_match(text, g, gs, word_count)):
                 jump = "verified"   # fark payi: baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
             elif (state.state == NamazState.ZAMM and score < MIN_CONFIDENCE_FIRST_LOCK and gfs == state.last_surah
                   and state.last_ayah is not None and state.last_ayah - RESUME_BACK <= gla < state.last_ayah):
@@ -1828,10 +1868,12 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                    and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
     # Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
     tekbir_weak = (state.state == NamazState.ZAMM and not relock and not opening and jump not in ("natural", "verified")
-                   and tekbir_after_reading(state)
-                   and ((word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
-                        or (score < TEKBIR_WEAK_MIN_SCORE
-                            and chunk_index - state.last_tekbir_chunk >= TEKBIR_WEAK_MIN_GAP)))
+                   and ((tekbir_after_reading(state)
+                         and ((word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
+                              or (score < TEKBIR_WEAK_MIN_SCORE
+                                  and chunk_index - state.last_tekbir_chunk >= TEKBIR_WEAK_MIN_GAP)))
+                        or (noise_after_reading(state) and score < TEKBIR_WEAK_MIN_SCORE
+                            and chunk_index - state.last_noise_chunk >= TEKBIR_WEAK_MIN_GAP)))
     stock_weak = (state.state in (NamazState.FATIHA, NamazState.ZAMM) and not relock and jump not in ("natural", "verified")
                   and score < MIN_CONFIDENCE_FIRST_LOCK
                   and tuple(t for t in (bare_token(w) for w in text.split()) if t) in STOCK_PHRASES)

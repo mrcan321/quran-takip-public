@@ -70,6 +70,12 @@ data class SessionState(
     var fatihaRakats: Int = 0,
     /** Son Fatiha girisinin parca indeksi (ayni rekatta iki kez sayilmasin). */
     var lastFatihaEntry: Int? = null,
+    /** Son "المصدر" gurultu parcasinin indeksi — StateMachine.NOISE_BREAK_EXTRA. */
+    var lastNoiseChunk: Int? = null,
+    /** Bu Fatiha'da son FATIHA_TAIL_WORDS kelimeye ulasan eslesme oldu mu — StateMachine.FATIHA_TAIL_WORDS. */
+    var fatihaTail: Boolean = false,
+    /** Islenmekte olan parcanin indeksi (Fatiha bitti mi: son eslesmeden sonra parca gecti mi) — StateMachine.FATIHA_TAIL_WORDS. */
+    var nowChunk: Int = 0,
 )
 
 /**

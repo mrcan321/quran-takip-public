@@ -371,6 +371,19 @@ class StateMachine(
         const val SEQ_MAX_LOST = 1
         const val SEQ_MIN_WORDS = 3
         const val SEQ_AHEAD = 1
+        // Okuma arasi isareti sadece tekbir degil: ASR'nin tekbir / sessizlik / gurultu uydurmasi "المصدر" (+ en fazla
+        // NOISE_BREAK_EXTRA kelime: "المصدر كتاب") da. Bu parcadan sonra (aradaki en az bir parcayla, TEKBIR_WEAK_MIN_GAP) gelen
+        // TEKBIR_WEAK_MIN_SCORE altindaki eslesme okumanin devami degil. Sabah 05.11: 26:206 bitti, rukû tekbiri ASR'de "المصدر كتاب",
+        // semiallah "فنعم الله إذًا" → 26:207-208'e 62.9 → rukûda ekranda 2. rekatta okunacak ayetler; eslesme kayip sayacini da
+        // sifirladigi icin secde tekbiri "أمر الله" (2 kelime) 26:213'e 86.7 ile oturdu. Kisa eslesme kurali (TEKBIR_SHORT_MIN_SCORE)
+        // sadece gercek tekbirden sonra (sentetik teravihte okuma arasindaki "المصدر"den sonra 106:4 reddediliyordu).
+        const val NOISE_BREAK_EXTRA = 1
+        // Fatiha bitmeden zamm yok (kullanici 05.11: "Fatiha bitene kadar hicbir imam baska ayet okumaz"): FATIHA'da eslesmeler
+        // Fatiha'nin son FATIHA_TAIL_WORDS kelimesine ("غير المغضوب عليهم ولا الضالين") ulasmadiysa ve son eslesmenin hemen
+        // ardindaki parcadaysak (araya amin / bos parca girmedi) imam hala 1:7'yi okuyor: dogal gecis noktasi degil, fark payiyla
+        // da gecilmez; baska yere ancak 2 parcayla dogrulanan aday olarak. Sabah 05.11, 2. rekat: 1:7 basi (270 sn), sonraki
+        // parca 1:7'nin devami ASR'de "إذا كنتم" → Kuran'da tek yerde gecen 2 kelime → 10:22'ye dogal gecis → 23 sn ekranda Yunus.
+        const val FATIHA_TAIL_WORDS = 5
         // Belirsiz aday (UI): BEKLEME / kilit kaybi adayinda ikinci yer bu kadar yakinsa aday ekranda gosterilmez
         // (ChunkResult.ambiguous; state machine ayni, dogrulaninca kayar). 39 + 44 kayit (gercek, sentetik, dis kaynak)
         // × 2 zincir: ekrandaki 22 yanlis adayin farki 0-2.7 ("قل أعوذ برب" 113:1 / 114:1, "ألم تر كيف" 105:1 / 89:6 /
@@ -901,6 +914,7 @@ class StateMachine(
         state: SessionState,
     ): ChunkResult {
         state.totalChunks += 1
+        state.nowChunk = chunkIndex
         val stateBefore = state.state
 
         // 1. Sessizlik kontrolu
@@ -980,8 +994,11 @@ class StateMachine(
         val tekbirTevhid = dhikr && !inHold &&
             (state.state == NamazState.BEKLEME || state.state == NamazState.ARA || abandoned) &&
             lastTekbir != null && chunkIndex - lastTekbir <= TEKBIR_TEVHID_CHUNKS && isTevhid(asrText)
-        if (isTekbirOnly(asrText.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() })) {
+        val toks0 = asrText.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() }
+        if (isTekbirOnly(toks0)) {
             state.lastTekbirChunk = chunkIndex
+        } else if (isNoiseBreak(toks0)) {
+            state.lastNoiseChunk = chunkIndex
         }
         if ((dhikr && sehadet && state.state == NamazState.BEKLEME) || tekbirTevhid) signal = "kamet"
         if (signal == "kamet") {
@@ -1458,7 +1475,8 @@ class StateMachine(
                     inCandidate -> "verified"
                     // Fark payi: Kuran'da baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
                     // (telefon kaydi: 55 → 107 gecisi 12 → 7 sn; gurultu testinde yanlis kilit artmadi)
-                    !tie && !early && uniqueCheck(cleanText, tokens, gm, gsc, wordCount).let { uc ->
+                    !tie && !early && !(state.state == NamazState.FATIHA && !fatihaFinished(state)) &&
+                        uniqueCheck(cleanText, tokens, gm, gsc, wordCount).let { uc ->
                         if (uc.unique) notes += "gecis tek parcada (${uc.note})"
                         uc.unique
                     } -> "verified"
@@ -1567,9 +1585,12 @@ class StateMachine(
         val pausedWeak = state.state == NamazState.ZAMM && !relock && !opening && state.lostChunks >= PAUSE_LOST_CHUNKS &&
             wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < minConfidenceFirstLock
         val tekbirWeak = state.state == NamazState.ZAMM && !relock && !opening && jump != "natural" && jump != "verified" &&
-            tekbirAfterReading(state) &&
-            ((wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < TEKBIR_SHORT_MIN_SCORE) ||
-                (score < TEKBIR_WEAK_MIN_SCORE && chunkIndex - (state.lastTekbirChunk ?: chunkIndex) >= TEKBIR_WEAK_MIN_GAP))
+            ((tekbirAfterReading(state) &&
+                ((wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < TEKBIR_SHORT_MIN_SCORE) ||
+                    (score < TEKBIR_WEAK_MIN_SCORE && chunkIndex - (state.lastTekbirChunk ?: chunkIndex) >= TEKBIR_WEAK_MIN_GAP))) ||
+                // "المصدر" gurultu parcasindan sonra da zayif eslesme (bkz. NOISE_BREAK_EXTRA)
+                (noiseAfterReading(state) && score < TEKBIR_WEAK_MIN_SCORE &&
+                    chunkIndex - (state.lastNoiseChunk ?: chunkIndex) >= TEKBIR_WEAK_MIN_GAP))
         // Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
         val stockWeak = (state.state == NamazState.FATIHA || state.state == NamazState.ZAMM) && !relock &&
             jump != "natural" && jump != "verified" && score < minConfidenceFirstLock &&
@@ -1836,6 +1857,12 @@ class StateMachine(
             state.maxAyah = lastAyah
         } else {
             state.maxAyah = max(state.maxAyah ?: 0, lastAyah)
+        }
+        // Fatiha sonu goruldu mu (bkz. FATIHA_TAIL_WORDS): Fatiha'ya yeni girince sifirdan
+        if (state.state == NamazState.FATIHA) {
+            val fatihaLast = ayahToCorpusRange[Pair(1, 7)]?.second ?: Int.MAX_VALUE
+            val tail = lastSurah == 1 && match.endWordIdx + FATIHA_TAIL_WORDS > fatihaLast
+            state.fatihaTail = if (stateBefore != NamazState.FATIHA) tail else (state.fatihaTail || tail)
         }
 
         // 10. Gap fill
@@ -2142,7 +2169,7 @@ class StateMachine(
         val far = state.maxAyah ?: state.lastAyah ?: 0
         val ls = state.lastSurah
         return when (state.state) {
-            NamazState.FATIHA -> surah != 1 && ls == 1 && far >= FATIHA_END_AYAH
+            NamazState.FATIHA -> surah != 1 && ls == 1 && far >= FATIHA_END_AYAH && fatihaFinished(state)
             NamazState.ZAMM, NamazState.ARA -> ls != null && far > 0 && ayah <= 2 && isNearSurahEnd(ls, far)
             else -> false
         }
@@ -2153,7 +2180,7 @@ class StateMachine(
         val far = state.maxAyah ?: state.lastAyah ?: 0
         val ls = state.lastSurah
         return when (state.state) {
-            NamazState.FATIHA -> ls == 1 && far >= FATIHA_END_AYAH
+            NamazState.FATIHA -> ls == 1 && far >= FATIHA_END_AYAH && fatihaFinished(state)
             NamazState.ZAMM -> ls != null && far > 0 && isNearSurahEnd(ls, far)
             else -> false
         }
@@ -2216,6 +2243,28 @@ class StateMachine(
         val t = state.lastTekbirChunk ?: return false
         val s = state.lastSolidChunk ?: return false
         return t > s
+    }
+
+    /** Son saglam eslesmeden sonra "المصدر" gurultu parcasi geldi mi — bkz. NOISE_BREAK_EXTRA. */
+    private fun noiseAfterReading(state: SessionState): Boolean {
+        val t = state.lastNoiseChunk ?: return false
+        val s = state.lastSolidChunk ?: return false
+        return t > s
+    }
+
+    /** Parca ASR gurultu uydurmasi "المصدر" + en fazla NOISE_BREAK_EXTRA kelime mi ("المصدر كتاب") — bkz. NOISE_BREAK_EXTRA. */
+    private fun isNoiseBreak(toks: List<String>): Boolean {
+        val rest = toks.count { it !in ASR_NOISE_WORDS }
+        return rest < toks.size && rest <= NOISE_BREAK_EXTRA
+    }
+
+    /**
+     * FATIHA'da Fatiha okunup bitmis olabilir mi: son FATIHA_TAIL_WORDS kelimeye ulasildi ya da son eslesmeden sonra en az bir
+     * parca (amin / ara) gecti — bkz. FATIHA_TAIL_WORDS.
+     */
+    private fun fatihaFinished(state: SessionState): Boolean {
+        val lm = state.lastMatchChunk ?: return true
+        return state.fatihaTail || state.nowChunk - lm >= 2
     }
 
     /** Sure no → acilisin (1. ayet, besmele disi) ilk kelimesinin ilk parcasi (bare) — Python opening_first_tokens. */

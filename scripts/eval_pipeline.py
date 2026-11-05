@@ -145,6 +145,7 @@ EXPECTED = {
     "namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
     "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
     "namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav": "coklu",
+    "namaz_sabah6_suara_fatiha_suara.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -265,6 +266,12 @@ TIMELINE = {
     # 26:51 (233.6; 26:44 tekrar 160.9-170), rukû ~236, Fatiha 285.4, 26:52 (325.5) .. 26:68 (452.8; 26:61-62 ve 26:65 tekrar),
     # rukû 456.7, 3-4. rekat sessiz, selam / dua ~695-707. ASR bu imamda kotu: kilitliyken parcalarin %33'u dusuk skor.
     "namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav": [(0, None), (40, 1), (81, 26), (234, None), (285, 1), (325, 26), (454, None)],
+    # sabah 05.11 (APK #157, cami, 9.9 dk; kelime zamanli dokum): kayit 1. rekatin zammi ortasinda basliyor — Suara 26:176 (3.9) ..
+    # 26:206 (190.4), rukû tekbiri ~197 (ASR'de "المصدر كتاب"), semiallah 204.8 ("فنعم الله لمن عادا"), secde tekbirleri 212.6 /
+    # 228.2, Fatiha 248.9, 1:7 270.0-280.3, 26:207 (292.0) .. 26:227 (425.6; imam 26:221'i atlayip 26:222'yi okudu, 372.6'da
+    # 26:221'e dondu; okuma 425.6'da biter), rukû 431, semiallah ~441, selam ~531, istigfar / dua 546-586. Telefonda (hibrit) rukû / secdede 26:207-213,
+    # 2. rekatta 1:7 ortasinda "إذا كنتم" → 10:22 (bkz. NOISE_BREAK_EXTRA, FATIHA_TAIL_WORDS)
+    "namaz_sabah6_suara_fatiha_suara.wav": [(0, 26), (196, None), (248.5, 1), (291.5, 26), (427, None)],
 }
 
 
@@ -590,6 +597,7 @@ PREV_ZAMM = {
     "namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav": (25, 20),     # telefon log'u: yatsi 01.11 sonu 25:20
     "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": (25, 45),     # telefon log'u (sabahin rukûdaki 25:45 kilidi — APK #150)
     "namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav": (25, 67),       # telefon log'u: yatsi 02.11 sonu 25:67 (imam 26:34'ten basladi)
+    "namaz_sabah6_suara_fatiha_suara.wav": (55, 7),                    # telefon log'u: "onceki namazin kaldigi yer: 55:7"
 }
 
 

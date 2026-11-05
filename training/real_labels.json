@@ -143,6 +143,15 @@
                    {"start": 407.6, "end": 429.0, "surah": 26, "ayahs": [63, 65]}, {"start": 436.0, "end": 453.4, "surah": 26, "ayahs": [66, 68]}],
       "phrases": [[25.4, 28.0, "tekbir"], [277.2, 279.1, "tekbir"], [456.5, 458.1, "tekbir"], [515.6, 517.5, "tekbir"]],
       "_not": "disarida (imam tekrari): 160.7-170.7 26:44, 393.8-407.6 26:61-62, 429.0-436.0 26:65"
+    },
+    "namaz_sabah6_suara_fatiha_suara.wav": {
+      "date": "2026-11-05", "namaz": "sabah", "imam": "imam-1", "split": "test",
+      "segments": [{"start": 3.6, "end": 190.9, "surah": 26, "ayahs": [176, 206]},
+                   {"start": 248.6, "end": 280.3, "surah": 1, "ayahs": [2, 7]}, {"start": 291.8, "end": 366.3, "surah": 26, "ayahs": [207, 220]},
+                   {"start": 372.4, "end": 426.0, "surah": 26, "ayahs": [221, 227]}],
+      "phrases": [[204.5, 209.0, "semiallah"], [212.3, 214.0, "tekbir"], [227.9, 229.6, "tekbir"], [431.0, 432.7, "tekbir"],
+                  [448.1, 450.6, "tekbir"], [530.6, 535.5, "selam"], [575.1, 585.9, "dua"]],
+      "_not": "kayit 1. rekatin zammi ortasinda basliyor (Fatiha yok). Disarida: 366.3-372.4 imam 26:221'i atlayip 26:222'yi okudu, sonra 26:221'e dondu"
     }
   }
 }

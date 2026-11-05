@@ -314,6 +314,12 @@ class SessionState:
     # SILENT_RAKAT_FATIHAS
     fatiha_rakats: int = 0
     last_fatiha_entry: Optional[int] = None
+    # Son "المصدر" gurultu parcasinin indeksi — bkz. NOISE_BREAK_EXTRA
+    last_noise_chunk: Optional[int] = None
+    # Bu Fatiha'da son FATIHA_TAIL_WORDS kelimeye ulasan eslesme oldu mu — bkz. FATIHA_TAIL_WORDS
+    fatiha_tail: bool = False
+    # Islenmekte olan parcanin indeksi (Fatiha bitti mi: son eslesmeden sonra parca gecti mi — bkz. FATIHA_TAIL_WORDS)
+    now_chunk: int = 0
 
 
 def build_aux_maps(corpus):
@@ -421,7 +427,7 @@ def is_natural_transition(state, surah, ayah, surah_counts):
     Fatiha sonu → baska herhangi bir yer (zamm suresi), sure sonu → bir surenin 1-2. ayeti."""
     far = state.max_ayah or state.last_ayah or 0
     if state.state == NamazState.FATIHA:
-        return surah != 1 and state.last_surah == 1 and far >= FATIHA_END_AYAH
+        return surah != 1 and state.last_surah == 1 and far >= FATIHA_END_AYAH and fatiha_finished(state)
     if state.state in (NamazState.ZAMM, NamazState.ARA) and state.last_surah and far:
         return ayah <= 2 and is_near_surah_end(state.last_surah, far, surah_counts)
     return False
@@ -576,6 +582,24 @@ def tekbir_after_reading(state):
             and state.last_tekbir_chunk > state.last_solid_chunk)
 
 
+def noise_after_reading(state):
+    """Son saglam eslesmeden sonra "المصدر" gurultu parcasi geldi mi — bkz. NOISE_BREAK_EXTRA."""
+    return (state.last_noise_chunk is not None and state.last_solid_chunk is not None
+            and state.last_noise_chunk > state.last_solid_chunk)
+
+
+def is_noise_break(toks):
+    """Parca ASR gurultu uydurmasi "المصدر" + en fazla NOISE_BREAK_EXTRA kelime mi ("المصدر كتاب") — bkz. NOISE_BREAK_EXTRA."""
+    rest = [t for t in toks if t not in ASR_NOISE_WORDS]
+    return len(rest) < len(toks) and len(rest) <= NOISE_BREAK_EXTRA
+
+
+def fatiha_finished(state):
+    """FATIHA'da Fatiha okunup bitmis olabilir mi: son FATIHA_TAIL_WORDS kelimeye ulasildi ya da son eslesmeden sonra en az bir
+    parca (amin / ara) gecti — bkz. FATIHA_TAIL_WORDS."""
+    return state.fatiha_tail or state.last_match_chunk is None or state.now_chunk - state.last_match_chunk >= 2
+
+
 def strip_tilavet_end(text):
     """→ (ifade cikarilmis metin, bulundu mu)."""
     words = text.split()
@@ -677,6 +701,20 @@ SEQ_MIN_CONFIDENCE = 50
 SEQ_MAX_LOST = 1
 SEQ_MIN_WORDS = 3
 SEQ_AHEAD = 1
+# Okuma arasi isareti sadece tekbir degil: ASR'nin tekbir / sessizlik / gurultu uydurmasi "المصدر" (+ en fazla NOISE_BREAK_EXTRA
+# kelime: "المصدر كتاب") da. Bu parcadan sonra (aradaki en az bir parcayla, TEKBIR_WEAK_MIN_GAP) gelen TEKBIR_WEAK_MIN_SCORE
+# altindaki eslesme okumanin devami degil. Sabah 05.11: 26:206 bitti, rukû tekbiri ASR'de "المصدر كتاب" (198 sn), semiallah
+# "فنعم الله إذًا" → 26:207-208'e 62.9 → rukûda ekranda 2. rekatta okunacak ayetler; eslesme kayip sayacini da sifirladigi
+# icin secde tekbiri "أمر الله" (2 kelime) 26:213'e 86.7 ile oturdu (ara ayetler 26:209-212 de ekranda). Kayitlarda "المصدر"
+# parcalarinin cogu okuma disinda (tekbir, amin arasi, titresim); sentetik teravihte okuma arasinda da var → kisa eslesme
+# kurali (TEKBIR_SHORT_MIN_SCORE) sadece gercek tekbirden sonra (gurultuden sonra 106:4 "الذي أطعمني" reddediliyordu).
+NOISE_BREAK_EXTRA = 1
+# Fatiha bitmeden zamm yok (kullanici 05.11: "Fatiha bitene kadar hicbir imam baska ayet okumaz"): FATIHA'da eslesmeler Fatiha'nin
+# son FATIHA_TAIL_WORDS kelimesine ("غير المغضوب عليهم ولا الضالين") ulasmadiysa ve son eslesmenin hemen ardindaki parcadaysak
+# (araya amin / bos parca girmedi) imam hala 1:7'yi okuyor: dogal gecis noktasi degil, fark payiyla da gecilmez; baska yere ancak
+# 2 parcayla dogrulanan aday olarak. Sabah 05.11, 2. rekat: 1:7 basi "صراط الذين" (270 sn), sonraki parca 1:7'nin devami ASR'de
+# "إذا كنتم" → Kuran'da tek yerde gecen 2 kelime → 10:22'ye dogal gecis (100) → 23 sn ekranda Yunus suresi.
+FATIHA_TAIL_WORDS = 5
 
 
 def is_tevhid(text):
@@ -966,7 +1004,7 @@ def at_transition_point(state, surah_counts):
     """Kilitli surede dogal gecis noktasinda miyiz: Fatiha sonu ya da zamm suresinin son ayetleri."""
     far = state.max_ayah or state.last_ayah or 0
     if state.state == NamazState.FATIHA:
-        return state.last_surah == 1 and far >= FATIHA_END_AYAH
+        return state.last_surah == 1 and far >= FATIHA_END_AYAH and fatiha_finished(state)
     if state.state == NamazState.ZAMM and state.last_surah and far:
         return is_near_surah_end(state.last_surah, far, surah_counts)
     return False
@@ -1187,6 +1225,11 @@ def commit_match(state, match, score, word_count, chunk_index, state_before, jum
         state.max_ayah = last_ayah
     else:
         state.max_ayah = max(state.max_ayah or 0, last_ayah)
+    # Fatiha sonu goruldu mu (bkz. FATIHA_TAIL_WORDS): Fatiha'ya yeni girince sifirdan
+    if state.state == NamazState.FATIHA:
+        e = match.end_word_idx + FATIHA_TAIL_WORDS
+        tail = last_surah == 1 and (e >= len(corpus.words) or corpus.words[e].surah != 1)
+        state.fatiha_tail = tail if state_before != NamazState.FATIHA.value else (state.fatiha_tail or tail)
 
     gap_filled = 0
     if state.last_surah and state.last_ayah and first_surah == state.last_surah:
@@ -1228,6 +1271,7 @@ def commit_match(state, match, score, word_count, chunk_index, state_before, jum
 def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                         corpus, ayah_to_range, surah_counts, vocab):
     state.total_chunks += 1
+    state.now_chunk = chunk_index
     state_before = state.state.value
 
     # Sessizlik
@@ -1277,8 +1321,11 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     tekbir_tevhid = (dhikr and not in_hold and (state.state in (NamazState.BEKLEME, NamazState.ARA) or abandoned)
                      and state.last_tekbir_chunk is not None
                      and chunk_index - state.last_tekbir_chunk <= TEKBIR_TEVHID_CHUNKS and is_tevhid(transcribed_text))
-    if is_tekbir_only([t for t in (bare_token(w) for w in transcribed_text.split()) if t]):
+    toks0 = [t for t in (bare_token(w) for w in transcribed_text.split()) if t]
+    if is_tekbir_only(toks0):
         state.last_tekbir_chunk = chunk_index
+    elif is_noise_break(toks0):
+        state.last_noise_chunk = chunk_index
     if (dhikr and sehadet and state.state == NamazState.BEKLEME) or tekbir_tevhid:
         signal = "kamet"
     if signal == "kamet":
@@ -1569,7 +1616,8 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                 jump = "natural"
             elif in_candidate:
                 jump = "verified"
-            elif not tie and not early and is_unique_match(transcribed_text, g, gs, word_count, corpus, vocab, ayah_to_range):
+            elif (not tie and not early and not (state.state == NamazState.FATIHA and not fatiha_finished(state))
+                  and is_unique_match(transcribed_text, g, gs, word_count, corpus, vocab, ayah_to_range)):
                 # Fark payi: Kuran'da baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
                 # (telefon kaydi: 55 → 107 gecisi 12 → 7 sn; gurultu testinde yanlis kilit artmadi)
                 jump = "verified"
@@ -1634,10 +1682,13 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                   and score < MIN_CONFIDENCE_FIRST_LOCK
                   and tuple(t for t in (bare_token(w) for w in transcribed_text.split()) if t) in STOCK_PHRASES)
     tekbir_weak = (state.state == NamazState.ZAMM and not relock and not opening and jump not in ("natural", "verified")
-                   and tekbir_after_reading(state)
-                   and ((word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
-                        or (score < TEKBIR_WEAK_MIN_SCORE
-                            and chunk_index - state.last_tekbir_chunk >= TEKBIR_WEAK_MIN_GAP)))
+                   and ((tekbir_after_reading(state)
+                         and ((word_count < MIN_WORD_COUNT_FIRST_LOCK and score < TEKBIR_SHORT_MIN_SCORE)
+                              or (score < TEKBIR_WEAK_MIN_SCORE
+                                  and chunk_index - state.last_tekbir_chunk >= TEKBIR_WEAK_MIN_GAP)))
+                        # "المصدر" gurultu parcasindan sonra da zayif eslesme (bkz. NOISE_BREAK_EXTRA)
+                        or (noise_after_reading(state) and score < TEKBIR_WEAK_MIN_SCORE
+                            and chunk_index - state.last_noise_chunk >= TEKBIR_WEAK_MIN_GAP)))
     paused_weak = (state.state == NamazState.ZAMM and not relock and not opening and state.lost_chunks >= PAUSE_LOST_CHUNKS
                    and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
 
@@ -2777,6 +2828,56 @@ SCENARIOS = [
             (0.0433, ""),
             (0.0586, "الحمد لله لا إله إلا الله"),   # 12: zikir kelimeleri — gecis adayi yok (eskiden 37:35 adayi; telefonda 2:255)
             (0.0574, ""),
+        ],
+    },
+
+    # ============ Senaryo 37: sabah 05.11 (APK #157 telefon parcalari) — "المصدر" gurultu parcasi okuma arasi (NOISE_BREAK_EXTRA) ============
+    {
+        "description": "Suara 26:200-206 → rukû tekbiri ASR'de 'المصدر كتاب' → bos → semiallah 'فنعم الله إذًا' (26:207-208'e 62.9: "
+                       "okumanin devami degil) → secde → 'أمر الله' (kayip sayaci sifirlanmadigi icin kilit kaybinda 2 kelime yetmez; "
+                       "eskiden 26:213 + ara ayetler ekranda)",
+        "chunks": [
+            (0.0719, "كَذَلِكَ سَلَكْنَاهُ فِي قُلُوبِ الْمُجْرِمِينَ"),
+            (0.0738, "لا يُؤْمِنُونَ بِهِ حَتَّى يَرَوُا الْعَذَابَ الْأَلِيمَ"),
+            (0.0704, "عَذَابًا أَلِيمًا فَيَأْتِيَهُم بَغْتَةً أَوْ"),
+            (0.0705, "فيقول"),
+            (0.0648, "أَفَبِعَذَابِنَا يَسْتَعْجِلُونَ"),
+            (0.069, "أَفَرَأَيتَ إِن مَّتَّعنَا هُم سِنينَ"),
+            (0.0716, "ثُمَّ جَاءَهُم كَانَ المُسلمين"),
+            (0.0581, "وما كانوا يوعَدون"),
+            (0.0525, "المصدر كتاب"),                  # 8: rukû tekbiri (gurultu parcasi)
+            (0.0096, ""),
+            (0.0577, "فنعم الله إذًا"),               # 10: semiallah — 26:207-208 62.9 reddedilir
+            (0.0558, "ظلمًا"),
+            (0.0444, ""),
+            (0.0219, ""),
+            (0.0637, ""),
+            (0.0656, "المصدر كتاب"),
+            (0.034, ""),
+            (0.0553, "أمر الله"),                     # 17: secde tekbiri — 26:213'e oturmaz
+            (0.0743, ""),
+            (0.0139, ""),
+            (0.0596, "الحمد لله رب العالمين"),        # 20: 2. rekat Fatiha
+        ],
+    },
+
+    # ============ Senaryo 38: sabah 05.11 — Fatiha bitmeden zamm yok (FATIHA_TAIL_WORDS) ============
+    {
+        "description": "2. rekat Fatiha 1:2-1:7 basi → 1:7'nin devami ASR'de 'إذا كنتم' (Kuran'da tek yerde, 10:22'ye 100): Fatiha "
+                       "bitmedi, dogal gecis yok → Fatiha sonu / amin → 'ما أغنى عنهم ما كانوا' 26:207 (eskiden 10:22-24 23 sn ekranda)",
+        "chunks": [
+            (0.0596, "الحمد لله رب العالمين"),
+            (0.0635, "سورة"),
+            (0.0592, "مَالِكِ يَوْمِ الدِّينِ إِيَّاكَ نَعْبُدُ"),
+            (0.0575, "إنك نعبد وإيَّاكَ نستعِينُ"),
+            (0.0633, "اهدِنَا الصِرَاطَ المستقيم صِرَاطَ الَّذِينَ لَا دَعَوْهُ"),
+            (0.0576, "إذا كنتم"),                     # 5: 1:7'nin devami — 10:22'ye gecilmez
+            (0.0681, "توب عليهم ولو ضال"),
+            (0.0586, "المحسن"),
+            (0.0448, ""),
+            (0.0661, "مَا أَغْنَى عَنهُم مَا كَانُوا"),   # 9: zamm basi 26:207
+            (0.0677, "وَمَا كَانُوا يُمَتَّعُونَ وَمَا أَهْلَكْنَا مِن قَبْلُ"),
+            (0.0637, "مِن قَرْيَةٍ إِلَّا لَهَا مُنذِرُونَ"),
         ],
     },
 ]
