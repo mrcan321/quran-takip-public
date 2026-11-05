@@ -132,6 +132,13 @@ rnnt	namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav	535.0 olay 2. rekat ruk�
 rnnt	namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav	535.0 etiket 2. REKÂT · RÜKÛ / SECDE
 rnnt	namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav	605.0 etiket 2. REKÂT SONRASI · SESSİZ
 rnnt	namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav	son rekat=2 toplam=0 namaz=0
+rnnt	namaz_sabah6_suara_fatiha_suara.wav	210.0 olay semiallah (rekat bilinmiyor, okumadan sonra: sonraki Fatiha 2. rekat)
+rnnt	namaz_sabah6_suara_fatiha_suara.wav	255.0 olay 2. rekat (Fatiha)
+rnnt	namaz_sabah6_suara_fatiha_suara.wav	255.0 etiket 2. REKÂT · KIYAM
+rnnt	namaz_sabah6_suara_fatiha_suara.wav	445.0 olay 2. rekat rukû (semiallah)
+rnnt	namaz_sabah6_suara_fatiha_suara.wav	445.0 etiket 2. REKÂT · RÜKÛ / SECDE
+rnnt	namaz_sabah6_suara_fatiha_suara.wav	515.0 etiket 2. REKÂT SONRASI · SESSİZ
+rnnt	namaz_sabah6_suara_fatiha_suara.wav	son rekat=2 toplam=0 namaz=0
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	70.0 olay 1. rekat (Fatiha)
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	70.0 etiket 1. REKÂT · KIYAM
 rnnt	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	290.0 etiket 1. REKÂT · RÜKÛ / SECDE
@@ -455,6 +462,14 @@ rnnt-hibrit	namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav	534.8 olay 2. rek
 rnnt-hibrit	namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav	534.8 etiket 2. REKÂT · RÜKÛ / SECDE
 rnnt-hibrit	namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav	607.0 etiket 2. REKÂT SONRASI · SESSİZ
 rnnt-hibrit	namaz_sabah5_kamet_fatiha_furkan_fatiha_furkan.wav	son rekat=2 toplam=0 namaz=0
+rnnt-hibrit	namaz_sabah6_suara_fatiha_suara.wav	252.5 olay 1. rekat (Fatiha)
+rnnt-hibrit	namaz_sabah6_suara_fatiha_suara.wav	252.5 etiket 1. REKÂT · KIYAM
+rnnt-hibrit	namaz_sabah6_suara_fatiha_suara.wav	455.7 etiket 1. REKÂT · RÜKÛ / SECDE
+rnnt-hibrit	namaz_sabah6_suara_fatiha_suara.wav	497.3 etiket 1. REKÂT SONRASI · SESSİZ
+rnnt-hibrit	namaz_sabah6_suara_fatiha_suara.wav	537.3 olay selam (namaz bitti, 1 rekat)
+rnnt-hibrit	namaz_sabah6_suara_fatiha_suara.wav	537.3 etiket SELAM
+rnnt-hibrit	namaz_sabah6_suara_fatiha_suara.wav	562.3 etiket -
+rnnt-hibrit	namaz_sabah6_suara_fatiha_suara.wav	son rekat=0 toplam=1 namaz=1
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	70.0 olay 1. rekat (Fatiha)
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	70.0 etiket 1. REKÂT · KIYAM
 rnnt-hibrit	namaz_sabah_kamet_fatiha_isra_fatiha_adiyat.wav	290.9 etiket 1. REKÂT · RÜKÛ / SECDE
