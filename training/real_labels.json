@@ -152,6 +152,15 @@
       "phrases": [[204.5, 209.0, "semiallah"], [212.3, 214.0, "tekbir"], [227.9, 229.6, "tekbir"], [431.0, 432.7, "tekbir"],
                   [448.1, 450.6, "tekbir"], [530.6, 535.5, "selam"], [575.1, 585.9, "dua"]],
       "_not": "kayit 1. rekatin zammi ortasinda basliyor (Fatiha yok). Disarida: 366.3-372.4 imam 26:221'i atlayip 26:222'yi okudu, sonra 26:221'e dondu"
+    },
+    "namaz_yatsi10_fatiha_neml_fatiha_neml.wav": {
+      "date": "2026-11-05", "namaz": "yatsi", "imam": "imam-1", "split": "train",
+      "segments": [{"start": 3.2, "end": 23.4, "surah": 1, "ayahs": [5, 7]}, {"start": 38.6, "end": 182.4, "surah": 27, "ayahs": [15, 22]},
+                   {"start": 230.1, "end": 261.0, "surah": 1, "ayahs": [2, 7]}, {"start": 271.7, "end": 329.0, "surah": 27, "ayahs": [23, 26]},
+                   {"start": 330.4, "end": 367.6, "surah": 27, "ayahs": [24, 26]}],
+      "phrases": [[192.2, 196.2, "semiallah"], [380.8, 384.6, "semiallah"], [402.2, 404.2, "tekbir"], [475.7, 477.6, "tekbir"],
+                  [483.7, 485.9, "tekbir"], [519.0, 521.0, "tekbir"], [581.6, 586.0, "selam"], [591.1, 597.2, "selam"]],
+      "_not": "kayit 1. rekatin Fatiha'si ortasinda (1:5) basliyor. 2. rekatta imam 27:24-26'yi tekrar okudu (ikinci bolum). Dua 603'te basliyor, kayit 611.6'da bitiyor (kesik → etikete alinmadi)"
     }
   }
 }

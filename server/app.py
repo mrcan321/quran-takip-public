@@ -239,15 +239,20 @@ def mark_ambiguous(result, text, match, score, pending):
         pending.alt_surah, pending.alt_ayah = collect_verses(ru.start_word_idx, ru.end_word_idx)[-1]
 
 
-def mark_pending_hidden(state, result, text, match, score, relock_fatiha):
-    """Ucuncu sesli Fatiha adayi (bkz. SILENT_RAKAT_FATIHAS) ya da belirsiz aday ekranda gosterilmez."""
-    if (relock_fatiha and SILENT_RAKAT_FATIHAS and state.fatiha_rakats >= SILENT_RAKAT_FATIHAS
+def mark_pending_hidden(state, result, text, match, score, relock, first_surah):
+    """Ucuncu sesli Fatiha adayi (bkz. SILENT_RAKAT_FATIHAS), belirsiz aday ya da zamm'dan sonra kilit kaybinda Fatiha disi aday
+    (bkz. FATIHA_TAIL_CHUNKS alti) ekranda gosterilmez."""
+    if (relock and first_surah == 1 and SILENT_RAKAT_FATIHAS and state.fatiha_rakats >= SILENT_RAKAT_FATIHAS
             and score < THIRD_FATIHA_DIRECT_SCORE):
         result["ambiguous"] = True
         result["third_fatiha"] = True
         result["reason"] += f"; {state.fatiha_rakats} sesli rekattan sonra Fatiha (3. rekat sessiz olmali)"
     else:
         mark_ambiguous(result, text, match, score, state.pending_match)
+        if (not result.get("ambiguous") and relock and first_surah != 1 and state.fatiha_rakats >= 1
+                and state.last_surah is not None and state.last_surah != 1):
+            result["ambiguous"] = True
+            result["reason"] += "; zamm'dan sonra kilit kaybinda Fatiha disi aday: ekranda gosterilmez"
 
 
 def is_unique_match(text, match, score, word_count):
@@ -982,6 +987,14 @@ NOISE_BREAK_EXTRA = 1
 FATIHA_TAIL_WORDS = 5
 # ... ya da son saglam eslesmeden FATIHA_TAIL_CHUNKS parca sonra (zorlama S4: gurultu Fatiha sonunu sildi, zayif "تبارك الذي" 1:7)
 FATIHA_TAIL_CHUNKS = 3
+# Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
+# yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
+# gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
+# الله أشكر" → 47:26 ADAY ekranda (Muhammed suresi). Son kilit Fatiha ise (vaazda Fatiha → uzun konusma → Felak, yatsi 19.10) aday
+# gorunur. Kalinan yerden devam (RESUME_BACK) zaten dogrudan kilit.
+# FATIHA'da pencere eslesmesi ilk kilit esiginin altindayken tum Kuran'da cok daha iyi bir yer (gecis adayi) bulunduysa pencere
+# eslesmesi Fatiha okumasi sayilmaz (kayip parca; aday gorunmez kalir). Yatsi 05.11, 1. rekat: ASR Fatiha 1:6-1:7'yi duymadi, zammin
+# ilk parcasi "ولقد آتينا داوون" (27:15) Fatiha'ya 57.4 (2:87 93.3) → 1:6 / 1:7 zamm okunurken ekranda.
 
 
 def is_tevhid(text: str) -> bool:
@@ -1882,9 +1895,13 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                   and score < MIN_CONFIDENCE_FIRST_LOCK
                   and tuple(t for t in (bare_token(w) for w in text.split()) if t) in STOCK_PHRASES)
 
+    # FATIHA'da zayif pencere eslesmesi, tum Kuran'da gecis adayi varken okuma degil (bkz. FATIHA_TAIL_CHUNKS alti)
+    fatiha_cand_weak = (state.state == NamazState.FATIHA and jump == "candidate" and match is not None
+                        and score < MIN_CONFIDENCE_FIRST_LOCK)
+
     # Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
     if (score < effective_threshold and not opening) or not match or insufficient_words or paused_weak or stock_weak \
-            or tekbir_weak:
+            or tekbir_weak or fatiha_cand_weak:
         result["status"] = "low_confidence"
         if tekbir_weak and score >= effective_threshold and not stock_weak:
             result["reason"] = (f"tekbirden sonra zayif eslesme ({word_count} kelime, skor {score:.1f} < "
@@ -1956,7 +1973,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             result["pending_surah"] = last_surah
             result["pending_ayah"] = last_ayah
             result["state"] = state.state.value
-            mark_pending_hidden(state, result, text, match, score, relock and first_surah == 1)
+            mark_pending_hidden(state, result, text, match, score, relock, first_surah)
             timings["total"] = time.time() - t_start
             result["timings"] = timings
             return result
@@ -1983,7 +2000,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 result["pending_surah"] = last_surah
                 result["pending_ayah"] = last_ayah
                 result["state"] = state.state.value
-                mark_pending_hidden(state, result, text, match, score, relock and first_surah == 1)
+                mark_pending_hidden(state, result, text, match, score, relock, first_surah)
                 timings["total"] = time.time() - t_start
                 result["timings"] = timings
                 return result

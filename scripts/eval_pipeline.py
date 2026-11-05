@@ -146,6 +146,7 @@ EXPECTED = {
     "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": "coklu",
     "namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav": "coklu",
     "namaz_sabah6_suara_fatiha_suara.wav": "coklu",
+    "namaz_yatsi10_fatiha_neml_fatiha_neml.wav": "coklu",
 }
 
 # Takip simulasyonu icin zaman cizelgesi: [(baslangic_sn, sure | None), ...] — sure gecisleri.
@@ -272,6 +273,14 @@ TIMELINE = {
     # 26:221'e dondu; okuma 425.6'da biter), rukû 431, semiallah ~441, selam ~531, istigfar / dua 546-586. Telefonda (hibrit) rukû / secdede 26:207-213,
     # 2. rekatta 1:7 ortasinda "إذا كنتم" → 10:22 (bkz. NOISE_BREAK_EXTRA, FATIHA_TAIL_WORDS)
     "namaz_sabah6_suara_fatiha_suara.wav": [(0, 26), (196, None), (248.5, 1), (291.5, 26), (427, None)],
+    # yatsi 05.11 (APK #157, cami, 10.2 dk; kelime zamanli dokum): kayit 1. rekatin Fatiha'si ortasinda basliyor — 1:5 (3.4), 1:6-1:7
+    # 17.9-23 (5 sn parcalarda ASR'de "المصدر كتاب" / uydurma / bos), Neml 27:15 (38.7) .. 27:22 (181.2), rukû ~185, semiallah 192.3,
+    # secde 207-213, Fatiha 230.3-260.2, 27:23 (271.9) .. 27:26 (328.2), imam 27:24-26'yi tekrar okudu (330.6-366.7), rukû 371.3,
+    # semiallah 380.9, secde 402-414, 3-4. rekat sessiz (semiallah 457 / 512), selam 581.7 / 591.2, dua 603. Telefonda (hibrit) 1. rekatta
+    # zamm basi "ولقد آتينا دون" Fatiha 1:7'ye (57.4) oturdu, 2. rekatin secde tekbiri "الأمرُ الله أشكر" → 47:26 ADAY ekranda
+    # (bkz. FATIHA_TAIL_CHUNKS alti: fatiha_cand_weak, zamm'dan sonra kilit kaybinda Fatiha disi aday). 24-38.5 amin / sessizlik (okuma yok;
+    # 1:6-1:7 ASR'de duyulmadigi icin metin 20 sn eslesmesizlikte 31. sn'de kalkiyor — dogru)
+    "namaz_yatsi10_fatiha_neml_fatiha_neml.wav": [(0, 1), (24, None), (38.5, 27), (186, None), (230, 1), (271.5, 27), (369, None)],
 }
 
 
@@ -598,6 +607,7 @@ PREV_ZAMM = {
     "namaz_yatsi8_kamet_fatiha_furkan_fatiha_furkan.wav": (25, 45),     # telefon log'u (sabahin rukûdaki 25:45 kilidi — APK #150)
     "namaz_yatsi9_kamet_fatiha_suara_fatiha_suara.wav": (25, 67),       # telefon log'u: yatsi 02.11 sonu 25:67 (imam 26:34'ten basladi)
     "namaz_sabah6_suara_fatiha_suara.wav": (55, 7),                    # telefon log'u: "onceki namazin kaldigi yer: 55:7"
+    "namaz_yatsi10_fatiha_neml_fatiha_neml.wav": (26, 227),            # telefon log'u: "onceki namazin kaldigi yer: 26:227"
 }
 
 

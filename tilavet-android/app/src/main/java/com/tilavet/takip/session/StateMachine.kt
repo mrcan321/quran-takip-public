@@ -388,6 +388,14 @@ class StateMachine(
         // (gurultu Fatiha'nin 1:6-1:7'sini sildi) zammin ilk parcasi "تبارك الذي" 1:7 basina zayif eslesti, son saglam Fatiha
         // eslesmesinden 6-7 parca sonra gelen "خيرا من ذلك" (25:10) dogal gecis yerine aday oldu.
         const val FATIHA_TAIL_CHUNKS = 3
+        // Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
+        // yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
+        // gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
+        // الله أشكر" → 47:26 ADAY ekranda (Muhammed suresi). Son kilit Fatiha ise (vaazda Fatiha → uzun konusma → Felak, yatsi 19.10) aday
+        // gorunur. Kalinan yerden devam (RESUME_BACK) zaten dogrudan kilit.
+        // FATIHA'da pencere eslesmesi ilk kilit esiginin altindayken tum Kuran'da cok daha iyi bir yer (gecis adayi) bulunduysa pencere
+        // eslesmesi Fatiha okumasi sayilmaz (kayip parca; aday gorunmez kalir). Yatsi 05.11, 1. rekat: ASR Fatiha 1:6-1:7'yi duymadi, zammin
+        // ilk parcasi "ولقد آتينا داوون" (27:15) Fatiha'ya 57.4 (2:87 93.3) → 1:6 / 1:7 zamm okunurken ekranda.
         // Belirsiz aday (UI): BEKLEME / kilit kaybi adayinda ikinci yer bu kadar yakinsa aday ekranda gosterilmez
         // (ChunkResult.ambiguous; state machine ayni, dogrulaninca kayar). 39 + 44 kayit (gercek, sentetik, dis kaynak)
         // × 2 zincir: ekrandaki 22 yanlis adayin farki 0-2.7 ("قل أعوذ برب" 113:1 / 114:1, "ألم تر كيف" 105:1 / 89:6 /
@@ -1596,6 +1604,9 @@ class StateMachine(
                 (noiseAfterReading(state) && score < TEKBIR_WEAK_MIN_SCORE &&
                     chunkIndex - (state.lastNoiseChunk ?: chunkIndex) >= TEKBIR_WEAK_MIN_GAP))
         // Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
+        // FATIHA'da zayif pencere eslesmesi, tum Kuran'da gecis adayi varken okuma degil (bkz. FATIHA_TAIL_CHUNKS alti)
+        val fatihaCandWeak = state.state == NamazState.FATIHA && jump == "candidate" && match != null &&
+            score < minConfidenceFirstLock
         val stockWeak = (state.state == NamazState.FATIHA || state.state == NamazState.ZAMM) && !relock &&
             jump != "natural" && jump != "verified" && score < minConfidenceFirstLock &&
             cleanText.trim().split(Regex("\\s+")).map { bareToken(it) }.filter { it.isNotEmpty() } in STOCK_PHRASES
@@ -1603,7 +1614,7 @@ class StateMachine(
         // 6. Skor / kelime yetersizse low_confidence
         // Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
         if ((score < effectiveThreshold && !opening) || match == null || insufficientWords || pausedWeak || stockWeak ||
-            tekbirWeak
+            tekbirWeak || fatihaCandWeak
         ) {
             val where = match?.let { m ->
                 collectVerses(m.startWordIdx, m.endWordIdx).firstOrNull()?.let { (s0, a0) -> " @ $s0:$a0" }
@@ -1718,6 +1729,9 @@ class StateMachine(
             val hiddenFatiha = relock && firstSurah == 1 && SILENT_RAKAT_FATIHAS > 0 &&
                 state.fatihaRakats >= SILENT_RAKAT_FATIHAS && score < THIRD_FATIHA_DIRECT_SCORE
             if (hiddenFatiha) notes += "${state.fatihaRakats} sesli rekattan sonra Fatiha (3. rekat sessiz olmali)"
+            // Zamm'dan sonra kilit kaybinda Fatiha disi aday gosterilmez (bkz. FATIHA_TAIL_CHUNKS alti)
+            val lsBefore = state.lastSurah
+            val afterZamm = relock && firstSurah != 1 && state.fatihaRakats >= 1 && lsBefore != null && lsBefore != 1
             val pm = state.pendingMatch
             if (pm == null) {
                 // Ilk match — pending olarak kaydet
@@ -1728,6 +1742,7 @@ class StateMachine(
                     altSurah = amb?.altSurah, altAyah = amb?.altAyah,
                 )
                 amb?.let { notes += it.note }
+                if (afterZamm && !hiddenFatiha && amb == null) notes += "zamm'dan sonra kilit kaybinda Fatiha disi aday: ekranda gosterilmez"
                 return ChunkResult(
                     chunkIndex = chunkIndex,
                     stateBefore = stateBefore,
@@ -1739,7 +1754,7 @@ class StateMachine(
                     confidence = score,
                     pendingSurah = lastSurah,
                     pendingAyah = lastAyah,
-                    ambiguous = hiddenFatiha || amb != null,
+                    ambiguous = hiddenFatiha || amb != null || afterZamm,
                     // UI adayi (kilit oncesi) gosterebilsin diye — state machine karari etkilenmez
                     matchStartWordIdx = match.startWordIdx,
                     matchEndWordIdx = match.endWordIdx,
@@ -1770,6 +1785,7 @@ class StateMachine(
                         altSurah = amb?.altSurah, altAyah = amb?.altAyah,
                     )
                     amb?.let { notes += it.note }
+                    if (afterZamm && !hiddenFatiha && amb == null) notes += "zamm'dan sonra kilit kaybinda Fatiha disi aday: ekranda gosterilmez"
                     return ChunkResult(
                         chunkIndex = chunkIndex,
                         stateBefore = stateBefore,
@@ -1781,7 +1797,7 @@ class StateMachine(
                         confidence = score,
                         pendingSurah = lastSurah,
                         pendingAyah = lastAyah,
-                        ambiguous = hiddenFatiha || amb != null,
+                        ambiguous = hiddenFatiha || amb != null || afterZamm,
                         matchStartWordIdx = match.startWordIdx,
                         matchEndWordIdx = match.endWordIdx,
                         reason = withNotes(

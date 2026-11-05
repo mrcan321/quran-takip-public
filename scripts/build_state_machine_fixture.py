@@ -720,6 +720,14 @@ NOISE_BREAK_EXTRA = 1
 # son saglam Fatiha eslesmesinden 6-7 parca sonra gelen "خيرا من ذلك" (25:10) dogal gecis yerine aday oldu, kilit 15 sn gecikti.
 FATIHA_TAIL_WORDS = 5
 FATIHA_TAIL_CHUNKS = 3
+# Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
+# yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
+# gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
+# الله أشكر" → 47:26 ADAY ekranda (Muhammed suresi). Son kilit Fatiha ise (vaazda Fatiha → uzun konusma → Felak, yatsi 19.10) aday
+# gorunur. Kalinan yerden devam (RESUME_BACK) zaten dogrudan kilit.
+# FATIHA'da pencere eslesmesi ilk kilit esiginin altindayken tum Kuran'da cok daha iyi bir yer (gecis adayi) bulunduysa pencere
+# eslesmesi Fatiha okumasi sayilmaz (kayip parca; aday gorunmez kalir). Yatsi 05.11, 1. rekat: ASR Fatiha 1:6-1:7'yi duymadi, zammin
+# ilk parcasi "ولقد آتينا داوون" (27:15) Fatiha'ya 57.4 (2:87 93.3) → 1:6 / 1:7 zamm okunurken ekranda.
 
 
 def is_tevhid(text):
@@ -1697,8 +1705,13 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     paused_weak = (state.state == NamazState.ZAMM and not relock and not opening and state.lost_chunks >= PAUSE_LOST_CHUNKS
                    and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
 
+    # FATIHA'da zayif pencere eslesmesi, tum Kuran'da gecis adayi varken okuma degil (bkz. FATIHA_TAIL_CHUNKS alti)
+    fatiha_cand_weak = (state.state == NamazState.FATIHA and jump == "candidate" and match is not None
+                        and score < MIN_CONFIDENCE_FIRST_LOCK)
+
     # Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
-    if (score < eff_thresh and not opening) or not match or insufficient or paused_weak or stock_weak or tekbir_weak:
+    if ((score < eff_thresh and not opening) or not match or insufficient or paused_weak or stock_weak or tekbir_weak
+            or fatiha_cand_weak):
         state.lost_chunks += 1
         cleanup_stale_candidates(state, chunk_index)
         new_state = transition_state(state, False, None, None)
@@ -1751,6 +1764,10 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                 res["ambiguous"] = True
                 ra = collect_verses(corpus, ru.start_word_idx, ru.end_word_idx)[-1]
                 state.pending_match.alt_surah, state.pending_match.alt_ayah = ra
+            elif (relock and first_surah != 1 and state.fatiha_rakats >= 1 and state.last_surah is not None
+                  and state.last_surah != 1):
+                # Zamm'dan sonra kilit kaybinda Fatiha disi aday gosterilmez (bkz. FATIHA_TAIL_CHUNKS alti)
+                res["ambiguous"] = True
             return res
 
     res = commit_match(state, match, score, word_count, chunk_index, state_before, jump, corpus)
@@ -2883,6 +2900,60 @@ SCENARIOS = [
             (0.0661, "مَا أَغْنَى عَنهُم مَا كَانُوا"),   # 9: zamm basi 26:207
             (0.0677, "وَمَا كَانُوا يُمَتَّعُونَ وَمَا أَهْلَكْنَا مِن قَبْلُ"),
             (0.0637, "مِن قَرْيَةٍ إِلَّا لَهَا مُنذِرُونَ"),
+        ],
+    },
+
+    # ============ Senaryo 39: yatsi 05.11 (APK #157 telefon parcalari) — Fatiha'da zayif eslesme, zamm basi (fatiha_cand_weak) ============
+    {
+        "description": "1. rekat Fatiha 1:5 → 1:6-1:7 ASR'de 'المصدر كتاب' / uydurma / bos → zamm basi 'ولقد آتينا دون' (27:15) Fatiha "
+                       "penceresine 57.4 (tum Kuran 2:87 93.3): Fatiha okumasi sayilmaz (eskiden 1:7 kilidi, zamm okunurken ekranda) → 27:15",
+        "chunks": [
+            (0.067, "موجود إياك نعبد"),
+            (0.0686, "نعبد وإياك نستعين"),
+            (0.0645, "المصدر كتاب"),                          # 2: Fatiha 1:6-1:7 ASR'de uydurma / bos
+            (0.0807, ""),
+            (0.0423, ""),
+            (0.0485, ""),
+            (0.0622, "المصدر كتاب"),
+            (0.0609, "شركة الهدى للخدمات التقنية"),
+            (0.0647, "المصدر كتاب"),
+            (0.056, "وَلَقَدْ آتَيْنَا دَوْنَ"),              # 9: zamm basi 27:15 — Fatiha'ya 57.4 (2:87 93.3): Fatiha okumasi sayilmaz
+            (0.0598, "وَآتَى دَاوُودَ وَسُلَيْمَانَ عِلْمًا وَقَالَ الْحَمْدُ"),  # 10: 27:15
+            (0.0589, "الحمد لله الذي فضَّلَنا على يثِيهم"),
+            (0.0502, "من عباده المؤمنين"),
+        ],
+    },
+
+    # ============ Senaryo 40: yatsi 05.11 — zamm'dan sonra kilit kaybinda Fatiha disi aday gizli ============
+    {
+        "description": "2. rekat Fatiha → Neml 27:23-26 → rukû / secde (uydurma, bos) → secde tekbiri ASR'de 'الأمرُ الله أشكر' → 47:26 "
+                       "adayi (kilit kaybi) ekranda gosterilmez (eskiden Muhammed suresi ADAY ekranda)",
+        "chunks": [
+            (0.0612, "الحمد لله رب العالمين الرحمن الرحيم"),  # 0: 2. rekat Fatiha
+            (0.059, "خير مالك يوم إياك"),
+            (0.0499, "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ"),
+            (0.0532, "اهدنا الصراط المستقيم صراطا المستقيم"),
+            (0.0491, "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ"),
+            (0.0526, "غير المغضوب عليهم ولو"),
+            (0.0533, ""),
+            (0.0695, "المركب"),
+            (0.049, "إني وجدت امرأة"),                        # 8: zamm 27:23
+            (0.0594, "امرأة تَمْلِكُهُمْ وَأُوتِيَتْ مِن كُلِّ شَيْءٍ"),
+            (0.0522, "كل شر ولها عرش عظيم وجدت أبيه"),
+            (0.057, "وَجَدْتُهَا وَقَوْمَهَا يَسْجُدُونَ"),
+            (0.045, "ما في السماوات والأرض ويالله"),
+            (0.0459, "ويعلم ما تُخفون وما تُعلنون"),
+            (0.0564, "الله لا الهَ الا هو"),                  # 14: 27:26
+            (0.0495, "إله ربُّ العرشِ العظيم"),
+            (0.0393, ""),
+            (0.0153, ""),
+            (0.0446, "شركة اله"),
+            (0.0457, "شركة الهدى للخدمات التقنية"),
+            (0.0526, ""),
+            (0.0319, ""),
+            (0.0469, "الأمرُ الله أشكر"),                     # 22: secde tekbiri — 47:26 adayi ekranda gosterilmez
+            (0.0467, "المصدر"),
+            (0.0163, ""),
         ],
     },
 ]
