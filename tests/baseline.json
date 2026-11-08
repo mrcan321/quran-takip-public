@@ -6,14 +6,14 @@
       "first_none": 0,
       "first_median": 10.0,
       "first_mean": 9.74,
-      "sections": 128,
-      "sections_locked": 128,
+      "sections": 132,
+      "sections_locked": 132,
       "delay_median": 5.2,
-      "delay_mean": 6.8,
+      "delay_mean": 6.97,
       "wrong_chunks": 0,
       "shown_wrong": 0,
       "show_delay_median": 5.15,
-      "show_delay_mean": 6.45
+      "show_delay_mean": 6.63
     },
     "rnnt-hibrit": {
       "first_ok": 19,
@@ -21,23 +21,23 @@
       "first_none": 0,
       "first_median": 10.0,
       "first_mean": 9.74,
-      "sections": 128,
-      "sections_locked": 128,
+      "sections": 132,
+      "sections_locked": 132,
       "delay_median": 5.0,
-      "delay_mean": 6.6,
+      "delay_mean": 6.78,
       "wrong_chunks": 1,
       "shown_wrong": 0,
       "show_delay_median": 5.0,
-      "show_delay_mean": 6.29
+      "show_delay_mean": 6.44
     }
   },
   "stress": {
     "rnnt": {
       "S1": {
-        "sections": 102,
-        "sections_locked": 102,
+        "sections": 106,
+        "sections_locked": 106,
         "delay_median": 5.2,
-        "delay_mean": 7.27,
+        "delay_mean": 7.47,
         "wrong_chunks": 3,
         "shown_wrong": 0
       },
@@ -50,36 +50,36 @@
         "shown_wrong": 0
       },
       "S3": {
-        "sections": 129,
-        "sections_locked": 129,
+        "sections": 134,
+        "sections_locked": 134,
         "delay_median": 6.0,
-        "delay_mean": 7.78,
+        "delay_mean": 7.94,
         "wrong_chunks": 3,
         "shown_wrong": 0
       },
       "S4": {
-        "sections": 640,
-        "sections_locked": 630,
+        "sections": 660,
+        "sections_locked": 649,
         "delay_median": 6.0,
-        "delay_mean": 8.05,
-        "wrong_chunks": 34,
-        "shown_wrong": 8
+        "delay_mean": 8.25,
+        "wrong_chunks": 52,
+        "shown_wrong": 6
       },
       "S5": {
-        "sections": 640,
-        "sections_locked": 638,
+        "sections": 660,
+        "sections_locked": 658,
         "delay_median": 5.5,
-        "delay_mean": 7.05,
-        "wrong_chunks": 23,
+        "delay_mean": 7.33,
+        "wrong_chunks": 16,
         "shown_wrong": 0
       }
     },
     "rnnt-hibrit": {
       "S1": {
-        "sections": 102,
-        "sections_locked": 101,
+        "sections": 106,
+        "sections_locked": 105,
         "delay_median": 5.0,
-        "delay_mean": 6.59,
+        "delay_mean": 6.81,
         "wrong_chunks": 4,
         "shown_wrong": 1
       },
@@ -92,26 +92,26 @@
         "shown_wrong": 0
       },
       "S3": {
-        "sections": 129,
-        "sections_locked": 128,
-        "delay_median": 5.95,
-        "delay_mean": 7.32,
+        "sections": 134,
+        "sections_locked": 133,
+        "delay_median": 5.9,
+        "delay_mean": 7.49,
         "wrong_chunks": 4,
         "shown_wrong": 1
       },
       "S4": {
-        "sections": 640,
-        "sections_locked": 628,
-        "delay_median": 5.5,
-        "delay_mean": 7.84,
+        "sections": 660,
+        "sections_locked": 642,
+        "delay_median": 5.95,
+        "delay_mean": 8.05,
         "wrong_chunks": 41,
-        "shown_wrong": 6
+        "shown_wrong": 4
       },
       "S5": {
-        "sections": 640,
-        "sections_locked": 639,
+        "sections": 660,
+        "sections_locked": 659,
         "delay_median": 5.0,
-        "delay_mean": 6.79,
+        "delay_mean": 7.07,
         "wrong_chunks": 24,
         "shown_wrong": 0
       }
@@ -173,40 +173,40 @@
   },
   "signals": {
     "signal_false_alarms": 1,
-    "kamet_detected": 177,
-    "selam_detected": 147,
-    "ruku_detected": 146,
-    "texts_scanned": 11098,
+    "kamet_detected": 181,
+    "selam_detected": 150,
+    "ruku_detected": 162,
+    "texts_scanned": 11430,
     "ezan_detected": 0
   },
   "app": {
     "app_diffs": 0,
-    "chunks": 10171
+    "chunks": 10392
   },
   "kotlin": {
     "fuzzy_passed": 51,
     "fuzzy_total": 51,
     "aligner_passed": 41,
     "aligner_total": 43,
-    "state_machine_passed": 972,
-    "state_machine_total": 972,
+    "state_machine_passed": 1016,
+    "state_machine_total": 1016,
     "fixture_failures": 0,
     "kotlin_trace_diffs": 0,
-    "kotlin_trace_recordings": 370,
+    "kotlin_trace_recordings": 376,
     "golden_diffs": 0,
     "rakat_errors": 0,
     "namaz_errors": 0,
     "chunk_diffs": 0,
-    "chunk_cases": 112,
+    "chunk_cases": 114,
     "wav_diffs": 0,
-    "wav_cases": 44,
+    "wav_cases": 45,
     "synth_rakat_errors": 0,
     "synth_namaz_errors": 1,
     "ext_ezan_opened": 6,
     "ext_ezan_false_opened": 0,
     "ext_rakat_errors": 0,
     "zikir_false_alarms": 0,
-    "zikir_shown": 494,
+    "zikir_shown": 518,
     "glasses_passed": 72,
     "glasses_total": 72,
     "glasses_failures": 0,
