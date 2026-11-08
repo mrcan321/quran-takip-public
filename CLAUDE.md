@@ -2006,13 +2006,18 @@ chunk'ların sadece ~%27'si geçer, kilit çok gecikir).
     penceresinde hizalanır; yeni yer adayınkinden 10 puandan az iyiyse doğal geçiş (ve fark payıyla geçiş) yerine aday. Bugün 87:6 72.6 /
     6:160 68.3 → aday, 6:161 aynı anda (120.6). Eski kayıtlarda bu durum 2 kez, ikisi doğru geçiş ve fark büyük: cuma "لهم الفزع الأكبر"
     21:103 (82.8 / 33:47 53.4), Rifai Hicr 15:1 (79.4 / 10:1 62.5) — farksız sürüm ikisini 1-3 parça geciktiriyordu → fark şartı.
-    Birleşik metin, önceki aday ve yeni yer de aday penceresi skoru (`js`) da denendi: ayırmıyor (Rifai 10:1 / 15:1 aynı açılış).
+    Birleşik metin adayın yerinde en az `CONFLICT_MIN_CONCAT` (60) almalı: ilk sürümde zorlama S4'te (rnnt, bu kaydın 4. gürültü
+    tohumu) gürültü parçası "حين خلا سحار لمن" 5:110 adayı üretti, gerçek 6:161 onunla "çelişkili" sayılıp 2:135'e yanlış kilit + 25 sn
+    gecikme oldu (birleşik metin 5:110 penceresinde 52.0; bugünkü 6:160 adayı 68.3). Mevcut parçanın aday penceresi skoru (`js`) da
+    denendi: ayırmıyor (Rifai 10:1 / 15:1 aynı açılış).
   - **"سمعه الله" / "سمعوا الله" semiallah** (`namaz_signal`, ZikirTracker): Kuran'da "سمع…" + "الله" sadece "سمع الله قول" (3:181,
     58:1) → "سمع"den uzun "سمع…" + "الله" rükû sinyali; tüm transkriptlerde sadece semiallahta. RakatTracker `namazSignal`'i kullanıyor →
     sayaç 4 rekât.
 - Sonuç (bugünkü kayıt, telefon / hibrit): A'lâ gösterimi yok, sessiz 3. rekâtın semiallahı ARA + rekât sayacı. Eski kayıtlarda 12529
   parçada 5 değişiklik, hepsi sabah 01.11'in (rnnt) okuma sonrasında ve iyileşme: rükûdaki "سمعه الله" 35:32 kilidi → semiallah,
-  "أمر الله العبد" 35:32 kilidi → gizli aday. Çelişki kuralı eski kayıtların hiçbirini değiştirmiyor. Zorlama (S1-S5, iki zincir, aynı veride eski / yeni kod): birebir aynı.
+  "أمر الله العبد" 35:32 kilidi → gizli aday. Çelişki kuralı eski kayıtların hiçbirini değiştirmiyor. Zorlama (yeni kayıt dahil aynı veride eski / yeni kod): rnnt S1-S5 birebir
+  aynı; hibrit yanlış kilitli parça S1 5 → 4, S3 5 → 4, S4 44 → 41, S5 29 → 24 (hepsi yeni kaydın 87:6'sı), gecikme aynı. Yeni kayıt
+  S4 gürültü kelime havuzunu değiştirdiği için baseline'da rnnt S4 yanlış kilitli 34 → 52 (eski kod da aynı veride 51).
   Fixture senaryo 41-42 → **42 × 1016**.
 - `training/real_labels.json` 24 namaz (yeni kayıt train, `imam-2`; kamet kayıt başında kesik, dua sonunda kesik → etiketlenmedi).
 
@@ -2082,7 +2087,8 @@ FATIHA_TAIL_WORDS/CHUNKS = 5/3   ← FATIHA'da son 5 kelimeye ulaşılmadıysa, 
   eşleşmeden 3 parça geçmediyse doğal geçiş / fark payıyla geçiş yok, sadece aday (bkz. 39)
 fatiha_cand_weak   ← FATIHA'da pencere eşleşmesi <70 ve tüm Kuran'da geçiş adayı varsa parça kayıp (bkz. 40)
 Zamm'dan sonra kilit kaybı adayı   ← fatiha_rakats >= 1, son kilit zamm (≠ Fatiha), aday Fatiha değil → ambiguous (ekranda yok, bkz. 40)
-CONFLICT_CONCAT_MARGIN=10   ← Fatiha sonunda yeni geçiş adayı + ayet ortasına doğal geçiş: birleşik metin yeni yere <10 iyi → aday (bkz. 41)
+CONFLICT_CONCAT_MARGIN/MIN_CONCAT = 10/60   ← Fatiha sonunda geçiş adayı + ayet ortasına doğal geçiş: birleşik metin aday yerinde ≥60 ve
+  yeni yerde <10 iyi → aday (bkz. 41)
 CONTINUE_FAR/TIE_MARGIN = 40/0.5   ← Fatiha sonunda eşit eşleşmede son zamm'ın suresinde kalınan yer..+40 ayetteki ayet başı (bkz. 37)
 FRESH_TIE_MARGIN/WINDOW_BELOW/MAX_PLACES/AHEAD = 5/90/8/2   ← taze geçiş parçası Kuran'da birebir 2-8 yerde geçiyorsa sonraki
   parçada pencere <90 iken diğer yerlerin devamı (yer..+2 ayet) pencereden ≥5 iyi → düzeltilir (bkz. 37)

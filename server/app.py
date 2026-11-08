@@ -998,6 +998,10 @@ FATIHA_TAIL_CHUNKS = 3
 # cuma "لهم الفزع الأكبر" 21:103 (birlesik 82.8 / aday 33:47 penceresi 53.4), Rifai Hicr "آيات الكتاب وقرآن مبين" 15:1 (79.4 / 10:1
 # 62.5) — aynen kalir (fark kurali olmadan ikisi de 1-3 parca gecikiyordu).
 CONFLICT_CONCAT_MARGIN = 10.0
+# ... ve birlesik metin adayin yerinde en az CONFLICT_MIN_CONCAT almali: zorlama S4'te (rnnt, bu kaydin 4. tohumu) gurultu parcasi
+# "حين خلا سحار لمن" 5:110 adayi uretti, gercek 6:161 parcasi onunla "celiskili" sayilip 2:135'e yanlis kilit + 25 sn gecikme oldu
+# (birlesik metin 5:110 penceresinde 52.0; bugunku 6:160 adayi 68.3).
+CONFLICT_MIN_CONCAT = 60.0
 # Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
 # yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
 # gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
@@ -1831,7 +1835,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 co = align_transcription(cat, CORPUS, preferred_range=ow, preferred_bonus=PREFERRED_BONUS) if ow else None
                 cns, _ = score_transcription(cat, cn)
                 cos, _ = score_transcription(cat, co)
-                conflict = cns - cos < CONFLICT_CONCAT_MARGIN
+                conflict = cos >= CONFLICT_MIN_CONCAT and cns - cos < CONFLICT_CONCAT_MARGIN
             if conflict:
                 natural = False
                 result["conflict"] = True

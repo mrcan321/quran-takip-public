@@ -397,6 +397,10 @@ class StateMachine(
         // cuma "لهم الفزع الأكبر" 21:103 (birlesik 82.8 / aday 33:47 penceresi 53.4), Rifai Hicr "آيات الكتاب وقرآن مبين" 15:1 (79.4 / 10:1
         // 62.5) — aynen kalir (fark kurali olmadan ikisi de 1-3 parca gecikiyordu).
         const val CONFLICT_CONCAT_MARGIN = 10.0
+        // ... ve birlesik metin adayin yerinde en az CONFLICT_MIN_CONCAT almali: zorlama S4'te (rnnt, bu kaydin 4. tohumu) gurultu parcasi
+        // "حين خلا سحار لمن" 5:110 adayi uretti, gercek 6:161 parcasi onunla "celiskili" sayilip 2:135'e yanlis kilit + 25 sn gecikme oldu
+        // (birlesik metin 5:110 penceresinde 52.0; bugunku 6:160 adayi 68.3).
+        const val CONFLICT_MIN_CONCAT = 60.0
         // Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
         // yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
         // gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
@@ -1508,7 +1512,7 @@ class StateMachine(
                     val co = if (ow != null) aligner.align(cat, preferredRange = ow) else null
                     val cns = scoreTranscription(catTokens, cn)
                     val cos = scoreTranscription(catTokens, co)
-                    conflict = cns - cos < CONFLICT_CONCAT_MARGIN
+                    conflict = cos >= CONFLICT_MIN_CONCAT && cns - cos < CONFLICT_CONCAT_MARGIN
                     if (conflict) {
                         natural = false
                         notes += "celiskili gecis: onceki aday ${jc.surah}:${jc.ayah}, $gfs:$gfa ayet ortasi; birlesik metin " +
