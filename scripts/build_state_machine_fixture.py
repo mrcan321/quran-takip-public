@@ -291,6 +291,8 @@ class SessionState:
     pending_match: Optional[PendingMatch] = None
     # Kilitliyken pencere disinda bulunan aday konum (sure gecisi) — bir sonraki chunk dogrularsa gecilir
     jump_candidate: Optional[PendingMatch] = None
+    # Gecis adayini ureten parcanin metni (bkz. CONFLICT_CONCAT_MARGIN)
+    jump_text: str = ""
     # Kilitli suredeki en ileri ayet (geri dogru cop eslesmeler dogal gecis kararini bozmasin)
     max_ayah: Optional[int] = None
     # Namaz sinyali beklemesi (kamet / rukû / selam): bu parca indeksine kadar sadece Fatiha ya da kalinan yerden devam
@@ -720,6 +722,15 @@ NOISE_BREAK_EXTRA = 1
 # son saglam Fatiha eslesmesinden 6-7 parca sonra gelen "خيرا من ذلك" (25:10) dogal gecis yerine aday oldu, kilit 15 sn gecikti.
 FATIHA_TAIL_WORDS = 5
 FATIHA_TAIL_CHUNKS = 3
+# Celiskili gecis (yatsi 08.11, farkli imam): Fatiha sonunda bir parca once tum Kuran'da gecis adayi varken (6:160 "ومن جاء
+# بالسعادة" 70.9, gorunmez) yeni parca adayi dogrulamayip baska bir yerde bir ayetin ORTASINA dogal gecis veriyorsa ("فلا تنسى إلا
+# بالله" 87:6 92.0; imam 6:160 "فلا يجزى إلا مثلها" okuyordu → 15 sn A'la suresi ekranda) iki parcanin birlesik metni iki yerin
+# penceresinde hizalanir: yeni yer adayin yerinden CONFLICT_CONCAT_MARGIN'den az iyiyse (72.6 / 68.3) kanit celiskili → dogal gecis
+# yerine aday (fark payiyla da gecilmez). Zamm ayet basindan baslar: ayet ortasi eslesme baslangicin kacirildigini, onceki parcanin
+# baska yeri gostermesi de baslangicin orada olabilecegini gosterir. Eski kayitlarda bu durum 2 kez, ikisi de dogru gecis ve fark buyuk:
+# cuma "لهم الفزع الأكبر" 21:103 (birlesik 82.8 / aday 33:47 penceresi 53.4), Rifai Hicr "آيات الكتاب وقرآن مبين" 15:1 (79.4 / 10:1
+# 62.5) — aynen kalir (fark kurali olmadan ikisi de 1-3 parca gecikiyordu).
+CONFLICT_CONCAT_MARGIN = 10.0
 # Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
 # yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
 # gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
@@ -879,6 +890,12 @@ def namaz_signal(text):
         return "ruku"
     # "استمع الله" (ASR: semiallah, aksam 22.10): Kuran'da "استمع" sadece 72:1'de ("استمع نفر")
     if any(a == "استمع" and b == "الله" for a, b in zip(toks, toks[1:])):
+        return "ruku"
+    # "سمعه الله" / "سمعوا الله" (yatsi 08.11, farkli imam: 3. rekatin "سَمِعَهُ اللهُ من حمزة"si rukû sinyali degildi → rekat sayaci 4
+    # yerine 3; 1. rekatta "سمعوا الله بمن حمله"): Kuran'da "سمع…" + "الله" sadece "سمع الله قول" (3:181, 58:1) → "سمع"den uzun "سمع…" +
+    # "الله" semiallah. Tum transkriptlerde (gercek + dis + sentetik, RNNT + CTC) sadece semiallahta (sabah 01.11: rukûdaki "سمعه الله"
+    # 35:32'ye kilitliyordu).
+    if any(a.startswith("سمع") and a != "سمع" and b == "الله" for a, b in zip(toks, toks[1:])):
         return "ruku"
     if any(is_kamet_word(toks, i) for i in range(len(toks))) or any(p in KAMET_PAIRS for p in zip(toks, toks[1:])):
         return "kamet"
@@ -1625,11 +1642,23 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             if (natural and gfs == 1 and state.state == NamazState.ZAMM and not lock_abandoned
                     and word_count < FATIHA_FAST_LOCK_MIN_WORDS) or early:
                 natural = opening = False
+            # Celiskili gecis: onceki parcanin adayi + ayet ortasina dogal gecis → birlesik metin (bkz. CONFLICT_CONCAT_MARGIN)
+            conflict = (natural and not opening and not cont and state.state == NamazState.FATIHA and jc is not None
+                        and not in_candidate and bool(state.jump_text) and not starts_ayah(g, corpus, ayah_to_range))
+            if conflict:
+                cat = state.jump_text + " " + transcribed_text
+                nw = ayah_window(gfs, gfa, PENDING_VERIFY_AYAH_WINDOW, PENDING_VERIFY_AYAH_WINDOW, ayah_to_range, surah_counts)
+                ow = ayah_window(jc.surah, jc.ayah, PENDING_VERIFY_AYAH_WINDOW, PENDING_VERIFY_AYAH_WINDOW, ayah_to_range, surah_counts)
+                cn = align_transcription(cat, corpus, preferred_range=nw, preferred_bonus=PREFERRED_BONUS) if nw else None
+                co = align_transcription(cat, corpus, preferred_range=ow, preferred_bonus=PREFERRED_BONUS) if ow else None
+                conflict = score_transcription(cat, cn, vocab) - score_transcription(cat, co, vocab) < CONFLICT_CONCAT_MARGIN
+            if conflict:
+                natural = False
             if natural:
                 jump = "natural"
             elif in_candidate:
                 jump = "verified"
-            elif (not tie and not early and not (state.state == NamazState.FATIHA and not fatiha_finished(state))
+            elif (not tie and not early and not conflict and not (state.state == NamazState.FATIHA and not fatiha_finished(state))
                   and is_unique_match(transcribed_text, g, gs, word_count, corpus, vocab, ayah_to_range)):
                 # Fark payi: Kuran'da baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
                 # (telefon kaydi: 55 → 107 gecisi 12 → 7 sn; gurultu testinde yanlis kilit artmadi)
@@ -1646,6 +1675,7 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             else:
                 jump = "candidate"
                 state.jump_candidate = PendingMatch(surah=gls, ayah=gla, word_index=g.end_word_idx, chunk_index=chunk_index)
+                state.jump_text = transcribed_text
             if jump not in ("candidate", "dhikr"):
                 match, score = g, gs
             if jump == "dhikr":
@@ -1658,6 +1688,7 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     if fatiha_cand is not None:
         jump = "candidate"
         state.jump_candidate = fatiha_cand
+        state.jump_text = transcribed_text
 
     # BEKLEME'de belirsiz eslesme yerine Fatiha basi — bkz. FATIHA_ARA_MARGIN
     if (not hold and state.state == NamazState.BEKLEME and match is not None and jump is None
@@ -2954,6 +2985,67 @@ SCENARIOS = [
             (0.0469, "الأمرُ الله أشكر"),                     # 22: secde tekbiri — 47:26 adayi ekranda gosterilmez
             (0.0467, "المصدر"),
             (0.0163, ""),
+        ],
+    },
+
+    # ============ Senaryo 41: yatsi 08.11 (farkli imam, telefon parcalari) — celiskili gecis (CONFLICT_CONCAT_MARGIN) ============
+    {
+        "description": "Fatiha → zamm En'am 6:160 ASR'de bozuk ('من هو حسن', 'ومن جاء بالسعادة' 6:160 gorunmez aday) → devami 'فلا تنسى "
+                       "إلا بالله' A'la 87:6 ayet ortasi 92.0: birlesik metin 87:6 72.6 / 6:160 68.3 → dogal gecis degil, aday (eskiden "
+                       "15 sn A'la ekranda) → 'قل إنني هبني ربي' 6:161",
+        "chunks": [
+            (0.0431, "الحمد لله رب العالمين"),                # 0: 1. rekat Fatiha
+            (0.0422, "بسم الله الرحمن يوم الدين"),
+            (0.0478, "إياك نفوذ، وإياك نستعين"),
+            (0.0499, "شركة التابعين"),
+            (0.043, "إلى صراط مستقيم"),
+            (0.0685, "صراط الذين أنعمت عليهم"),
+            (0.0605, "وإلى الماء الصوت عليهم ولا الضال"),
+            (0.062, "المصدر كتاب"),
+            (0.0393, ""),
+            (0.0863, "من هو حسن"),
+            (0.0596, ""),
+            (0.0687, "ومن جاء بالسعادة"),                     # 11: 6:160 (bozuk) — gorunmez gecis adayi
+            (0.0661, "فلا تنسى إلا بالله"),                   # 12: 6:160 devami → 87:6 ayet ortasi: celiskili, aday
+            (0.0571, ""),
+            (0.0681, "قل إنني هبني ربي"),                     # 14: 6:161
+            (0.0706, "وإعفاء ربي إلى صراط"),                  # 15: 6:161 dogrulandi
+        ],
+    },
+
+    # ============ Senaryo 42: yatsi 08.11 — semiallah "سمعه الله" (namaz_signal) ============
+    {
+        "description": "2. rekat Fatiha → Ankebut 29:44-45 → rukû / secde / oturus (bos, sessiz) → 3. rekat semiallahi ASR'de 'سَمِعَهُ "
+                       "اللهُ من حمزة' → rukû sinyali (ARA; eskiden belirsiz 2:27 adayi, rekat sayaci saymiyordu)",
+        "chunks": [
+            (0.0584, "الحمد لله رب العالمين"),                # 0: 2. rekat Fatiha
+            (0.0644, "آمن الرحمن مالك يوم الدين"),
+            (0.0481, ""),
+            (0.0633, "إياك"),
+            (0.0482, "موسوعة النحل إهداره"),
+            (0.0472, ""),
+            (0.0706, "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرُ اللَّهِ"),
+            (0.0647, "وإطوب عليه تلقى"),
+            (0.0588, "المنتصي"),
+            (0.0219, ""),
+            (0.0734, "خَلَقَ اللَّهُ السَّمَاوَاتِ وَالْأَرْضَ بِالْحَقِّ"),  # 10: Ankebut 29:44
+            (0.0679, "إِنَّ فِي ذَلِكَ لَآيَةً"),
+            (0.0587, "وذاك الله"),
+            (0.0772, "الله أكبر، والله يعلم ما تصنعون."),
+            (0.0518, "مَا تَصْنَعُونَ"),
+            (0.003, ""),
+            (0.0108, ""),
+            (0.0515, "الله أكبر"),
+            (0.0305, ""),
+            (0.0039, ""),
+            (0.0025, ""),
+            (0.0047, ""),
+            (0.0575, ""),
+            (0.0356, ""),
+            (0.088, "سَمِعَهُ اللهُ من حمزة"),                # 24: 3. rekat semiallah 'سمعه الله' → rukû (ARA)
+            (0.1012, "الله أكبر"),
+            (0.0377, ""),
+            (0.0758, ""),
         ],
     },
 ]

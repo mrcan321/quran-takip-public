@@ -312,6 +312,8 @@ class SessionState:
     pending_match: Optional[PendingMatch] = None
     # Kilitliyken pencere disinda bulunan aday konum (sure gecisi) — bir sonraki chunk dogrularsa gecilir
     jump_candidate: Optional[PendingMatch] = None
+    # Gecis adayini ureten parcanin metni (bkz. CONFLICT_CONCAT_MARGIN)
+    jump_text: str = ""
     # Kilitli suredeki en ileri ayet (geri dogru cop eslesmeler dogal gecis kararini bozmasin)
     max_ayah: Optional[int] = None
     # Namaz sinyali beklemesi (kamet / rukû / selam): bu parca indeksine kadar sadece Fatiha ya da kalinan yerden devam
@@ -987,6 +989,15 @@ NOISE_BREAK_EXTRA = 1
 FATIHA_TAIL_WORDS = 5
 # ... ya da son saglam eslesmeden FATIHA_TAIL_CHUNKS parca sonra (zorlama S4: gurultu Fatiha sonunu sildi, zayif "تبارك الذي" 1:7)
 FATIHA_TAIL_CHUNKS = 3
+# Celiskili gecis (yatsi 08.11, farkli imam): Fatiha sonunda bir parca once tum Kuran'da gecis adayi varken (6:160 "ومن جاء
+# بالسعادة" 70.9, gorunmez) yeni parca adayi dogrulamayip baska bir yerde bir ayetin ORTASINA dogal gecis veriyorsa ("فلا تنسى إلا
+# بالله" 87:6 92.0; imam 6:160 "فلا يجزى إلا مثلها" okuyordu → 15 sn A'la suresi ekranda) iki parcanin birlesik metni iki yerin
+# penceresinde hizalanir: yeni yer adayin yerinden CONFLICT_CONCAT_MARGIN'den az iyiyse (72.6 / 68.3) kanit celiskili → dogal gecis
+# yerine aday (fark payiyla da gecilmez). Zamm ayet basindan baslar: ayet ortasi eslesme baslangicin kacirildigini, onceki parcanin
+# baska yeri gostermesi de baslangicin orada olabilecegini gosterir. Eski kayitlarda bu durum 2 kez, ikisi de dogru gecis ve fark buyuk:
+# cuma "لهم الفزع الأكبر" 21:103 (birlesik 82.8 / aday 33:47 penceresi 53.4), Rifai Hicr "آيات الكتاب وقرآن مبين" 15:1 (79.4 / 10:1
+# 62.5) — aynen kalir (fark kurali olmadan ikisi de 1-3 parca gecikiyordu).
+CONFLICT_CONCAT_MARGIN = 10.0
 # Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
 # yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
 # gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
@@ -1130,6 +1141,12 @@ def namaz_signal(text: str) -> Optional[str]:
         return "ruku"
     # "استمع الله" (aksam 22.10): Kuran'da "استمع" sadece 72:1'de ("استمع نفر")
     if any(a == "استمع" and b == "الله" for a, b in zip(toks, toks[1:])):
+        return "ruku"
+    # "سمعه الله" / "سمعوا الله" (yatsi 08.11, farkli imam: 3. rekatin "سَمِعَهُ اللهُ من حمزة"si rukû sinyali degildi → rekat sayaci 4
+    # yerine 3; 1. rekatta "سمعوا الله بمن حمله"): Kuran'da "سمع…" + "الله" sadece "سمع الله قول" (3:181, 58:1) → "سمع"den uzun "سمع…" +
+    # "الله" semiallah. Tum transkriptlerde (gercek + dis + sentetik, RNNT + CTC) sadece semiallahta (sabah 01.11: rukûdaki "سمعه الله"
+    # 35:32'ye kilitliyordu).
+    if any(a.startswith("سمع") and a != "سمع" and b == "الله" for a, b in zip(toks, toks[1:])):
         return "ruku"
     if any(is_kamet_word(toks, i) for i in range(len(toks))) or any(p in KAMET_PAIRS for p in zip(toks, toks[1:])):
         return "kamet"
@@ -1803,11 +1820,26 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                     and word_count < FATIHA_FAST_LOCK_MIN_WORDS) or early:
                 natural = opening = False
                 result["fatiha_short_jump" if not early else ("third_fatiha" if third else "early_fatiha")] = True
+            # Celiskili gecis: onceki parcanin adayi + ayet ortasina dogal gecis → birlesik metin (bkz. CONFLICT_CONCAT_MARGIN)
+            conflict = (natural and not opening and not cont and state.state == NamazState.FATIHA and jc is not None
+                        and not in_candidate and bool(state.jump_text) and not starts_ayah(g))
+            if conflict:
+                cat = state.jump_text + " " + text
+                nw = _ayah_window(gfs, gfa, PENDING_VERIFY_AYAH_WINDOW, PENDING_VERIFY_AYAH_WINDOW)
+                ow = _ayah_window(jc.surah, jc.ayah, PENDING_VERIFY_AYAH_WINDOW, PENDING_VERIFY_AYAH_WINDOW)
+                cn = align_transcription(cat, CORPUS, preferred_range=nw, preferred_bonus=PREFERRED_BONUS) if nw else None
+                co = align_transcription(cat, CORPUS, preferred_range=ow, preferred_bonus=PREFERRED_BONUS) if ow else None
+                cns, _ = score_transcription(cat, cn)
+                cos, _ = score_transcription(cat, co)
+                conflict = cns - cos < CONFLICT_CONCAT_MARGIN
+            if conflict:
+                natural = False
+                result["conflict"] = True
             if natural:
                 jump = "natural"
             elif in_candidate:
                 jump = "verified"
-            elif (not tie and not early and not (state.state == NamazState.FATIHA and not fatiha_finished(state))
+            elif (not tie and not early and not conflict and not (state.state == NamazState.FATIHA and not fatiha_finished(state))
                   and is_unique_match(text, g, gs, word_count)):
                 jump = "verified"   # fark payi: baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
             elif (state.state == NamazState.ZAMM and score < MIN_CONFIDENCE_FIRST_LOCK and gfs == state.last_surah
@@ -1821,6 +1853,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
                 jump = "candidate"
                 state.jump_candidate = PendingMatch(surah=gls, ayah=gla, word_index=g.end_word_idx,
                                                     chunk_index=chunk_index)
+                state.jump_text = text
             if jump not in ("candidate", "dhikr"):
                 match, score, score_details = g, gs, g_details
             if jump == "dhikr":
@@ -1834,6 +1867,7 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     if fatiha_cand is not None:
         jump = "candidate"
         state.jump_candidate = fatiha_cand
+        state.jump_text = text
         result["jump"] = jump
     # BEKLEME'de belirsiz eslesme yerine Fatiha basi — bkz. FATIHA_ARA_MARGIN
     if (not hold and state.state == NamazState.BEKLEME and match is not None and jump is None

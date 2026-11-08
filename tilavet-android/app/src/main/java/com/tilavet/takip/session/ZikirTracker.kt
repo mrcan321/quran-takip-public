@@ -7,7 +7,7 @@ package com.tilavet.takip.session
  * ezan/kametteki gibi popup olarak goster; esselamu aleykum de." Her parcanin ASR metninde aranir:
  *   - tekbir: parca agirlikla "الله أكبر" (tekbir ciftleri ve diger zikirler cikinca en fazla 1 kelime kalir) ve parca
  *     Kuran'a eslesmedi — "الله أكبر" Kuran'da 3 ayette ayet ortasinda geciyor (9:72, 29:45, 40:10)
- *   - semiallah: "سمع الله" + "قول" disi kelime, "استمع الله", bozuk "لمن حمد…" / "بمن حمده" / "ومن حمده" / sonu kesik
+ *   - semiallah: "سمع الله" + "قول" disi kelime, "استمع الله", "سمعه / سمعوا الله", bozuk "لمن حمد…" / "بمن حمده" / "ومن حمده" / sonu kesik
  *     "… الله لمن" / "لم يعد"; tek basina "حمده"
  *     sadece son okumadan en az [AFTER_RECITATION_SEC] sonra (namazSignal'de her zaman rukû)
  *   - "ربنا (و)لك الحمد"
@@ -67,6 +67,8 @@ class ZikirTracker {
                     w == "سمع" && next == "الله" && i + 2 < t.size && t[i + 2] != "قول" -> add(NamazZikri.SEMIALLAH)
                     // "استمع الله" (ASR, aksam 22.10): Kuran'da "استمع" sadece 72:1'de ("استمع نفر")
                     w == "استمع" && next == "الله" -> add(NamazZikri.SEMIALLAH)
+                    // "سمعه الله" / "سمعوا الله" (yatsi 08.11): Kuran'da "سمع…" + "الله" sadece "سمع الله قول" (StateMachine.namazSignal)
+                    w.startsWith("سمع") && w != "سمع" && next == "الله" -> add(NamazZikri.SEMIALLAH)
                     // Tek basina "حمده" (namazSignal'de rukû) kart icin yetmez: sentetik teravihte Kureys 106:4
                     // "أطعمهم" → ASR "الذي حمده منه" okuma ortasinda kart acti
                     // "(ل)من الحمد" (sabah 28.10; StateMachine.semiallahPair)

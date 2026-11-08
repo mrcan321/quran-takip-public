@@ -161,6 +161,16 @@
       "phrases": [[192.2, 196.2, "semiallah"], [380.8, 384.6, "semiallah"], [402.2, 404.2, "tekbir"], [475.7, 477.6, "tekbir"],
                   [483.7, 485.9, "tekbir"], [519.0, 521.0, "tekbir"], [581.6, 586.0, "selam"], [591.1, 597.2, "selam"]],
       "_not": "kayit 1. rekatin Fatiha'si ortasinda (1:5) basliyor. 2. rekatta imam 27:24-26'yi tekrar okudu (ikinci bolum). Dua 603'te basliyor, kayit 611.6'da bitiyor (kesik → etikete alinmadi)"
+    },
+    "namaz_yatsi11_kamet_fatiha_enam_fatiha_ankebut.wav": {
+      "date": "2026-11-08", "namaz": "yatsi", "imam": "imam-2", "split": "train",
+      "segments": [{"start": 46.1, "end": 76.6, "surah": 1, "ayahs": [2, 7]}, {"start": 85.5, "end": 169.8, "surah": 6, "ayahs": [160, 163]},
+                   {"start": 212.4, "end": 245.0, "surah": 1, "ayahs": [2, 7]}, {"start": 253.4, "end": 300.6, "surah": 29, "ayahs": [44, 45]}],
+      "phrases": [[174.0, 176.0, "tekbir"], [182.7, 187.0, "semiallah"], [188.5, 190.2, "tekbir"], [206.8, 208.3, "tekbir"],
+                  [313.1, 317.0, "semiallah"], [318.8, 320.6, "tekbir"], [355.3, 357.0, "tekbir"], [384.3, 388.2, "semiallah"],
+                  [390.2, 392.0, "tekbir"], [400.8, 402.2, "tekbir"], [435.8, 439.7, "semiallah"], [448.8, 450.9, "tekbir"],
+                  [453.5, 455.0, "tekbir"], [501.3, 505.5, "selam"], [510.2, 515.8, "selam"]],
+      "_not": "farkli imam (ilk kayit). Kayit kametin ortasinda basliyor (kamet etiketlenmedi). Dua 520'de basliyor, kayit 531.3'te bitiyor (kesik → etikete alinmadi)"
     }
   }
 }

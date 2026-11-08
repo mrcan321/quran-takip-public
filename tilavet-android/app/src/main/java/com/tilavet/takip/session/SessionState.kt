@@ -44,6 +44,8 @@ data class SessionState(
     var pendingMatch: PendingMatch? = null,
     /** Kilitliyken pencere disinda bulunan aday konum (sure gecisi) — sonraki chunk dogrularsa gecilir. */
     var jumpCandidate: PendingMatch? = null,
+    // Gecis adayini ureten parcanin metni (bkz. StateMachine.CONFLICT_CONCAT_MARGIN)
+    var jumpText: String = "",
     /** Kilitli suredeki en ileri ayet (geri dogru cop eslesmeler dogal gecis kararini bozmasin). */
     var maxAyah: Int? = null,
     /**

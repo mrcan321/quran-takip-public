@@ -388,6 +388,15 @@ class StateMachine(
         // (gurultu Fatiha'nin 1:6-1:7'sini sildi) zammin ilk parcasi "تبارك الذي" 1:7 basina zayif eslesti, son saglam Fatiha
         // eslesmesinden 6-7 parca sonra gelen "خيرا من ذلك" (25:10) dogal gecis yerine aday oldu.
         const val FATIHA_TAIL_CHUNKS = 3
+        // Celiskili gecis (yatsi 08.11, farkli imam): Fatiha sonunda bir parca once tum Kuran'da gecis adayi varken (6:160 "ومن جاء
+        // بالسعادة" 70.9, gorunmez) yeni parca adayi dogrulamayip baska bir yerde bir ayetin ORTASINA dogal gecis veriyorsa ("فلا تنسى إلا
+        // بالله" 87:6 92.0; imam 6:160 "فلا يجزى إلا مثلها" okuyordu → 15 sn A'la suresi ekranda) iki parcanin birlesik metni iki yerin
+        // penceresinde hizalanir: yeni yer adayin yerinden CONFLICT_CONCAT_MARGIN'den az iyiyse (72.6 / 68.3) kanit celiskili → dogal gecis
+        // yerine aday (fark payiyla da gecilmez). Zamm ayet basindan baslar: ayet ortasi eslesme baslangicin kacirildigini, onceki parcanin
+        // baska yeri gostermesi de baslangicin orada olabilecegini gosterir. Eski kayitlarda bu durum 2 kez, ikisi de dogru gecis ve fark buyuk:
+        // cuma "لهم الفزع الأكبر" 21:103 (birlesik 82.8 / aday 33:47 penceresi 53.4), Rifai Hicr "آيات الكتاب وقرآن مبين" 15:1 (79.4 / 10:1
+        // 62.5) — aynen kalir (fark kurali olmadan ikisi de 1-3 parca gecikiyordu).
+        const val CONFLICT_CONCAT_MARGIN = 10.0
         // Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
         // yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
         // gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
@@ -811,6 +820,11 @@ class StateMachine(
             }
             // "استمع الله" (ASR: semiallah, aksam 22.10): Kuran'da "استمع" sadece 72:1'de ("استمع نفر")
             if ((0 until toks.size - 1).any { toks[it] == "استمع" && toks[it + 1] == "الله" }) return "ruku"
+            // "سمعه الله" / "سمعوا الله" (yatsi 08.11, farkli imam: 3. rekatin "سَمِعَهُ اللهُ من حمزة"si rukû sinyali degildi → rekat sayaci 4
+            // yerine 3; 1. rekatta "سمعوا الله بمن حمله"): Kuran'da "سمع…" + "الله" sadece "سمع الله قول" (3:181, 58:1) → "سمع"den uzun "سمع…" +
+            // "الله" semiallah. Tum transkriptlerde (gercek + dis + sentetik, RNNT + CTC) sadece semiallahta (sabah 01.11: rukûdaki "سمعه الله"
+            // 35:32'ye kilitliyordu).
+            if ((0 until toks.size - 1).any { toks[it].startsWith("سمع") && toks[it] != "سمع" && toks[it + 1] == "الله" }) return "ruku"
             val kametWord = toks.indices.any { isKametWord(toks, it) }
             if (kametWord || (0 until toks.size - 1).any { (toks[it] to toks[it + 1]) in KAMET_PAIRS }) {
                 return "kamet"
@@ -1482,12 +1496,31 @@ class StateMachine(
                         "erken Fatiha (son saglam eslesmeden ${chunkIndex - (state.lastSolidChunk ?: chunkIndex)} parca): gecis adayi"
                     }
                 }
+                // Celiskili gecis: onceki parcanin adayi + ayet ortasina dogal gecis → birlesik metin (bkz. CONFLICT_CONCAT_MARGIN)
+                var conflict = natural && !opening && !cont && state.state == NamazState.FATIHA && jc != null &&
+                    !inCandidate && state.jumpText.isNotEmpty() && !startsAyah(gm)
+                if (conflict && jc != null) {
+                    val cat = state.jumpText + " " + cleanText
+                    val catTokens = cat.split(Regex("\\s+")).map { Normalizer.normalize(it) }.filter { it.isNotEmpty() }
+                    val nw = ayahWindow(gfs, gfa, PENDING_VERIFY_AYAH_WINDOW, PENDING_VERIFY_AYAH_WINDOW)
+                    val ow = ayahWindow(jc.surah, jc.ayah, PENDING_VERIFY_AYAH_WINDOW, PENDING_VERIFY_AYAH_WINDOW)
+                    val cn = if (nw != null) aligner.align(cat, preferredRange = nw) else null
+                    val co = if (ow != null) aligner.align(cat, preferredRange = ow) else null
+                    val cns = scoreTranscription(catTokens, cn)
+                    val cos = scoreTranscription(catTokens, co)
+                    conflict = cns - cos < CONFLICT_CONCAT_MARGIN
+                    if (conflict) {
+                        natural = false
+                        notes += "celiskili gecis: onceki aday ${jc.surah}:${jc.ayah}, $gfs:$gfa ayet ortasi; birlesik metin " +
+                            "${"%.1f".format(cns)} / ${"%.1f".format(cos)} (fark < ${CONFLICT_CONCAT_MARGIN}): gecis adayi"
+                    }
+                }
                 jump = when {
                     natural -> "natural"
                     inCandidate -> "verified"
                     // Fark payi: Kuran'da baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
                     // (telefon kaydi: 55 → 107 gecisi 12 → 7 sn; gurultu testinde yanlis kilit artmadi)
-                    !tie && !early && !(state.state == NamazState.FATIHA && !fatihaFinished(state)) &&
+                    !tie && !early && !conflict && !(state.state == NamazState.FATIHA && !fatihaFinished(state)) &&
                         uniqueCheck(cleanText, tokens, gm, gsc, wordCount).let { uc ->
                         if (uc.unique) notes += "gecis tek parcada (${uc.note})"
                         uc.unique
@@ -1510,6 +1543,7 @@ class StateMachine(
                         state.jumpCandidate = PendingMatch(
                             surah = gls, ayah = gla, wordIndex = gm.endWordIdx, chunkIndex = chunkIndex,
                         )
+                        state.jumpText = cleanText
                         jumpCandidateMatch = gm
                         "candidate"
                     }
@@ -1528,6 +1562,7 @@ class StateMachine(
         if (fatihaCand != null) {
             jump = "candidate"
             state.jumpCandidate = fatihaCand
+            state.jumpText = cleanText
             jumpCandidateMatch = fatihaCandMatch
         }
 
