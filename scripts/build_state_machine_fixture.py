@@ -293,6 +293,8 @@ class SessionState:
     jump_candidate: Optional[PendingMatch] = None
     # Gecis adayini ureten parcanin metni (bkz. CONFLICT_CONCAT_MARGIN)
     jump_text: str = ""
+    # Art arda bos / sessiz parca sayisi (bkz. "Sessizlikten sonra ilerlemeyen kisa parca")
+    quiet_chunks: int = 0
     # Kilitli suredeki en ileri ayet (geri dogru cop eslesmeler dogal gecis kararini bozmasin)
     max_ayah: Optional[int] = None
     # Namaz sinyali beklemesi (kamet / rukû / selam): bu parca indeksine kadar sadece Fatiha ya da kalinan yerden devam
@@ -735,6 +737,26 @@ CONFLICT_CONCAT_MARGIN = 10.0
 # "حين خلا سحار لمن" 5:110 adayi uretti, gercek 6:161 parcasi onunla "celiskili" sayilip 2:135'e yanlis kilit + 25 sn gecikme oldu
 # (birlesik metin 5:110 penceresinde 52.0; bugunku 6:160 adayi 68.3).
 CONFLICT_MIN_CONCAT = 60.0
+# Yakin yer onceligi (yatsi 16.11): kilitliyken (ZAMM) tum Kuran aramasinin buldugu yer baska yerdeyken ayni metin kalinan yerin
+# 1-2 ayet gerisine (RESUME_BACK) de ayni skorla (NEAR_TIE_MARGIN) oturuyorsa orasi alinir (geri duzeltme gibi dogrudan gecilir).
+# Imam Lokman 31:30 yerine kelimesi kelimesine Hac 22:61'i okudu ("ذلك بأن الله يولج الليل في النهار ويولج النهار في الليل وأن الله
+# سميع بصير" — benzer ayet karismasi), sonra 31:31'den devam etti. "يولج الليل في النهار ويولج النهار في ال" 22:61 / 31:29 / 35:13 /
+# 57:6'da ayni; hizalayici Kuran sirasindaki ilkini (22:61) verdi, sonraki parca "... وأن الله سميع بصير" adayi dogruladi → 5 sn Hac
+# ekranda. Simdi bir onceki ayet 31:29 (ayni ifade), sonraki parca pencerede 31:29'da kalir, 31:31 okununca gecer. Eski kayitlarda
+# (gercek + dis + sentetik, iki zincir, 12750 parca) hicbir karar degismiyor.
+NEAR_TIE_MARGIN = 0.5
+# Bekleme sirasinda dua (yatsi 16.11, sabit parca zinciri): selamdan sonraki dua ASR'de "اللهم يا رب العالمين" → selam beklemesinde
+# ("sadece Fatiha") Fatiha 1:2'ye 90.4 ile hizli kilit, duada Fatiha ekranda. Fatiha'da "اللهم" yok: BEKLEME'de kamet / selam
+# beklemesi surerken "اللهم" iceren parca dua sayilir, hizalanmaz. Eski kayitlarda 10 parca etkileniyor, hepsi dua / namaz oncesi ve
+# zaten dusuk skorla reddedilenler (ekranda degisiklik yok).
+DUA_WORD = "اللهم"
+# Sessizlikten sonra ilerlemeyen kisa parca (yatsi 16.11): okuma bitti, rukûda semiallah ASR'de "يا الله" (2 kelime) son ayet
+# 31:34'un basina ("إن الله") 89.7, secde tekbiri "أمر الله" 86.7 → metin kalkmisken son ayet 2 kez yeniden ekrana geldi. ZAMM'da
+# art arda PAUSE_LOST_CHUNKS bos / sessiz parcadan (quiet_chunks: "empty" / "silent") sonra gelen kisa (< ilk kilit kelime sayisi)
+# eslesme, okunan son kelimenin ilerisine gecmiyorsa okumanin devami degil. Kayip sayaci (lost_chunks) yerine bos parca sayaci:
+# yatsi 20.10'da Ihlas ust uste okunurken araya giren metinli dusuk skorlu parcalardan sonraki "الله أحمد" reddedilmesin (kayip
+# sayaciyla denenince reddediliyordu). Eski kayitlarda 3 degisiklik, hepsi okuma disinda (yatsi 05.11 "الله أشكر" 27:26, sentetik
+# hatim "لمن عمل" 46:35 yeniden gosterimi kalkti).
 # Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
 # yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
 # gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
@@ -1208,6 +1230,7 @@ def process_chunk_simulated(rms, transcribed_text, chunk_index, state,
     Parca kilit vermezse BEKLEME'de birikmis metinle (onceki parcalar + bu parca) fark payi kilidi denenir."""
     was_search = state.state == NamazState.BEKLEME
     r = _process_chunk_core(rms, transcribed_text, chunk_index, state, corpus, ayah_to_range, surah_counts, vocab)
+    state.quiet_chunks = state.quiet_chunks + 1 if r["status"] in ("silent", "empty") else 0
     hold = state.hold_until is not None and chunk_index <= state.hold_until
     if not (was_search and state.state == NamazState.BEKLEME and not hold and not r.get("signal")
             and r["status"] in ("too_short", "low_confidence", "pending", "empty")):
@@ -1398,6 +1421,9 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
     min_words = MIN_WORD_COUNT_HOT if is_hot else MIN_WORD_COUNT_COLD
     if word_count < min_words or (signal == "ruku" and RUKU_CHUNK_NO_MATCH):
         return {"chunk_index": chunk_index, "state_before": state_before, "state": state.state.value, "status": "too_short", "word_count": word_count}
+    # Bekleme sirasinda dua: Fatiha'da "اللهم" yok (bkz. DUA_WORD)
+    if hold and state.state == NamazState.BEKLEME and DUA_WORD in tokens:
+        return {"chunk_index": chunk_index, "state_before": state_before, "state": state.state.value, "status": "too_short", "word_count": word_count}
 
     preferred_range = compute_preferred_range(state, ayah_to_range, surah_counts)
     lock_abandoned = (state.lost_chunks >= ABANDON_LOCK_AFTER_LOST and state.state in (NamazState.FATIHA, NamazState.ZAMM))
@@ -1571,6 +1597,18 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
             # Kisa parca: sadece Kuran'da tek yerde gecen ifadeyle dogal gecis (aday da uretmez)
             ok = (gs >= JUMP_SHORT_MIN_SCORE and is_natural_transition(state, gfs, gfa, surah_counts)
                   and phrase_count(corpus, [bare_token(t) for t in transcribed_text.split()]) == 1)
+        # Yakin yer onceligi: ayni metin kalinan yerin 1-2 ayet gerisine de ayni skorla oturuyor (bkz. NEAR_TIE_MARGIN)
+        near_tie = False
+        if (ok and not opening and state.state == NamazState.ZAMM and word_count >= MIN_WORD_COUNT_FIRST_LOCK
+                and state.last_surah and state.last_ayah
+                and not (gfs == state.last_surah and state.last_ayah - RESUME_BACK <= gla <= state.last_ayah)):
+            bw = ayah_window(state.last_surah, state.last_ayah, RESUME_BACK, 0, ayah_to_range, surah_counts)
+            bm = align_transcription(transcribed_text, corpus, preferred_range=bw, preferred_bonus=PREFERRED_BONUS) if bw else None
+            bs = score_transcription(transcribed_text, bm, vocab)
+            if bm and bs >= gs - NEAR_TIE_MARGIN:
+                g, gs, near_tie = bm, bs, True
+                gv = collect_verses(corpus, g.start_word_idx, g.end_word_idx)
+                (gfs, gfa), (gls, gla) = gv[0], gv[-1]
         cont = False
         if ok and state.state == NamazState.FATIHA and state.zamm_surah and at_transition_point(state, surah_counts):
             # Hatim: onceki zamm'in kaldigi yerden devam (bkz. CONTINUE_*)
@@ -1668,6 +1706,8 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                 # Fark payi: Kuran'da baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
                 # (telefon kaydi: 55 → 107 gecisi 12 → 7 sn; gurultu testinde yanlis kilit artmadi)
                 jump = "verified"
+            elif near_tie:
+                jump = "verified"       # yakin yer onceligi (bkz. NEAR_TIE_MARGIN)
             elif (state.state == NamazState.ZAMM and score < MIN_CONFIDENCE_FIRST_LOCK and gfs == state.last_surah
                   and state.last_ayah is not None and state.last_ayah - RESUME_BACK <= gla < state.last_ayah):
                 # Geri duzeltme: pencere eslesmesi zayif, ayni surede kalinan yerin 1-2 ayet gerisi tum Kuran'da en az
@@ -1740,6 +1780,11 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
                             and chunk_index - state.last_noise_chunk >= TEKBIR_WEAK_MIN_GAP)))
     paused_weak = (state.state == NamazState.ZAMM and not relock and not opening and state.lost_chunks >= PAUSE_LOST_CHUNKS
                    and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
+    # Sessizlikten sonra ilerlemeyen kisa parca okumanin devami degil (bkz. quiet_chunks)
+    quiet_back = (state.state == NamazState.ZAMM and not relock and not opening and state.quiet_chunks >= PAUSE_LOST_CHUNKS
+                  and word_count < MIN_WORD_COUNT_FIRST_LOCK and jump not in ("natural", "verified")
+                  and match is not None and state.last_word_index is not None
+                  and match.end_word_idx <= state.last_word_index)
 
     # FATIHA'da zayif pencere eslesmesi, tum Kuran'da gecis adayi varken okuma degil (bkz. FATIHA_TAIL_CHUNKS alti)
     fatiha_cand_weak = (state.state == NamazState.FATIHA and jump == "candidate" and match is not None
@@ -1747,7 +1792,7 @@ def _process_chunk_core(rms, transcribed_text, chunk_index, state,
 
     # Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
     if ((score < eff_thresh and not opening) or not match or insufficient or paused_weak or stock_weak or tekbir_weak
-            or fatiha_cand_weak):
+            or fatiha_cand_weak or quiet_back):
         state.lost_chunks += 1
         cleanup_stale_candidates(state, chunk_index)
         new_state = transition_state(state, False, None, None)
@@ -3051,6 +3096,54 @@ SCENARIOS = [
             (0.1012, "الله أكبر"),
             (0.0377, ""),
             (0.0758, ""),
+        ],
+    },
+
+    # ============ Senaryo 43: yatsi 16.11 (telefon parcalari) — yakin yer onceligi (NEAR_TIE_MARGIN) ============
+    {
+        "description": "Lokman 31:27-29 → imam 31:30 yerine Hac 22:61'i okudu: 'يولج الليل في النهار ويولج النهار في ال' 22:61 / 31:29'da "
+                       "ayni skor → kalinan yerin bir gerisindeki 31:29 (eskiden 22:61 adayi + sonraki parcada 22:61 kilidi, 5 sn Hac "
+                       "ekranda) → 'ألم تر أن الفلك' 31:31",
+        "chunks": [
+            (0.0583, "ما في الأرض من شجرة أقلام"),            # 0: Lokman 31:27
+            (0.0557, "وَالْبَحْرُ يَمُدُّ مِنْ بَعْدِهِ سَبْعَ مَباحِد"),
+            (0.0505, "ما نفِدَتْ كلماتُ الله"),
+            (0.0584, "إن الله عزيز حكيم"),
+            (0.0628, "المعركة"),
+            (0.0563, "إلا كنفس واحدة"),
+            (0.0515, "إن اللهَ سميعٌ بصير"),
+            (0.0687, "أَلَمْ تَرَ أَنَّ اللَّهَ يُولِجُ اللَّيْلَ فِي النَّهَارَةِ"),  # 7: 31:29
+            (0.0599, "نجيل الليل في النهار ونورك النهار في الليل ونهار"),
+            (0.052, "وَسَلَّم اللَّيْلِ وَسَوَّرَ الشَّمْسَ وَالْقَمَرَ كُلٌّ يَح"),
+            (0.0625, "يجْرِي إِلَى أَجَلٍ مُسَمَّى"),
+            (0.0502, "وَاعْلَمُوا وَأَنَّ اللَّهَ بِمَا تَعْمَلُونَ خَبِيرٌ"),
+            (0.0564, "ذَلِكَ بِأَنَّ اللَّهَ يُرِيهِ الْحُقُولُ"),  # 12: 31:30 basi
+            (0.0595, "يُولِجُ اللَّيْلَ فِي النَّهَارِ وَيُولِجُ النَّهَارَ فِي ال"),  # 13: 22:61 / 31:29 esit → yakin yer 31:29 (eskiden 22:61 adayi)
+            (0.0511, "وَآرَفِ اللَّيْلِ وَأَنَّ اللَّهَ سَمِيعٌ بَصِيرٌ"),  # 14: pencerede 31:29 (eskiden 22:61 kilidi)
+            (0.0542, "ألم تر أن الفلك تجري في الإسلام"),      # 15: 31:31
+            (0.0533, "تَجْرِي فِي الْبَحْرِ بِنِعْمَتِ اللَّهِ لِيُرِيَكُم مِّنْهَ"),
+        ],
+    },
+
+    # ============ Senaryo 44: yatsi 16.11 — sessizlikten sonra ilerlemeyen kisa parca (quiet_chunks) ============
+    {
+        "description": "Lokman 31:34 bitti → 2 bos parca → rukûda 'يا الله' (31:34 basina 89.7) → 2 bos parca → 'أمر الله' (86.7): okunan "
+                       "son kelimenin ilerisine gecmiyor, okuma degil (eskiden son ayet rukûda 2 kez yeniden ekrana geldi)",
+        "chunks": [
+            (0.0597, "إِنَّ الله"),
+            (0.0572, "ندم الساعة وننزل الغيث"),
+            (0.0587, "ويعلم ما في الأرحام"),                  # 2: Lokman 31:34
+            (0.0592, "وَمَا تَدْرِي نَفْسٌ مَّا تَكْسِبُ غَدَاهَا"),
+            (0.0501, "وما تدري نفسه بأي حد"),
+            (0.0529, "إِنَّ اللَّهَ عَلِيمٌ"),
+            (0.0526, "الله عَلِيمٌ قَدِيرٌ"),                 # 6: okuma bitti
+            (0.0483, ""),
+            (0.027, ""),
+            (0.0654, "يا الله"),                              # 9: rukû: semiallah ASR'de 'يا الله' — ilerlemiyor, red
+            (0.056, ""),
+            (0.0244, ""),
+            (0.0543, "أمر الله"),                             # 12: secde tekbiri — red
+            (0.0469, ""),
         ],
     },
 ]

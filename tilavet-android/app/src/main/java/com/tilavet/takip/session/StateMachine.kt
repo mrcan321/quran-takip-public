@@ -401,6 +401,26 @@ class StateMachine(
         // "حين خلا سحار لمن" 5:110 adayi uretti, gercek 6:161 parcasi onunla "celiskili" sayilip 2:135'e yanlis kilit + 25 sn gecikme oldu
         // (birlesik metin 5:110 penceresinde 52.0; bugunku 6:160 adayi 68.3).
         const val CONFLICT_MIN_CONCAT = 60.0
+        // Yakin yer onceligi (yatsi 16.11): kilitliyken (ZAMM) tum Kuran aramasinin buldugu yer baska yerdeyken ayni metin kalinan yerin
+        // 1-2 ayet gerisine (RESUME_BACK) de ayni skorla (NEAR_TIE_MARGIN) oturuyorsa orasi alinir (geri duzeltme gibi dogrudan gecilir).
+        // Imam Lokman 31:30 yerine kelimesi kelimesine Hac 22:61'i okudu ("ذلك بأن الله يولج الليل في النهار ويولج النهار في الليل وأن الله
+        // سميع بصير" — benzer ayet karismasi), sonra 31:31'den devam etti. "يولج الليل في النهار ويولج النهار في ال" 22:61 / 31:29 / 35:13 /
+        // 57:6'da ayni; hizalayici Kuran sirasindaki ilkini (22:61) verdi, sonraki parca "... وأن الله سميع بصير" adayi dogruladi → 5 sn Hac
+        // ekranda. Simdi bir onceki ayet 31:29 (ayni ifade), sonraki parca pencerede 31:29'da kalir, 31:31 okununca gecer. Eski kayitlarda
+        // (gercek + dis + sentetik, iki zincir, 12750 parca) hicbir karar degismiyor.
+        const val NEAR_TIE_MARGIN = 0.5
+        // Bekleme sirasinda dua (yatsi 16.11, sabit parca zinciri): selamdan sonraki dua ASR'de "اللهم يا رب العالمين" → selam beklemesinde
+        // ("sadece Fatiha") Fatiha 1:2'ye 90.4 ile hizli kilit, duada Fatiha ekranda. Fatiha'da "اللهم" yok: BEKLEME'de kamet / selam
+        // beklemesi surerken "اللهم" iceren parca dua sayilir, hizalanmaz. Eski kayitlarda 10 parca etkileniyor, hepsi dua / namaz oncesi ve
+        // zaten dusuk skorla reddedilenler (ekranda degisiklik yok).
+        const val DUA_WORD = "اللهم"
+        // Sessizlikten sonra ilerlemeyen kisa parca (yatsi 16.11): okuma bitti, rukûda semiallah ASR'de "يا الله" (2 kelime) son ayet
+        // 31:34'un basina ("إن الله") 89.7, secde tekbiri "أمر الله" 86.7 → metin kalkmisken son ayet 2 kez yeniden ekrana geldi. ZAMM'da
+        // art arda PAUSE_LOST_CHUNKS bos / sessiz parcadan (quiet_chunks: "empty" / "silent") sonra gelen kisa (< ilk kilit kelime sayisi)
+        // eslesme, okunan son kelimenin ilerisine gecmiyorsa okumanin devami degil. Kayip sayaci (lost_chunks) yerine bos parca sayaci:
+        // yatsi 20.10'da Ihlas ust uste okunurken araya giren metinli dusuk skorlu parcalardan sonraki "الله أحمد" reddedilmesin (kayip
+        // sayaciyla denenince reddediliyordu). Eski kayitlarda 3 degisiklik, hepsi okuma disinda (yatsi 05.11 "الله أشكر" 27:26, sentetik
+        // hatim "لمن عمل" 46:35 yeniden gosterimi kalkti).
         // Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
         // yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
         // gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
@@ -908,6 +928,7 @@ class StateMachine(
     ): ChunkResult {
         val wasSearch = state.state == NamazState.BEKLEME
         val r = processChunkCore(rms, transcribedText, chunkIndex, state)
+        state.quietChunks = if (r.status == ChunkStatus.SILENT || r.status == ChunkStatus.EMPTY) state.quietChunks + 1 else 0
         // Kilit vermediyse BEKLEME'de birikmis metinle (onceki parcalar + bu parca) tek parcada kilit — bkz. SEARCH_CONCAT_*
         val hold = state.holdUntil.let { it != null && chunkIndex <= it }
         val searching = r.status == ChunkStatus.TOO_SHORT || r.status == ChunkStatus.LOW_CONFIDENCE ||
@@ -1106,6 +1127,19 @@ class StateMachine(
                 reason = withNotes(
                     if (wordCount < minWords) "$wordCount kelime (min $minWords)" else "semiallah parcasi: kilit vermez", notes,
                 ),
+            )
+        }
+        // Bekleme sirasinda dua: Fatiha'da "اللهم" yok (bkz. DUA_WORD)
+        if (hold && state.state == NamazState.BEKLEME && DUA_WORD in tokens) {
+            return ChunkResult(
+                chunkIndex = chunkIndex,
+                stateBefore = stateBefore,
+                state = state.state,
+                status = ChunkStatus.TOO_SHORT,
+                rms = rms,
+                text = transcribedText,
+                wordCount = wordCount,
+                reason = withNotes("bekleme sirasinda dua (اللهم): Fatiha degil", notes),
             )
         }
 
@@ -1368,6 +1402,28 @@ class StateMachine(
                 var gm: AlignmentMatch = g
                 var gsc = gs
                 var gvv = gv
+                // Yakin yer onceligi: ayni metin kalinan yerin 1-2 ayet gerisine de ayni skorla oturuyor (bkz. NEAR_TIE_MARGIN)
+                var nearTie = false
+                val nls = state.lastSurah
+                val nla = state.lastAyah
+                if (!opening && state.state == NamazState.ZAMM && wordCount >= MIN_WORD_COUNT_FIRST_LOCK && nls != null && nla != null) {
+                    val (n0s, n0a) = gvv.first()
+                    val (_, n1a) = gvv.last()
+                    if (!(n0s == nls && n1a >= nla - RESUME_BACK && n1a <= nla)) {
+                        val bw = ayahWindow(nls, nla, RESUME_BACK, 0)
+                        val bm = if (bw != null) aligner.align(cleanText, preferredRange = bw) else null
+                        val bs = scoreTranscription(tokens, bm)
+                        if (bm != null && bs >= gsc - NEAR_TIE_MARGIN) {
+                            val bv = collectVerses(bm.startWordIdx, bm.endWordIdx)
+                            val (b0s, b0a) = bv.first()
+                            notes += "yakin yer onceligi: $b0s:$b0a ${"%.1f".format(bs)} (tum Kuran $n0s:$n0a ${"%.1f".format(gsc)})"
+                            gm = bm
+                            gsc = bs
+                            gvv = bv
+                            nearTie = true
+                        }
+                    }
+                }
                 // Hatim: Fatiha sonunda onceki zamm'in kaldigi yerden devam (bkz. CONTINUE_*)
                 var cont = false
                 val zs = state.zammSurah
@@ -1529,6 +1585,8 @@ class StateMachine(
                         if (uc.unique) notes += "gecis tek parcada (${uc.note})"
                         uc.unique
                     } -> "verified"
+                    // Yakin yer onceligi (bkz. NEAR_TIE_MARGIN)
+                    nearTie -> "verified"
                     // Geri duzeltme: pencere eslesmesi zayif, ayni surede kalinan yerin 1-2 ayet gerisi tum Kuran'da en az
                     // JUMP_MARGIN iyi → onceki zayif eslesme konumu ileri tasimis (okuma geri gitmez). Yatsi 21.10, 2. rekat: 21:24
                     // okunurken bozuk "بدأ يدع لنا" 21:25'e 65 ile eslesti; pencere (21:25-27) 21:24'u kapsamadigindan sonraki
@@ -1635,6 +1693,10 @@ class StateMachine(
         // Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS
         val pausedWeak = state.state == NamazState.ZAMM && !relock && !opening && state.lostChunks >= PAUSE_LOST_CHUNKS &&
             wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < minConfidenceFirstLock
+        // Sessizlikten sonra ilerlemeyen kisa parca okumanin devami degil (bkz. quietChunks)
+        val quietBack = state.state == NamazState.ZAMM && !relock && !opening && state.quietChunks >= PAUSE_LOST_CHUNKS &&
+            wordCount < MIN_WORD_COUNT_FIRST_LOCK && jump != "natural" && jump != "verified" &&
+            match.let { m -> m != null && state.lastWordIndex.let { lw -> lw != null && m.endWordIdx <= lw } }
         val tekbirWeak = state.state == NamazState.ZAMM && !relock && !opening && jump != "natural" && jump != "verified" &&
             ((tekbirAfterReading(state) &&
                 ((wordCount < MIN_WORD_COUNT_FIRST_LOCK && score < TEKBIR_SHORT_MIN_SCORE) ||
@@ -1653,7 +1715,7 @@ class StateMachine(
         // 6. Skor / kelime yetersizse low_confidence
         // Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
         if ((score < effectiveThreshold && !opening) || match == null || insufficientWords || pausedWeak || stockWeak ||
-            tekbirWeak || fatihaCandWeak
+            tekbirWeak || fatihaCandWeak || quietBack
         ) {
             val where = match?.let { m ->
                 collectVerses(m.startWordIdx, m.endWordIdx).firstOrNull()?.let { (s0, a0) -> " @ $s0:$a0" }
@@ -1670,6 +1732,9 @@ class StateMachine(
                 pausedWeak && score >= effectiveThreshold ->
                     "okuma ara verdi (${state.lostChunks} kayip parca): kisa zayif eslesme ($wordCount kelime, " +
                         "skor ${"%.1f".format(score)}$where < ${"%.0f".format(minConfidenceFirstLock)})"
+                quietBack && score >= effectiveThreshold ->
+                    "sessizlikten sonra ilerlemeyen kisa eslesme (${state.quietChunks} bos parca, $wordCount kelime, " +
+                        "skor ${"%.1f".format(score)}$where)"
                 else -> {
                     val tag = when {
                         relock -> "yeniden kilit esigi"

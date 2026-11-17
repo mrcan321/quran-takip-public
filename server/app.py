@@ -314,6 +314,8 @@ class SessionState:
     jump_candidate: Optional[PendingMatch] = None
     # Gecis adayini ureten parcanin metni (bkz. CONFLICT_CONCAT_MARGIN)
     jump_text: str = ""
+    # Art arda bos / sessiz parca sayisi (bkz. "Sessizlikten sonra ilerlemeyen kisa parca")
+    quiet_chunks: int = 0
     # Kilitli suredeki en ileri ayet (geri dogru cop eslesmeler dogal gecis kararini bozmasin)
     max_ayah: Optional[int] = None
     # Namaz sinyali beklemesi (kamet / rukû / selam): bu parca indeksine kadar sadece Fatiha ya da kalinan yerden devam
@@ -1002,6 +1004,26 @@ CONFLICT_CONCAT_MARGIN = 10.0
 # "حين خلا سحار لمن" 5:110 adayi uretti, gercek 6:161 parcasi onunla "celiskili" sayilip 2:135'e yanlis kilit + 25 sn gecikme oldu
 # (birlesik metin 5:110 penceresinde 52.0; bugunku 6:160 adayi 68.3).
 CONFLICT_MIN_CONCAT = 60.0
+# Yakin yer onceligi (yatsi 16.11): kilitliyken (ZAMM) tum Kuran aramasinin buldugu yer baska yerdeyken ayni metin kalinan yerin
+# 1-2 ayet gerisine (RESUME_BACK) de ayni skorla (NEAR_TIE_MARGIN) oturuyorsa orasi alinir (geri duzeltme gibi dogrudan gecilir).
+# Imam Lokman 31:30 yerine kelimesi kelimesine Hac 22:61'i okudu ("ذلك بأن الله يولج الليل في النهار ويولج النهار في الليل وأن الله
+# سميع بصير" — benzer ayet karismasi), sonra 31:31'den devam etti. "يولج الليل في النهار ويولج النهار في ال" 22:61 / 31:29 / 35:13 /
+# 57:6'da ayni; hizalayici Kuran sirasindaki ilkini (22:61) verdi, sonraki parca "... وأن الله سميع بصير" adayi dogruladi → 5 sn Hac
+# ekranda. Simdi bir onceki ayet 31:29 (ayni ifade), sonraki parca pencerede 31:29'da kalir, 31:31 okununca gecer. Eski kayitlarda
+# (gercek + dis + sentetik, iki zincir, 12750 parca) hicbir karar degismiyor.
+NEAR_TIE_MARGIN = 0.5
+# Bekleme sirasinda dua (yatsi 16.11, sabit parca zinciri): selamdan sonraki dua ASR'de "اللهم يا رب العالمين" → selam beklemesinde
+# ("sadece Fatiha") Fatiha 1:2'ye 90.4 ile hizli kilit, duada Fatiha ekranda. Fatiha'da "اللهم" yok: BEKLEME'de kamet / selam
+# beklemesi surerken "اللهم" iceren parca dua sayilir, hizalanmaz. Eski kayitlarda 10 parca etkileniyor, hepsi dua / namaz oncesi ve
+# zaten dusuk skorla reddedilenler (ekranda degisiklik yok).
+DUA_WORD = "اللهم"
+# Sessizlikten sonra ilerlemeyen kisa parca (yatsi 16.11): okuma bitti, rukûda semiallah ASR'de "يا الله" (2 kelime) son ayet
+# 31:34'un basina ("إن الله") 89.7, secde tekbiri "أمر الله" 86.7 → metin kalkmisken son ayet 2 kez yeniden ekrana geldi. ZAMM'da
+# art arda PAUSE_LOST_CHUNKS bos / sessiz parcadan (quiet_chunks: "empty" / "silent") sonra gelen kisa (< ilk kilit kelime sayisi)
+# eslesme, okunan son kelimenin ilerisine gecmiyorsa okumanin devami degil. Kayip sayaci (lost_chunks) yerine bos parca sayaci:
+# yatsi 20.10'da Ihlas ust uste okunurken araya giren metinli dusuk skorlu parcalardan sonraki "الله أحمد" reddedilmesin (kayip
+# sayaciyla denenince reddediliyordu). Eski kayitlarda 3 degisiklik, hepsi okuma disinda (yatsi 05.11 "الله أشكر" 27:26, sentetik
+# hatim "لمن عمل" 46:35 yeniden gosterimi kalkti).
 # Zamm okunup kilit kaybolunca (rukû / secde; ZAMM'da ABANDON_LOCK_AFTER_LOST kayip parca ya da ARA) namazda sesli okunacak ilk sey
 # yeni rekatin Fatiha'si: namaz surerken (fatiha_rakats >= 1) son kilit bir zamm suresindeyse Fatiha disi yeniden kilit adayi ekranda
 # gosterilmez (ambiguous; durum makinesi ayni, ikinci parca dogrularsa kilit). Yatsi 05.11: 2. rekatin secde tekbiri ASR'de "الأمر
@@ -1321,6 +1343,7 @@ def process_chunk(audio_np, chunk_index, state: SessionState, chunk_start_time: 
     (referans: scripts/build_state_machine_fixture.py process_chunk_simulated)."""
     was_search = state.state == NamazState.BEKLEME
     result = _process_chunk_core(audio_np, chunk_index, state, chunk_start_time)
+    state.quiet_chunks = state.quiet_chunks + 1 if result["status"] in ("silent", "empty") else 0
     hold = state.hold_until is not None and chunk_index <= state.hold_until
     if not (was_search and state.state == NamazState.BEKLEME and not hold and not result.get("namaz_signal")
             and result["status"] in ("too_short", "low_confidence", "pending", "empty")):
@@ -1563,6 +1586,14 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
         timings["total"] = time.time() - t_start
         result["timings"] = timings
         return result
+    # Bekleme sirasinda dua: Fatiha'da "اللهم" yok (bkz. DUA_WORD)
+    if hold and state.state == NamazState.BEKLEME and DUA_WORD in tokens:
+        result["status"] = "too_short"
+        result["reason"] = "bekleme sirasinda dua (اللهم): Fatiha degil"
+        result["state"] = state.state.value
+        timings["total"] = time.time() - t_start
+        result["timings"] = timings
+        return result
 
     preferred_range = compute_preferred_range(state)
     result["preferred_range"] = preferred_range
@@ -1746,6 +1777,19 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             # Kisa parca: sadece Kuran'da tek yerde gecen ifadeyle dogal gecis (aday da uretmez)
             ok = (gs >= JUMP_SHORT_MIN_SCORE and is_natural_transition(state, gfs, gfa)
                   and phrase_count([bare_token(t) for t in text.split()]) == 1)
+        # Yakin yer onceligi: ayni metin kalinan yerin 1-2 ayet gerisine de ayni skorla oturuyor (bkz. NEAR_TIE_MARGIN)
+        near_tie = False
+        if (ok and not opening and state.state == NamazState.ZAMM and word_count >= MIN_WORD_COUNT_FIRST_LOCK
+                and state.last_surah and state.last_ayah
+                and not (gfs == state.last_surah and state.last_ayah - RESUME_BACK <= gla <= state.last_ayah)):
+            bw = _ayah_window(state.last_surah, state.last_ayah, RESUME_BACK, 0)
+            bm = align_transcription(text, CORPUS, preferred_range=bw, preferred_bonus=PREFERRED_BONUS) if bw else None
+            bs, b_details = score_transcription(text, bm)
+            if bm and bs >= gs - NEAR_TIE_MARGIN:
+                g, gs, g_details, near_tie = bm, bs, b_details, True
+                gv = collect_verses(g.start_word_idx, g.end_word_idx)
+                (gfs, gfa), (gls, gla) = gv[0], gv[-1]
+                result["near_tie"] = True
         cont = False
         if ok and state.state == NamazState.FATIHA and state.zamm_surah and at_transition_point(state):
             # Hatim: onceki zamm'in kaldigi yerden devam (bkz. CONTINUE_*)
@@ -1846,6 +1890,8 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
             elif (not tie and not early and not conflict and not (state.state == NamazState.FATIHA and not fatiha_finished(state))
                   and is_unique_match(text, g, gs, word_count)):
                 jump = "verified"   # fark payi: baska yerde benzeri olmayan net eslesme ikinci parcayi beklemez
+            elif near_tie:
+                jump = "verified"       # yakin yer onceligi (bkz. NEAR_TIE_MARGIN)
             elif (state.state == NamazState.ZAMM and score < MIN_CONFIDENCE_FIRST_LOCK and gfs == state.last_surah
                   and state.last_ayah is not None and state.last_ayah - RESUME_BACK <= gla < state.last_ayah):
                 # Geri duzeltme: zayif pencere, ayni surede kalinan yerin 1-2 ayet gerisi cok daha iyi (yatsi 21.10: 21:24)
@@ -1921,6 +1967,11 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
     # Okuma ara verdiyse kisa + zayif eslesme devam sayilmaz — bkz. PAUSE_LOST_CHUNKS
     paused_weak = (state.state == NamazState.ZAMM and not relock and not opening and state.lost_chunks >= PAUSE_LOST_CHUNKS
                    and word_count < MIN_WORD_COUNT_FIRST_LOCK and score < MIN_CONFIDENCE_FIRST_LOCK)
+    # Sessizlikten sonra ilerlemeyen kisa parca okumanin devami degil (bkz. quiet_chunks)
+    quiet_back = (state.state == NamazState.ZAMM and not relock and not opening and state.quiet_chunks >= PAUSE_LOST_CHUNKS
+                  and word_count < MIN_WORD_COUNT_FIRST_LOCK and jump not in ("natural", "verified")
+                  and match is not None and state.last_word_index is not None
+                  and match.end_word_idx <= state.last_word_index)
     # Kilitliyken tek basina "(و)الحمد لله" zayif eslesmesi okuma degil — bkz. STOCK_PHRASES
     tekbir_weak = (state.state == NamazState.ZAMM and not relock and not opening and jump not in ("natural", "verified")
                    and ((tekbir_after_reading(state)
@@ -1939,9 +1990,12 @@ def _process_chunk_core(audio_np, chunk_index, state: SessionState, chunk_start_
 
     # Sure basi gecisi kendi esigiyle (ham hizalama) dogrulandi; sozluk cezali skor esige takilmasin
     if (score < effective_threshold and not opening) or not match or insufficient_words or paused_weak or stock_weak \
-            or tekbir_weak or fatiha_cand_weak:
+            or tekbir_weak or fatiha_cand_weak or quiet_back:
         result["status"] = "low_confidence"
-        if tekbir_weak and score >= effective_threshold and not stock_weak:
+        if quiet_back and score >= effective_threshold and not (tekbir_weak or stock_weak or insufficient_words or paused_weak):
+            result["reason"] = (f"sessizlikten sonra ilerlemeyen kisa eslesme ({state.quiet_chunks} bos parca, {word_count} kelime, "
+                                f"skor {score:.1f})")
+        elif tekbir_weak and score >= effective_threshold and not stock_weak:
             result["reason"] = (f"tekbirden sonra zayif eslesme ({word_count} kelime, skor {score:.1f} < "
                                 f"{TEKBIR_SHORT_MIN_SCORE if word_count < MIN_WORD_COUNT_FIRST_LOCK else TEKBIR_WEAK_MIN_SCORE})")
         elif stock_weak and score >= effective_threshold:

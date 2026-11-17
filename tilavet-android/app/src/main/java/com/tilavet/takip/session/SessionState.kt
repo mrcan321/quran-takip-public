@@ -46,6 +46,8 @@ data class SessionState(
     var jumpCandidate: PendingMatch? = null,
     // Gecis adayini ureten parcanin metni (bkz. StateMachine.CONFLICT_CONCAT_MARGIN)
     var jumpText: String = "",
+    // Art arda bos / sessiz parca sayisi (bkz. StateMachine: "Sessizlikten sonra ilerlemeyen kisa parca")
+    var quietChunks: Int = 0,
     /** Kilitli suredeki en ileri ayet (geri dogru cop eslesmeler dogal gecis kararini bozmasin). */
     var maxAyah: Int? = null,
     /**
